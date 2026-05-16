@@ -1955,6 +1955,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 
 [[package]]
+name = "marinara-agents"
+version = "0.1.0"
+
+[[package]]
+name = "marinara-assets"
+version = "0.1.0"
+
+[[package]]
+name = "marinara-chat"
+version = "0.1.0"
+
+[[package]]
+name = "marinara-conversation"
+version = "0.1.0"
+
+[[package]]
+name = "marinara-core"
+version = "0.1.0"
+
+[[package]]
 name = "marinara-engine"
 version = "0.1.0"
 dependencies = [
@@ -1964,6 +1984,54 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-opener",
 ]
+
+[[package]]
+name = "marinara-game"
+version = "0.1.0"
+
+[[package]]
+name = "marinara-generation"
+version = "0.1.0"
+
+[[package]]
+name = "marinara-import"
+version = "0.1.0"
+
+[[package]]
+name = "marinara-integrations"
+version = "0.1.0"
+
+[[package]]
+name = "marinara-llm"
+version = "0.1.0"
+
+[[package]]
+name = "marinara-roleplay"
+version = "0.1.0"
+
+[[package]]
+name = "marinara-security"
+version = "0.1.0"
+
+[[package]]
+name = "marinara-sidecar"
+version = "0.1.0"
+
+[[package]]
+name = "marinara-storage"
+version = "0.1.0"
+
+[[package]]
+name = "marinara-sync-client"
+version = "0.1.0"
+
+[[package]]
+name = "marinara-sync-protocol"
+version = "0.1.0"
+
+[[package]]
+name = "marinara-updates"
+version = "0.1.0"
 
 [[package]]
 name = "markup5ever"

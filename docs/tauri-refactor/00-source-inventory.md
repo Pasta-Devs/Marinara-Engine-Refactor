@@ -51,3 +51,12 @@ Each slice handoff must list source inventory status:
 - removed with explicit approval
 
 Do not leave a touched source area unaccounted for.
+
+## Slice Status
+
+### Phase 0 Baseline Structure
+
+- Starter Tauri frontend bootstrap moved from `src/main.tsx`, `src/App.tsx`, and `src/App.css` to `src/app`.
+- Starter sample assets in `src/assets` and `public` are deferred until sample Tauri code is removed during hardening.
+- Rust backend source remains starter Tauri code in `src-tauri/src`; planned domain crate homes are mapped under `src-tauri/crates`.
+- No original Marinara source from `E:/Personal Projects/Marinara-Engine` has been moved yet.

@@ -7,6 +7,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "typecheck": "tsc -b",
+    "check:frontend": "tsc -b",
+    "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "check:docs": "node scripts/check-docs.mjs",
+    "check": "pnpm check:frontend && pnpm check:rust && pnpm check:docs",
     "preview": "vite preview",
     "tauri": "tauri"
   },

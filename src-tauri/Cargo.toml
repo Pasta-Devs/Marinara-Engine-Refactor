@@ -7,6 +7,32 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[workspace]
+resolver = "2"
+members = [
+  "crates/agents",
+  "crates/assets",
+  "crates/chat",
+  "crates/conversation",
+  "crates/core",
+  "crates/game",
+  "crates/generation",
+  "crates/import",
+  "crates/integrations",
+  "crates/llm",
+  "crates/roleplay",
+  "crates/security",
+  "crates/sidecar",
+  "crates/storage",
+  "crates/sync-client",
+  "crates/sync-protocol",
+  "crates/updates",
+]
+
+[workspace.metadata.marinara.bindings]
+output_dir = "../src/shared/types/generated"
+source = "Rust domain crates own Tauri boundary DTOs and export TypeScript bindings here."
+
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
@@ -22,4 +48,3 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-
