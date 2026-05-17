@@ -109,3 +109,13 @@ Status: Complete.
 - Added feature-owned frontend API seams in `src/features/characters/api/characters-api.ts` and `src/features/personas/api/personas-api.ts`; these intentionally fail with explicit Rust-backend-slice errors instead of fake persistence.
 - Added Phase 2-safe character/persona query and mutation hooks under `src/features/characters/hooks` and `src/features/personas/hooks`, preserving click paths while deferring real storage.
 - Deferred full character editor, persona editor, create/import/maker modals, PNG import/export, avatar upload, group persistence, duplicate/delete, active persona persistence, and start-chat behavior until their owning frontend/modal and Rust backend slices.
+
+### Phase 2 Slice 4 Chat Shell And Navigation
+
+Status: Complete.
+
+- Mapped original `components/layout/ChatSidebar.tsx` chat navigation behavior into the migrated shell sidebar, preserving mode tabs, search, sort cycling, tag filters, chat row selection, grouped branch badges, folder read display, active-row highlighting, mobile close-on-select, and the user status footer.
+- Added feature-owned chat DTOs in `src/features/chats/types.ts` for the frontend read surface until Rust-owned DTO bindings replace them in the domain DTO phase.
+- Added Phase 2-safe chat API seams and hooks under `src/features/chats/api` and `src/features/chats/hooks`; these intentionally fail with explicit Rust chats backend errors instead of fake chat data or fake persistence.
+- Mapped active chat selection and unread-count clearing into `src/shared/stores/chat.store.ts`, including persisted active chat ID restoration for the navigation shell.
+- Wired the center shell placeholder to acknowledge selected chats while deferring message display, input, setup wizard, chat settings drawer, gallery/files drawers, branch mutation actions, folder mutations, delete actions, chat creation, connection/preset application, autonomous notifications, and all generation behavior to later reviewed slices.

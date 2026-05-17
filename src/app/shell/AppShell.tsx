@@ -16,6 +16,7 @@ import {
 } from "../../shared/stores/ui.store";
 import { cn } from "../../shared/lib/utils";
 import { CharacterLibraryView } from "../../features/characters/components/CharacterLibraryView";
+import { useChatStore } from "../../shared/stores/chat.store";
 import { ChatSidebar } from "./ChatSidebar";
 import { RightPanel } from "./RightPanel";
 import { TopBar } from "./TopBar";
@@ -37,6 +38,7 @@ export function AppShell() {
   const characterLibraryOpen = useUIStore((s) => s.characterLibraryOpen);
   const characterDetailId = useUIStore((s) => s.characterDetailId);
   const personaDetailId = useUIStore((s) => s.personaDetailId);
+  const activeChatId = useChatStore((s) => s.activeChatId);
   const setRightPanelWidth = useUIStore((s) => s.setRightPanelWidth);
   const closeRightPanel = useUIStore((s) => s.closeRightPanel);
   const [sidebarDragWidth, setSidebarDragWidth] = useState<number | null>(null);
@@ -259,12 +261,16 @@ export function AppShell() {
                     ? "Character editor deferred"
                     : personaDetailId
                       ? "Persona editor deferred"
-                      : "Frontend shell migrated"}
+                      : activeChatId
+                        ? "Chat display deferred"
+                        : "Frontend shell migrated"}
                 </p>
                 <p className="mt-2 text-xs leading-relaxed text-[var(--muted-foreground)]">
                   {characterDetailId || personaDetailId
                     ? "The library click path is wired. The editor UI moves in a later reviewed slice."
-                    : "Feature screens are intentionally deferred until their reviewed Phase 2 slices."}
+                    : activeChatId
+                      ? "The chat navigation click path is wired. Message display, input, and generation move in later reviewed slices."
+                      : "Feature screens are intentionally deferred until their reviewed Phase 2 slices."}
                 </p>
               </div>
             </div>
