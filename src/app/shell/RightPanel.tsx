@@ -11,20 +11,20 @@ const CharactersPanel = lazy(() =>
 const LorebooksPanel = lazy(() =>
   import("../../features/lorebooks/components/LorebooksPanel").then((module) => ({ default: module.LorebooksPanel })),
 );
-const PresetsPanel = lazy(() =>
-  import("../../features/presets/components/PresetsPanel").then((module) => ({ default: module.PresetsPanel })),
-);
+const PresetsPanel = lazy(() => import("../../features/presets/components/PresetsPanel").then((module) => ({ default: module.PresetsPanel })));
 const ConnectionsPanel = lazy(() =>
   import("../../features/connections/components/ConnectionsPanel").then((module) => ({ default: module.ConnectionsPanel })),
 );
-const AgentsPanel = lazy(() => Promise.resolve({ default: NullPanel }));
+const AgentsPanel = lazy(() => import("../../features/agents/components/AgentsPanel").then((module) => ({ default: module.AgentsPanel })));
 const PersonasPanel = lazy(() =>
   import("../../features/personas/components/PersonasPanel").then((module) => ({ default: module.PersonasPanel })),
 );
 const SettingsPanel = lazy(() =>
   import("../../features/settings/components/SettingsPanel").then((module) => ({ default: module.SettingsPanel })),
 );
-const BotBrowserPanel = lazy(() => Promise.resolve({ default: NullPanel }));
+const BotBrowserPanel = lazy(() =>
+  import("../../features/bot-browser/components/BotBrowserPanel").then((module) => ({ default: module.BotBrowserPanel })),
+);
 
 const PANEL_CONFIG: Record<string, { title: string; icon: ReactNode; gradient: string }> = {
   "bot-browser": { title: "Browser", icon: <Bot size="0.875rem" />, gradient: "from-cyan-400 to-blue-500" },
@@ -55,10 +55,6 @@ function PanelFallback() {
   return (
     <div className="flex h-full items-center justify-center text-sm text-[var(--muted-foreground)]">Loading...</div>
   );
-}
-
-function NullPanel() {
-  return null;
 }
 
 export function RightPanel() {

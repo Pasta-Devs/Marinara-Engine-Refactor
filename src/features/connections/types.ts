@@ -11,6 +11,7 @@ export type ConnectionProvider =
   | string;
 
 export interface ConnectionRow {
+  [key: string]: unknown;
   id: string;
   name: string;
   provider: ConnectionProvider;

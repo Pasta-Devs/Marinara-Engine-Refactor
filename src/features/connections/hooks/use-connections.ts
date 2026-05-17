@@ -4,6 +4,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../../shared/api/api-client";
 import type { ClaudeSubscriptionDiagnosis, ConnectionRow, ConnectionTestResult } from "../types";
+export type { ClaudeSubscriptionDiagnosis } from "../types";
 
 export const connectionKeys = {
   all: ["connections"] as const,

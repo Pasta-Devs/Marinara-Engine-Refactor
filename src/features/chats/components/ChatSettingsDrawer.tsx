@@ -140,7 +140,7 @@ import {
   useCustomToolCapabilities,
   useCustomTools,
   type CustomToolRow,
-} from "../../hooks/use-custom-tools";
+} from "../../agents/hooks/use-custom-tools";
 import {
   HAPTIC_INTIFACE_URL_STORAGE_KEY,
   useHapticStatus,

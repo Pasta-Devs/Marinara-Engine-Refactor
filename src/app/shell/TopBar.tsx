@@ -1,13 +1,19 @@
-import { PanelLeft, Home, Settings, Link, BookOpen, Users, Sparkles, FileText, UserCircle, Bot } from "lucide-react";
+// ──────────────────────────────────────────────
+// Layout: Top Bar (polished, with hover glow)
+// ──────────────────────────────────────────────
+import { PanelLeft, Home, Settings, Link, BookOpen, Users, Sparkles, FileText, User, Bot } from "lucide-react";
 import { useUIStore } from "../../shared/stores/ui.store";
+import { useChatStore } from "../../shared/stores/chat.store";
+import { useAgentStore } from "../../shared/stores/agent.store";
 import { cn } from "../../shared/lib/utils";
+import { SpotifyMiniPlayer } from "../../features/spotify/components/SpotifyMiniPlayer";
 
 const RIGHT_PANEL_BUTTONS = [
   { panel: "lorebooks" as const, icon: BookOpen, label: "Lorebooks", color: "from-amber-400 to-orange-500" },
   { panel: "presets" as const, icon: FileText, label: "Presets", color: "from-purple-400 to-violet-500" },
   { panel: "connections" as const, icon: Link, label: "Connections", color: "from-sky-400 to-blue-500" },
   { panel: "agents" as const, icon: Sparkles, label: "Agents", color: "from-pink-300 to-purple-400" },
-  { panel: "personas" as const, icon: UserCircle, label: "Personas", color: "from-emerald-400 to-teal-500" },
+  { panel: "personas" as const, icon: User, label: "Personas", color: "from-emerald-400 to-teal-500" },
 ] as const;
 
 export function TopBar() {
@@ -15,7 +21,9 @@ export function TopBar() {
   const toggleRightPanel = useUIStore((s) => s.toggleRightPanel);
   const rightPanel = useUIStore((s) => s.rightPanel);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
+  const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
+  const failedAgentCount = useAgentStore((s) => s.failedAgentTypes.length);
 
   const isBotBrowserActive = rightPanelOpen && rightPanel === "bot-browser";
   const isCharactersPanelActive = rightPanelOpen && rightPanel === "characters";
@@ -25,8 +33,10 @@ export function TopBar() {
       data-component="TopBar"
       className="mari-topbar relative z-10 flex h-12 flex-shrink-0 items-center justify-between bg-[var(--card)]/80 px-3 backdrop-blur-sm"
     >
+      {/* Subtle bottom border only */}
       <div className="absolute inset-x-0 bottom-0 h-px bg-[var(--border)]/30" />
 
+      {/* Left section: window controls + chat info */}
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <button
           onClick={toggleSidebar}
@@ -38,19 +48,25 @@ export function TopBar() {
         </button>
 
         <button
-          onClick={closeAllDetails}
+          onClick={() => {
+            setActiveChatId(null);
+            closeAllDetails();
+          }}
           className="rounded-lg p-2 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--primary)] active:scale-95"
           title="Home"
         >
           <Home size="1.125rem" />
         </button>
+        <SpotifyMiniPlayer />
       </div>
 
+      {/* Right section - Panel toggles */}
       <nav
         data-tour="panel-buttons"
         aria-label="Panel navigation"
         className="flex items-center gap-0.5 rounded-xl p-1 max-sm:gap-0 max-sm:p-0.5"
       >
+        {/* Browser */}
         <button
           onClick={() => toggleRightPanel("bot-browser")}
           className={cn(
@@ -106,10 +122,14 @@ export function TopBar() {
                   )}
                 />
               )}
+              {panel === "agents" && failedAgentCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-1 ring-[var(--card)]" />
+              )}
             </button>
           );
         })}
 
+        {/* Settings */}
         <button
           onClick={() => toggleRightPanel("settings")}
           className={cn(

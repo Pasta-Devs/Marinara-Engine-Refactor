@@ -1,4 +1,3 @@
-import { toast } from "sonner";
 import { useChatStore } from "../../../shared/stores/chat.store";
 import { useUIStore } from "../../../shared/stores/ui.store";
 import { useChat, useChatMessages, useDeleteMessage } from "../../chats/hooks/use-chats";
@@ -53,13 +52,8 @@ export function GameConversationView({ activeChatId }: GameConversationViewProps
       characterMap={new Map()}
       characters={[]}
       chatBackground={chatBackground}
-      onOpenSettings={() => toast.error("Game settings are deferred until their backend/settings slice.")}
-      onDeleteMessage={(messageId) =>
-        deleteMessage.mutate(messageId, {
-          onError: (error) =>
-            toast.error(error instanceof Error ? error.message : "Message deletion is waiting for the chat backend slice."),
-        })
-      }
+      onOpenSettings={() => {}}
+      onDeleteMessage={(messageId) => deleteMessage.mutate(messageId)}
     />
   );
 }

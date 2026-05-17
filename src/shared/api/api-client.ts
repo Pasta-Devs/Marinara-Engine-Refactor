@@ -54,4 +54,14 @@ export const api = {
   download: (_path: string, _fallbackFilename?: string): Promise<void> => unavailable(),
   downloadPost: (_path: string, _body: unknown, _fallbackFilename?: string): Promise<void> => unavailable(),
   raw: (_path: string, _init?: RequestInit): Promise<Response> => unavailable(),
+  stream: async function* (_path: string, _body?: unknown): AsyncGenerator<string> {
+    throw new Error("Streaming is deferred until the matching Tauri command slice.");
+  },
+  streamEvents: async function* (
+    _path: string,
+    _body?: unknown,
+    _signal?: AbortSignal,
+  ): AsyncGenerator<{ type: string; data: unknown }> {
+    throw new Error("Streaming is deferred until the matching Tauri command slice.");
+  },
 };

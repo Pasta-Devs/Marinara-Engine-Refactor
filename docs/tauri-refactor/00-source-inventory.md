@@ -221,3 +221,26 @@ Status: Complete for the known simplified Phase 2 UI targets.
 - Reworked Phase 2 Slices 1, 5, 6, 7, and 8 by replacing simplified or reduced settings, chat/conversation, lorebook/preset panels and editors, connections panel, and roleplay surfaces with moved original UI code and matching original hook/store contracts where needed for compilation.
 - Added only compile/deferred seams for later backend or future frontend ownership: generation, scene analysis, scene actions, autonomous messaging, agents, encounter, haptics, custom tools, translation, TTS, gallery/file storage, sidecar/model operations, exports/imports, and API calls remain unavailable or inert.
 - Do not continue to agents/tools UI until this cleanup is reviewed.
+
+### Full UI Copy Continuation
+
+Status: Complete for original client UI file coverage.
+
+- Moved the remaining original UI groups into the refactor structure: agents/tools/regex, bot browser, character editor, persona editor, connection editor, diagnostics, game assets browser, tracker data sidebar, onboarding, Spotify widgets, all modal bodies, and the remaining shared UI primitives.
+- Replaced the previously adapted `AppShell`, `TopBar`, `RightPanel`, and `ModalRenderer` with moved original code, keeping only import-path and compile-seam edits.
+- Accounted for all original `packages/client/src/components` groups by filename. Extra files in feature folders are thin adapters or colocated panels/modals needed by the target organization.
+- Accounted for all original `packages/client/src/hooks` files by filename under feature/shared ownership.
+- Accounted for all original `packages/client/src/lib` files by filename under feature/shared ownership.
+- Backend behavior is still not implemented in this UI pass. API calls, streaming, filesystem, provider, import/export, model, translation, TTS, generation, and persistence actions continue to fail or no-op through code-level seams until their Rust slices are migrated.
+
+### Asset Copy Continuation
+
+Status: Complete for non-code source assets currently needed by migrated UI and asset features.
+
+- Refreshed original `packages/client/public` assets into root `public`.
+- Copied server default asset directories from `packages/server/data` into `src-tauri/resources/default-data`: `backgrounds`, `fonts`, `game-assets`, `knowledge-sources`, `models`, `sidecar-runtime`, and `sprites`.
+- Copied server default data asset `packages/server/src/db/default-preset.json` into `src-tauri/resources/default-data/db/default-preset.json`.
+- Copied platform icon assets from `android/app/src/main/res/mipmap-*` and `win/installer/app-icon.ico` into `src-tauri/resources/platform-assets`, and replaced the active Tauri Windows `src-tauri/icons/icon.ico` with the original Windows app icon.
+- Added those copied defaults/platform assets to the Tauri bundle resource list so they can be packaged without adding Rust behavior in this pass.
+- Deferred Rust/backend asset behavior: default-data seeding, `/api/backgrounds`, `/api/game-assets/file`, gallery/avatars/sprites/font routes, asset mutation, model installation, sidecar runtime management, and user-data migration.
+- Intentionally not copied: `packages/server/data/.encryption-key`, `marinara-engine.db`, `marinara-engine.db-shm`, and `marinara-engine.db-wal`, because those are runtime user data/secrets rather than source assets.
