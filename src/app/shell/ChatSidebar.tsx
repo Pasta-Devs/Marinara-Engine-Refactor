@@ -85,7 +85,7 @@ export function ChatSidebar() {
   const { data: characters } = useCharacters();
   const activeChatId = useChatStore((s) => s.activeChatId);
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
-  const setActiveChatSnapshot = useChatStore((s) => s.setActiveChatSnapshot);
+  const setActiveChatSnapshot = useChatStore((s) => s.setActiveChat);
   const unreadCounts = useChatStore((s) => s.unreadCounts);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
@@ -232,7 +232,7 @@ export function ChatSidebar() {
   const selectChat = (chat: Chat) => {
     closeAllDetails();
     setActiveChatId(chat.id);
-    setActiveChatSnapshot({ id: chat.id, characterIds: chat.characterIds, mode: chat.mode });
+    setActiveChatSnapshot({ ...chat, characterIds: normalizeChatCharacterIds(chat.characterIds) } as never);
     if (window.matchMedia("(max-width: 767px)").matches) setSidebarOpen(false);
   };
 

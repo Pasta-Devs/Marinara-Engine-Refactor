@@ -17,6 +17,10 @@ type Panel =
 type FontSize = 12 | 14 | 16 | 17 | 19 | 22;
 export type VisualTheme = "default" | "sillytavern";
 export type HudPosition = "top" | "left" | "right";
+export type TrackerPanelSide = "left" | "right";
+export type TrackerDataPanelSection = "world" | "persona" | "characters" | "quests" | "custom";
+export type TrackerPanelCollapsedSections = Partial<Record<TrackerDataPanelSection, boolean>>;
+export type TrackerPanelSectionOrder = TrackerDataPanelSection[];
 export type EchoChamberSide = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 export type UserStatus = "active" | "idle" | "dnd";
 export type RoleplayAvatarStyle = "circles" | "rectangles" | "panel";
@@ -45,9 +49,23 @@ export const SIDEBAR_WIDTH_MIN = 240;
 export const SIDEBAR_WIDTH_MAX = 480;
 export const RIGHT_PANEL_WIDTH_MIN = 280;
 export const RIGHT_PANEL_WIDTH_MAX = 520;
+export const TRACKER_PANEL_WIDTH_DEFAULT = 288;
+export const TRACKER_PANEL_WIDTH_MIN = 220;
+export const TRACKER_PANEL_WIDTH_MAX = 440;
 const IMAGE_DIMENSION_MIN = 64;
 const IMAGE_DIMENSION_MAX = 4096;
 const GAME_SETUP_LEARNED_LIMIT = 60;
+export const TRACKER_DATA_PANEL_SECTIONS: TrackerDataPanelSection[] = [
+  "world",
+  "persona",
+  "characters",
+  "quests",
+  "custom",
+];
+const ROLEPLAY_AVATAR_SCALE_MIN = 0.75;
+const ROLEPLAY_AVATAR_SCALE_MAX = 2.5;
+const ROLEPLAY_SPRITE_SCALE_MIN = 0.5;
+const ROLEPLAY_SPRITE_SCALE_MAX = 1.75;
 
 const DEFAULT_GAME_SETUP_LEARNED_OPTIONS: GameSetupLearnedOptions = {
   genres: [],
@@ -65,6 +83,40 @@ const DEFAULT_GAME_SETUP_REMEMBERED_TEXT: GameSetupRememberedText = {
 function clampImageDimension(value: number) {
   const rounded = Number.isFinite(value) ? Math.round(value) : 0;
   return Math.max(IMAGE_DIMENSION_MIN, Math.min(IMAGE_DIMENSION_MAX, rounded));
+}
+
+function clampTrackerPanelWidth(value: unknown) {
+  const width = typeof value === "number" && Number.isFinite(value) ? Math.round(value) : TRACKER_PANEL_WIDTH_DEFAULT;
+  return Math.max(TRACKER_PANEL_WIDTH_MIN, Math.min(TRACKER_PANEL_WIDTH_MAX, width));
+}
+
+function normalizeTrackerPanelCollapsedSections(value: unknown): TrackerPanelCollapsedSections {
+  const raw = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+  const collapsed: TrackerPanelCollapsedSections = {};
+  for (const section of TRACKER_DATA_PANEL_SECTIONS) {
+    if (raw[section] === true) collapsed[section] = true;
+  }
+  return collapsed;
+}
+
+function normalizeTrackerPanelSectionOrder(value: unknown): TrackerPanelSectionOrder {
+  const order: TrackerPanelSectionOrder = [];
+  const seen = new Set<TrackerDataPanelSection>();
+  const raw = Array.isArray(value) ? value : [];
+
+  for (const section of raw) {
+    if (!TRACKER_DATA_PANEL_SECTIONS.includes(section as TrackerDataPanelSection)) continue;
+    const validSection = section as TrackerDataPanelSection;
+    if (seen.has(validSection)) continue;
+    seen.add(validSection);
+    order.push(validSection);
+  }
+
+  for (const section of TRACKER_DATA_PANEL_SECTIONS) {
+    if (!seen.has(section)) order.push(section);
+  }
+
+  return order;
 }
 
 function normalizeLearnedGameSetupOption(value: unknown) {
@@ -129,6 +181,14 @@ interface UIState {
   rightPanelOpen: boolean;
   rightPanelWidth: number;
   rightPanel: Panel;
+  trackerPanelEnabled: boolean;
+  trackerPanelOpen: boolean;
+  trackerPanelSide: TrackerPanelSide;
+  trackerPanelHideHudWidgets: boolean;
+  trackerPanelUseExpressionSprites: boolean;
+  trackerPanelWidth: number;
+  trackerPanelCollapsedSections: TrackerPanelCollapsedSections;
+  trackerPanelSectionOrder: TrackerPanelSectionOrder;
   settingsTab: string;
   modal: { type: string; props?: Record<string, unknown> } | null;
   theme: "dark" | "light";
@@ -151,6 +211,8 @@ interface UIState {
   regexDetailId: string | null;
   /** When true, the main area shows the browser */
   botBrowserOpen: boolean;
+  /** When true, the main area shows the game assets browser */
+  gameAssetsBrowserOpen: boolean;
   /** When true, the main area shows the full-page character library */
   characterLibraryOpen: boolean;
   /** True when any open detail editor has unsaved changes */
@@ -197,6 +259,10 @@ interface UIState {
   showTokenUsage: boolean;
   showMessageNumbers: boolean;
   guideGenerations: boolean;
+  showQuickRepliesMenu: boolean;
+  showQuickReplyPostOnly: boolean;
+  showQuickReplyGuide: boolean;
+  showQuickReplyImpersonate: boolean;
   confirmBeforeDelete: boolean;
   /** Number of messages to load per page (0 = load all) */
   messagesPerPage: number;
@@ -216,6 +282,8 @@ interface UIState {
   intuitiveSwipeNavigation: boolean;
   /** When true, moving past the newest swipe on the latest assistant message creates a new reroll. */
   intuitiveSwipeRerollLatest: boolean;
+  /** When true, pressing Up Arrow with an empty chat input opens the last user message for editing (Conversation/Roleplay). */
+  editLastMessageOnArrowUp: boolean;
 
   // ── Text Appearance ──
   /** Color for narrator text in RP mode (empty = default amber) */
@@ -228,6 +296,10 @@ interface UIState {
   chatFontOpacity: number;
   /** Layout style for roleplay message avatars */
   roleplayAvatarStyle: RoleplayAvatarStyle;
+  /** Scale multiplier for Roleplay message avatars. */
+  roleplayAvatarScale: number;
+  /** Default scale multiplier for Roleplay full-body sprites. */
+  roleplaySpriteScale: number;
   /** Scale multiplier for Game mode VN dialogue portraits. */
   gameAvatarScale: number;
   /** Scale multiplier for Game mode center full-body sprites. */
@@ -327,6 +399,16 @@ interface UIState {
   setSidebarOpen: (open: boolean) => void;
   setSidebarWidth: (width: number) => void;
   setRightPanelWidth: (width: number) => void;
+  toggleTrackerPanel: () => void;
+  setTrackerPanelEnabled: (enabled: boolean) => void;
+  setTrackerPanelOpen: (open: boolean) => void;
+  setTrackerPanelSide: (side: TrackerPanelSide) => void;
+  setTrackerPanelHideHudWidgets: (hidden: boolean) => void;
+  setTrackerPanelUseExpressionSprites: (enabled: boolean) => void;
+  setTrackerPanelWidth: (width: number) => void;
+  setTrackerPanelSectionOrder: (order: TrackerPanelSectionOrder) => void;
+  setTrackerPanelSectionCollapsed: (section: TrackerDataPanelSection, collapsed: boolean) => void;
+  toggleTrackerPanelSectionCollapsed: (section: TrackerDataPanelSection) => void;
   openRightPanel: (panel: Panel) => void;
   closeRightPanel: () => void;
   toggleRightPanel: (panel: Panel) => void;
@@ -355,6 +437,8 @@ interface UIState {
   closeCharacterLibrary: () => void;
   openBotBrowser: () => void;
   closeBotBrowser: () => void;
+  openGameAssetsBrowser: () => void;
+  closeGameAssetsBrowser: () => void;
 
   /** Returns true if any full-page detail editor is currently open */
   hasAnyDetailOpen: () => boolean;
@@ -387,6 +471,10 @@ interface UIState {
   setShowTokenUsage: (v: boolean) => void;
   setShowMessageNumbers: (v: boolean) => void;
   setGuideGenerations: (v: boolean) => void;
+  setShowQuickRepliesMenu: (v: boolean) => void;
+  setShowQuickReplyPostOnly: (v: boolean) => void;
+  setShowQuickReplyGuide: (v: boolean) => void;
+  setShowQuickReplyImpersonate: (v: boolean) => void;
   setConfirmBeforeDelete: (v: boolean) => void;
   setMessagesPerPage: (n: number) => void;
   setBoldDialogue: (v: boolean) => void;
@@ -397,11 +485,14 @@ interface UIState {
   setSpotifyMobileWidgetPosition: (position: FloatingWidgetPosition) => void;
   setIntuitiveSwipeNavigation: (v: boolean) => void;
   setIntuitiveSwipeRerollLatest: (v: boolean) => void;
+  setEditLastMessageOnArrowUp: (v: boolean) => void;
   setNarrationFontColor: (v: string) => void;
   setNarrationOpacity: (v: number) => void;
   setChatFontColor: (v: string) => void;
   setChatFontOpacity: (v: number) => void;
   setRoleplayAvatarStyle: (v: RoleplayAvatarStyle) => void;
+  setRoleplayAvatarScale: (v: number) => void;
+  setRoleplaySpriteScale: (v: number) => void;
   setGameAvatarScale: (v: number) => void;
   setGameFullBodySpriteScale: (v: number) => void;
   setTextStrokeWidth: (v: number) => void;
@@ -417,6 +508,7 @@ interface UIState {
     options: Partial<GameSetupLearnedOptions>,
     text?: Partial<GameSetupRememberedText>,
   ) => void;
+  forgetGameSetupOption: (group: keyof GameSetupLearnedOptions, value: string) => void;
   setEnterToSendRP: (v: boolean) => void;
   setEnterToSendConvo: (v: boolean) => void;
   setEnterToSendGame: (v: boolean) => void;
@@ -461,6 +553,14 @@ export function pickSyncedSettings(state: UIState) {
   return {
     sidebarOpen: state.sidebarOpen,
     sidebarWidth: state.sidebarWidth,
+    trackerPanelEnabled: state.trackerPanelEnabled,
+    trackerPanelOpen: state.trackerPanelOpen,
+    trackerPanelSide: state.trackerPanelSide,
+    trackerPanelHideHudWidgets: state.trackerPanelHideHudWidgets,
+    trackerPanelUseExpressionSprites: state.trackerPanelUseExpressionSprites,
+    trackerPanelWidth: state.trackerPanelWidth,
+    trackerPanelCollapsedSections: state.trackerPanelCollapsedSections,
+    trackerPanelSectionOrder: state.trackerPanelSectionOrder,
     theme: state.theme,
     chatBackground: state.chatBackground,
     fontSize: state.fontSize,
@@ -488,6 +588,10 @@ export function pickSyncedSettings(state: UIState) {
     showTokenUsage: state.showTokenUsage,
     showMessageNumbers: state.showMessageNumbers,
     guideGenerations: state.guideGenerations,
+    showQuickRepliesMenu: state.showQuickRepliesMenu,
+    showQuickReplyPostOnly: state.showQuickReplyPostOnly,
+    showQuickReplyGuide: state.showQuickReplyGuide,
+    showQuickReplyImpersonate: state.showQuickReplyImpersonate,
     confirmBeforeDelete: state.confirmBeforeDelete,
     messagesPerPage: state.messagesPerPage,
     boldDialogue: state.boldDialogue,
@@ -498,11 +602,14 @@ export function pickSyncedSettings(state: UIState) {
     spotifyMobileWidgetPosition: state.spotifyMobileWidgetPosition,
     intuitiveSwipeNavigation: state.intuitiveSwipeNavigation,
     intuitiveSwipeRerollLatest: state.intuitiveSwipeRerollLatest,
+    editLastMessageOnArrowUp: state.editLastMessageOnArrowUp,
     narrationFontColor: state.narrationFontColor,
     narrationOpacity: state.narrationOpacity,
     chatFontColor: state.chatFontColor,
     chatFontOpacity: state.chatFontOpacity,
     roleplayAvatarStyle: state.roleplayAvatarStyle,
+    roleplayAvatarScale: state.roleplayAvatarScale,
+    roleplaySpriteScale: state.roleplaySpriteScale,
     gameAvatarScale: state.gameAvatarScale,
     gameFullBodySpriteScale: state.gameFullBodySpriteScale,
     textStrokeWidth: state.textStrokeWidth,
@@ -544,6 +651,14 @@ export const useUIStore = create<UIState>()(
       rightPanelOpen: false,
       rightPanelWidth: 320,
       rightPanel: "chat" as Panel,
+      trackerPanelEnabled: true,
+      trackerPanelOpen: false,
+      trackerPanelSide: "right" as TrackerPanelSide,
+      trackerPanelHideHudWidgets: false,
+      trackerPanelUseExpressionSprites: false,
+      trackerPanelWidth: TRACKER_PANEL_WIDTH_DEFAULT,
+      trackerPanelCollapsedSections: {},
+      trackerPanelSectionOrder: [...TRACKER_DATA_PANEL_SECTIONS],
       settingsTab: "general",
       modal: null,
       theme: "dark" as const,
@@ -557,6 +672,7 @@ export const useUIStore = create<UIState>()(
       personaDetailId: null,
       regexDetailId: null,
       botBrowserOpen: false,
+      gameAssetsBrowserOpen: false,
       characterLibraryOpen: false,
       editorDirty: false,
 
@@ -587,6 +703,10 @@ export const useUIStore = create<UIState>()(
       showTokenUsage: false,
       showMessageNumbers: false,
       guideGenerations: false,
+      showQuickRepliesMenu: false,
+      showQuickReplyPostOnly: true,
+      showQuickReplyGuide: true,
+      showQuickReplyImpersonate: true,
       confirmBeforeDelete: true,
       messagesPerPage: 20,
       boldDialogue: true,
@@ -597,11 +717,14 @@ export const useUIStore = create<UIState>()(
       spotifyMobileWidgetPosition: { x: 16, y: 96 },
       intuitiveSwipeNavigation: false,
       intuitiveSwipeRerollLatest: false,
+      editLastMessageOnArrowUp: true,
       narrationFontColor: "",
       narrationOpacity: 80,
       chatFontColor: "",
       chatFontOpacity: 90,
       roleplayAvatarStyle: "circles" as RoleplayAvatarStyle,
+      roleplayAvatarScale: 1,
+      roleplaySpriteScale: 1,
       gameAvatarScale: 1,
       gameFullBodySpriteScale: 1.35,
       textStrokeWidth: 0.5,
@@ -651,6 +774,45 @@ export const useUIStore = create<UIState>()(
         set({ sidebarWidth: Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, width)) }),
       setRightPanelWidth: (width) =>
         set({ rightPanelWidth: Math.max(RIGHT_PANEL_WIDTH_MIN, Math.min(RIGHT_PANEL_WIDTH_MAX, width)) }),
+      toggleTrackerPanel: () =>
+        set((s) => ({
+          trackerPanelOpen: s.trackerPanelEnabled ? !s.trackerPanelOpen : false,
+        })),
+      setTrackerPanelEnabled: (enabled) =>
+        set({
+          trackerPanelEnabled: enabled,
+          trackerPanelOpen: enabled ? get().trackerPanelOpen : false,
+        }),
+      setTrackerPanelOpen: (open) =>
+        set((s) => ({
+          trackerPanelOpen: s.trackerPanelEnabled ? open : false,
+        })),
+      setTrackerPanelSide: (side) => set({ trackerPanelSide: side }),
+      setTrackerPanelHideHudWidgets: (hidden) => set({ trackerPanelHideHudWidgets: hidden }),
+      setTrackerPanelUseExpressionSprites: (enabled) => set({ trackerPanelUseExpressionSprites: enabled }),
+      setTrackerPanelWidth: (width) => set({ trackerPanelWidth: clampTrackerPanelWidth(width) }),
+      setTrackerPanelSectionOrder: (order) =>
+        set({ trackerPanelSectionOrder: normalizeTrackerPanelSectionOrder(order) }),
+      setTrackerPanelSectionCollapsed: (section, collapsed) =>
+        set((s) => {
+          const next = { ...s.trackerPanelCollapsedSections };
+          if (collapsed) {
+            next[section] = true;
+          } else {
+            delete next[section];
+          }
+          return { trackerPanelCollapsedSections: next };
+        }),
+      toggleTrackerPanelSectionCollapsed: (section) =>
+        set((s) => {
+          const next = { ...s.trackerPanelCollapsedSections };
+          if (next[section]) {
+            delete next[section];
+          } else {
+            next[section] = true;
+          }
+          return { trackerPanelCollapsedSections: next };
+        }),
 
       openRightPanel: (panel) => set({ rightPanelOpen: true, rightPanel: panel }),
       closeRightPanel: () => set({ rightPanelOpen: false }),
@@ -792,6 +954,7 @@ export const useUIStore = create<UIState>()(
       openBotBrowser: () =>
         set({
           botBrowserOpen: true,
+          gameAssetsBrowserOpen: false,
           characterLibraryOpen: false,
           regexDetailId: null,
           personaDetailId: null,
@@ -804,6 +967,22 @@ export const useUIStore = create<UIState>()(
           ...(window.innerWidth < 768 && { rightPanelOpen: false }),
         }),
       closeBotBrowser: () => set({ botBrowserOpen: false }),
+      openGameAssetsBrowser: () =>
+        set({
+          gameAssetsBrowserOpen: true,
+          botBrowserOpen: false,
+          characterLibraryOpen: false,
+          regexDetailId: null,
+          personaDetailId: null,
+          characterDetailId: null,
+          lorebookDetailId: null,
+          presetDetailId: null,
+          connectionDetailId: null,
+          agentDetailId: null,
+          toolDetailId: null,
+          ...(window.innerWidth < 768 && { rightPanelOpen: false }),
+        }),
+      closeGameAssetsBrowser: () => set({ gameAssetsBrowserOpen: false }),
 
       hasAnyDetailOpen: () => {
         const s = get();
@@ -817,7 +996,8 @@ export const useUIStore = create<UIState>()(
           s.personaDetailId ||
           s.regexDetailId ||
           s.characterLibraryOpen ||
-          s.botBrowserOpen
+          s.botBrowserOpen ||
+          s.gameAssetsBrowserOpen
         );
       },
       closeAllDetails: () =>
@@ -832,6 +1012,7 @@ export const useUIStore = create<UIState>()(
           regexDetailId: null,
           characterLibraryOpen: false,
           botBrowserOpen: false,
+          gameAssetsBrowserOpen: false,
           editorDirty: false,
         }),
       setEditorDirty: (dirty) => set({ editorDirty: dirty }),
@@ -872,6 +1053,10 @@ export const useUIStore = create<UIState>()(
       setShowTokenUsage: (v) => set({ showTokenUsage: v }),
       setShowMessageNumbers: (v) => set({ showMessageNumbers: v }),
       setGuideGenerations: (v) => set({ guideGenerations: v }),
+      setShowQuickRepliesMenu: (v) => set({ showQuickRepliesMenu: v }),
+      setShowQuickReplyPostOnly: (v) => set({ showQuickReplyPostOnly: v }),
+      setShowQuickReplyGuide: (v) => set({ showQuickReplyGuide: v }),
+      setShowQuickReplyImpersonate: (v) => set({ showQuickReplyImpersonate: v }),
       setConfirmBeforeDelete: (v) => set({ confirmBeforeDelete: v }),
       setMessagesPerPage: (n) => set({ messagesPerPage: n }),
       setBoldDialogue: (v) => set({ boldDialogue: v }),
@@ -888,11 +1073,16 @@ export const useUIStore = create<UIState>()(
         }),
       setIntuitiveSwipeNavigation: (v) => set({ intuitiveSwipeNavigation: v }),
       setIntuitiveSwipeRerollLatest: (v) => set({ intuitiveSwipeRerollLatest: v }),
+      setEditLastMessageOnArrowUp: (v) => set({ editLastMessageOnArrowUp: v }),
       setNarrationFontColor: (v) => set({ narrationFontColor: v }),
       setNarrationOpacity: (v) => set({ narrationOpacity: Math.max(0, Math.min(100, v)) }),
       setChatFontColor: (v) => set({ chatFontColor: v }),
       setChatFontOpacity: (v) => set({ chatFontOpacity: Math.max(0, Math.min(100, v)) }),
       setRoleplayAvatarStyle: (v) => set({ roleplayAvatarStyle: v }),
+      setRoleplayAvatarScale: (v) =>
+        set({ roleplayAvatarScale: Math.max(ROLEPLAY_AVATAR_SCALE_MIN, Math.min(ROLEPLAY_AVATAR_SCALE_MAX, v)) }),
+      setRoleplaySpriteScale: (v) =>
+        set({ roleplaySpriteScale: Math.max(ROLEPLAY_SPRITE_SCALE_MIN, Math.min(ROLEPLAY_SPRITE_SCALE_MAX, v)) }),
       setGameAvatarScale: (v) => set({ gameAvatarScale: Math.max(0.75, Math.min(1.75, v)) }),
       setGameFullBodySpriteScale: (v) => set({ gameFullBodySpriteScale: Math.max(0.75, Math.min(2.75, v)) }),
       setTextStrokeWidth: (v) => set({ textStrokeWidth: Math.max(0, Math.min(5, v)) }),
@@ -934,6 +1124,19 @@ export const useUIStore = create<UIState>()(
             },
           };
         }),
+      forgetGameSetupOption: (group, value) =>
+        set((state) => {
+          const learned = state.learnedGameSetupOptions ?? DEFAULT_GAME_SETUP_LEARNED_OPTIONS;
+          const targetKey = normalizeLearnedGameSetupOption(value).toLowerCase();
+          if (!targetKey) return state;
+          const next = learned[group].filter(
+            (entry) => normalizeLearnedGameSetupOption(entry).toLowerCase() !== targetKey,
+          );
+          if (next.length === learned[group].length) return state;
+          return {
+            learnedGameSetupOptions: { ...learned, [group]: next },
+          };
+        }),
       setEnterToSendRP: (v) => set({ enterToSendRP: v }),
       setEnterToSendConvo: (v) => set({ enterToSendConvo: v }),
       setEnterToSendGame: (v) => set({ enterToSendGame: v }),
@@ -968,10 +1171,10 @@ export const useUIStore = create<UIState>()(
       setUserStatus: (status) => set({ userStatus: status }),
       setUserStatusManual: (status) => set({ userStatusManual: status, userStatus: status }),
       setUserActivity: (activity) => set({ userActivity: activity.slice(0, 120) }),
-      }),
+    }),
     {
       name: "marinara-engine-ui",
-      version: 21,
+      version: 29,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -1181,12 +1384,76 @@ export const useUIStore = create<UIState>()(
             };
           }
         }
+        // v21 -> v22: add the optional centralized tracker sidebar.
+        if (version <= 21) {
+          if (persisted.trackerPanelOpen === undefined) persisted.trackerPanelOpen = false;
+          if (persisted.trackerPanelSide === undefined) persisted.trackerPanelSide = "right";
+          if (persisted.trackerPanelEnabled === undefined) persisted.trackerPanelEnabled = true;
+          if (persisted.trackerPanelHideHudWidgets === undefined) persisted.trackerPanelHideHudWidgets = false;
+        }
+        // v22 -> v23: persist the desktop tracker sidebar width.
+        if (version <= 22) {
+          persisted.trackerPanelWidth = clampTrackerPanelWidth(persisted.trackerPanelWidth);
+        }
+        // v23 -> v24: remember collapsed tracker data panels.
+        if (version <= 23) {
+          persisted.trackerPanelCollapsedSections = normalizeTrackerPanelCollapsedSections(
+            persisted.trackerPanelCollapsedSections,
+          );
+        }
+        persisted.trackerPanelCollapsedSections = normalizeTrackerPanelCollapsedSections(
+          persisted.trackerPanelCollapsedSections,
+        );
+        // v24 -> v25: require an explicit tracker-panel opt-in before expression sprites replace portraits.
+        if (version <= 24 && persisted.trackerPanelUseExpressionSprites === undefined) {
+          persisted.trackerPanelUseExpressionSprites = false;
+        }
+        if (persisted.trackerPanelUseExpressionSprites === undefined) {
+          persisted.trackerPanelUseExpressionSprites = false;
+        }
+        // v25 -> v26: allow users to reorder tracker panel cards.
+        if (version <= 25) {
+          persisted.trackerPanelSectionOrder = normalizeTrackerPanelSectionOrder(persisted.trackerPanelSectionOrder);
+        }
+        persisted.trackerPanelSectionOrder = normalizeTrackerPanelSectionOrder(persisted.trackerPanelSectionOrder);
+        // v26 -> v27: add Roleplay avatar and default sprite scale controls.
+        if (version <= 26) {
+          if (persisted.roleplayAvatarScale === undefined) {
+            persisted.roleplayAvatarScale = 1;
+          }
+          if (persisted.roleplaySpriteScale === undefined) {
+            persisted.roleplaySpriteScale = 1;
+          }
+        }
+        // v27 -> v28: enable Up-Arrow recall of the last user message by default.
+        if (version <= 27 && persisted.editLastMessageOnArrowUp === undefined) {
+          persisted.editLastMessageOnArrowUp = true;
+        }
+        // v28 -> v29: preserve existing Impersonate quick-button users by moving them into Quick replies.
+        if (
+          version <= 28 &&
+          persisted.showQuickRepliesMenu === undefined &&
+          persisted.impersonateShowQuickButton === true
+        ) {
+          persisted.showQuickRepliesMenu = true;
+          persisted.showQuickReplyPostOnly = false;
+          persisted.showQuickReplyGuide = false;
+          persisted.showQuickReplyImpersonate = true;
+        }
         return persisted;
       },
       partialize: (state) => ({
         sidebarOpen: state.sidebarOpen,
         sidebarWidth: state.sidebarWidth,
         rightPanelWidth: state.rightPanelWidth,
+        trackerPanelEnabled: state.trackerPanelEnabled,
+        trackerPanelOpen: state.trackerPanelOpen,
+        trackerPanelSide: state.trackerPanelSide,
+        trackerPanelHideHudWidgets: state.trackerPanelHideHudWidgets,
+        trackerPanelUseExpressionSprites: state.trackerPanelUseExpressionSprites,
+        trackerPanelWidth: state.trackerPanelWidth,
+        trackerPanelCollapsedSections: state.trackerPanelCollapsedSections,
+        trackerPanelSectionOrder: state.trackerPanelSectionOrder,
         theme: state.theme,
         chatBackground: state.chatBackground,
         fontSize: state.fontSize,
@@ -1215,6 +1482,10 @@ export const useUIStore = create<UIState>()(
         showTokenUsage: state.showTokenUsage,
         showMessageNumbers: state.showMessageNumbers,
         guideGenerations: state.guideGenerations,
+        showQuickRepliesMenu: state.showQuickRepliesMenu,
+        showQuickReplyPostOnly: state.showQuickReplyPostOnly,
+        showQuickReplyGuide: state.showQuickReplyGuide,
+        showQuickReplyImpersonate: state.showQuickReplyImpersonate,
         confirmBeforeDelete: state.confirmBeforeDelete,
         messagesPerPage: state.messagesPerPage,
         boldDialogue: state.boldDialogue,
@@ -1230,6 +1501,8 @@ export const useUIStore = create<UIState>()(
         chatFontColor: state.chatFontColor,
         chatFontOpacity: state.chatFontOpacity,
         roleplayAvatarStyle: state.roleplayAvatarStyle,
+        roleplayAvatarScale: state.roleplayAvatarScale,
+        roleplaySpriteScale: state.roleplaySpriteScale,
         gameAvatarScale: state.gameAvatarScale,
         gameFullBodySpriteScale: state.gameFullBodySpriteScale,
         textStrokeWidth: state.textStrokeWidth,

@@ -59,6 +59,44 @@ Move copied UI in this order, one small reviewed surface at a time:
 11. Imports/assets/gallery/media UI.
 12. Sidecar/integrations/update UI.
 
+### Phase 2 Rework Checkpoint
+
+Status: Complete for the known simplified Phase 2 UI targets. Game UI, chat/conversation, lorebook/preset editors, and roleplay surfaces have been reworked from simplified replacements into moved original UI trees with backend-dependent behavior routed to unavailable seams.
+
+The first pass through Phase 2 drifted from the project rule to "move and lightly reorganize the existing React UI." Several slices introduced simplified replacement surfaces instead of moving the original component files and preserving their UI structure with backend-dependent behavior explicitly deferred.
+
+The next slice must be a cleanup/rework slice, not a new feature slice. Its goal is to bring Phase 2 back in line with the migration strategy:
+
+1. Audit every Phase 1 and Phase 2 inventory claim against `E:/Personal Projects/Marinara-Engine/packages/client/src`.
+2. For each claimed moved/mapped file, classify it as:
+   - faithful move/light reorganization
+   - partial move with acceptable backend deferral
+   - simplified rewrite that must be replaced by moved original UI
+   - intentionally deferred source
+   - explicitly removed source, only if approved by the human
+3. Replace simplified rewrites with moved/reorganized original UI wherever the original UI is in scope for the completed slice.
+4. Keep backend behavior non-functional only through explicit unavailable hooks, unavailable command seams, disabled controls, or clear error states.
+5. Do not create fake data, mock persistence, fake command success, preview-only routes, or compatibility shims.
+6. Do not redesign the UI or substitute compact replacement components unless the human explicitly approves that specific deviation.
+7. Update `00-source-inventory.md` with accurate status for every touched original source file.
+8. Leave future-slice UI files deferred by name and reason, rather than implying they were moved.
+
+Known rework targets from the audit:
+
+- Phase 2 Slice 4/5 chat surfaces were reopened and replaced with moved original `components/chat` UI and original chat hook/store contracts where needed for compilation.
+- Phase 2 Slice 6 editors were reopened and replaced with moved original `components/lorebooks` and `components/presets` editor trees and original lorebook/preset hook contracts.
+- Phase 2 Slice 8 roleplay/conversation UI was reopened and replaced with moved original `ChatRoleplaySurface`, roleplay HUD/panels, scene, sprite, encounter, and related chat support UI.
+- Phase 2 Slice 9 Game UI was reopened and replaced with the moved original `components/game` tree plus required support files. Remaining work is backend wiring and later-slice behavior, not a simplified UI replacement.
+- Phase 1/2 shared utility seams that intentionally became unavailable placeholders should remain placeholders only when the original behavior belongs to Rust or a later backend/file slice.
+
+Exit criteria for the rework checkpoint:
+
+- The docs accurately distinguish moved UI from deferred UI.
+- Completed Phase 2 slices contain moved original UI for their stated scope.
+- Any simplified replacements are removed or clearly marked as temporary mistakes to replace before the slice can be complete.
+- `pnpm check` passes.
+- The handoff includes an explicit list of original files moved, still deferred, and intentionally not moved.
+
 Exit criteria for each slice:
 
 - Existing UI flow is preserved where practical.

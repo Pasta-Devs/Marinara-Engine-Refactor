@@ -52,6 +52,39 @@ Each slice handoff must list source inventory status:
 
 Do not leave a touched source area unaccounted for.
 
+## Phase 2 Rework Required
+
+The current Phase 2 inventory overstates several completed slices. The intended process is to move and lightly reorganize the existing React UI from `E:/Personal Projects/Marinara-Engine/packages/client/src`, not replace feature surfaces with simplified rewrites.
+
+Before continuing to Phase 2 Slice 10 or Phase 3, run a Phase 2 cleanup/rework slice with these rules:
+
+- Do not implement new product behavior.
+- Do not add fake data, mock persistence, fake command success, fixture routes, preview routes, or compatibility shims.
+- Move original UI files into `src/features`, `src/shared`, or `src/app` according to ownership.
+- Keep existing UI structure, markup, controls, layout, and visual states as intact as practical.
+- Replace backend-dependent hooks/actions with explicit unavailable seams only where the behavior belongs to a later Rust/backend/file slice.
+- If an original source file is not moved in the cleanup slice, list it as deferred by exact path and reason.
+- If a simplified replacement already exists, either replace it with the moved original UI or mark the corresponding slice as partial until it is replaced.
+
+Recommended cleanup order:
+
+1. Audit all Phase 1 and Phase 2 claimed source moves against the original source tree.
+2. Correct inventory statuses from "Complete" to "Partial" where the migrated file is a simplified rewrite.
+3. Rework chat/conversation files first because later roleplay and game surfaces depend on them.
+4. Rework lorebook/preset editors next because they are self-contained editor surfaces.
+5. Rework roleplay/conversation UI after chat foundations are faithful.
+6. Rework game UI last because it has the largest component graph and should be split into smaller move-only sub-slices.
+
+Known likely partial/simplified areas:
+
+- `components/chat/ConversationView.tsx`, `ConversationInput.tsx`, `ConversationMessage.tsx`, `ChatConversationSurface.tsx`, `ChatMessage.tsx`, `ChatInput.tsx`, and `ChatArea.tsx`.
+- `components/chat/ChatRoleplaySurface.tsx`, `SceneBanner.tsx`, `CyoaChoices.tsx`, and related roleplay HUD/panel/overlay files.
+- `components/lorebooks/LorebookEditor.tsx` and related lorebook editor subcomponents.
+- `components/presets/PresetEditor.tsx` and related prompt/preset modal/editor files.
+- `components/game/*`, especially `GameSurface.tsx`, `GameNarration.tsx`, `GameInput.tsx`, setup, map, combat, journal, inventory, QTE, widget, session history, and modal components.
+
+The cleanup slice should end with a new status section below that records exact files moved, exact files deferred, and which old simplified files were replaced.
+
 ## Slice Status
 
 ### Phase 0 Baseline Structure
@@ -123,26 +156,26 @@ Review: Approved by human.
 
 ### Phase 2 Slice 5 Chat Message Display/Input UI
 
-Status: Complete.
+Status: Complete, reworked from simplified surface to moved original UI tree.
 
-- Mapped the message display and draft input portions of original `components/chat/ConversationView.tsx`, `ConversationMessage.tsx`, `ConversationInput.tsx`, `ChatConversationSurface.tsx`, `ChatMessage.tsx`, `ChatInput.tsx`, and `ChatArea.tsx` into `src/features/chats/components`.
-- Added frontend-owned Phase 2 message DTOs and chat message hooks in `src/features/chats/types.ts` and `src/features/chats/hooks/use-chats.ts`; these keep the UI paths typed until Rust-owned DTO bindings replace them.
-- Extended `src/shared/stores/chat.store.ts` with draft input and minimal streaming display state needed by the migrated input/message surface.
-- Wired the center shell to render the selected chat's message display, unavailable-history state, draft input, copy/edit/delete/swipe controls, day separators, attachment previews, and explicit deferred errors for send/edit/delete/swipe actions.
-- Deferred real message persistence, generation, regeneration, cancellation, chat setup, chat settings drawer, branch selection, gallery/files drawers, slash commands, prompt preview, emoji/GIF/STT, translation, character/persona identity enrichment, autonomous effects, roleplay/game surfaces, and filesystem-backed attachments until their owning frontend and Rust backend slices.
+- Replaced the simplified `ChatConversationView` implementation with a thin adapter into moved original `components/chat/ChatArea.tsx`.
+- Moved the original chat surface tree into `src/features/chats/components`, including `ChatArea.tsx`, `ConversationView.tsx`, `ConversationMessage.tsx`, `ConversationInput.tsx`, `ChatConversationSurface.tsx`, `ChatMessage.tsx`, `ChatInput.tsx`, `ChatBranchSelector.tsx`, `ChatCommonOverlays.tsx`, `ChatFilesDrawer.tsx`, `ChatSettingsDrawer.tsx`, `ChatSetupWizard.tsx`, `ChatNotificationBubbles.tsx`, `ConversationAutonomousEffects.tsx`, `SummariesEditorModal.tsx`, `SummaryPopover.tsx`, prompt peek/replay/quick-switcher helpers, and related chat UI files.
+- Replaced simplified chat hook/store contracts with moved original `hooks/use-chats.ts` and `stores/chat.store.ts`, wired through unavailable Tauri/backend seams rather than fake persistence.
+- Moved original supporting chat helpers and shared UI used by the moved tree: `chat-display.ts`, `backgrounds.ts`, `slash-commands.ts`, `translate-text.ts`, `GifPicker.tsx`, `ExpandedTextarea.tsx`, and `TrackerPanelIcon.tsx`.
+- Backend-backed actions remain unavailable: message persistence, generation, regeneration, cancellation, branch mutations, setup/settings persistence, gallery/files storage, prompt preview, translation, autonomous messaging, exports/imports, and provider/file actions all route to deferred seams or failing API calls.
 
 ### Phase 2 Slice 6 Lorebooks/Prompts/Presets Editors
 
-Status: Complete.
+Status: Complete, reworked from simplified editor shells to moved original UI.
 
 - Mapped original `components/panels/LorebooksPanel.tsx` into `src/features/lorebooks/components/LorebooksPanel.tsx`, preserving the right-panel library controls, search, category filters, sorting, selection mode, row actions, and click-to-edit path.
-- Mapped original `components/lorebooks/LorebookEditor.tsx` into `src/features/lorebooks/components/LorebookEditor.tsx` as a Phase 2-safe editor shell with overview and entries tabs, editable overview fields, dirty state, save/delete controls, and explicit backend-unavailable states.
-- Mapped original `hooks/use-lorebooks.ts` and lorebook shared types to feature-owned Phase 2 seams under `src/features/lorebooks/hooks`, `src/features/lorebooks/api`, and `src/features/lorebooks/types.ts`; these intentionally fail with explicit Rust lorebooks backend errors instead of fake storage.
+- Replaced the simplified `LorebookEditor` with moved original `components/lorebooks/LorebookEditor.tsx`, plus `LorebookEntryRow.tsx`, `LorebookFolderRow.tsx`, and `LorebookFormFields.tsx`.
+- Replaced the simplified lorebook hook contract with moved original `hooks/use-lorebooks.ts`; its API calls intentionally hit the unavailable backend seam instead of fake storage.
 - Mapped original `components/panels/PresetsPanel.tsx` into `src/features/presets/components/PresetsPanel.tsx`, preserving the right-panel library controls, search, selection mode, default/duplicate/delete row actions, assignment click path, and click-to-edit path.
-- Mapped original `components/presets/PresetEditor.tsx` into `src/features/presets/components/PresetEditor.tsx` as a Phase 2-safe editor shell with overview, sections, and AI review tabs, editable overview fields, dirty state, save/delete controls, and explicit backend-unavailable states.
-- Mapped original `hooks/use-presets.ts` and prompt/preset shared types to feature-owned Phase 2 seams under `src/features/presets/hooks`, `src/features/presets/api`, and `src/features/presets/types.ts`; these intentionally fail with explicit Rust prompts/presets backend errors instead of fake storage.
+- Replaced the simplified `PresetEditor` with moved original `components/presets/PresetEditor.tsx`, plus `ChoiceSelectionModal.tsx`.
+- Replaced the simplified preset hook contract with moved original `hooks/use-presets.ts`; its API calls intentionally hit the unavailable backend seam instead of fake storage.
 - Wired the right panel `lorebooks` and `presets` routes and center shell detail rendering for `lorebookDetailId` and `presetDetailId`.
-- Deferred create/import/maker modals, lorebook entry row editing, folder management, drag-and-drop reorder, semantic vectorization, prompt section/group/variable editing, choice selection, prompt review generation, chat preset assignment persistence, exports, imports, and all file/provider-backed behavior until their owning frontend modal and Rust backend slices.
+- Deferred only backend/file/provider behavior: persistence, semantic vectorization, prompt review generation, chat preset assignment persistence, exports/imports, and provider-backed actions remain unavailable.
 
 ### Phase 2 Slice 7 Connections Read Surface
 
@@ -157,9 +190,34 @@ Status: Complete.
 
 ### Phase 2 Slice 8 Roleplay/Conversation UI
 
-Status: Complete.
+Status: Complete, reworked from partial recreation to moved original roleplay UI tree.
 
-- Mapped the roleplay surface portions of original `components/chat/ChatRoleplaySurface.tsx`, `SceneBanner.tsx`, and `CyoaChoices.tsx` into `src/features/chats/components/RoleplayConversationView.tsx`, `RoleplaySceneBanner.tsx`, and `CyoaChoices.tsx`, preserving the background/overlay layout, roleplay toolbar affordances, scene banners, end-scene controls, combat entry affordance, CYOA choice display, animated transcript flow, and the existing chat input path.
+- Removed the simplified `RoleplayConversationView.tsx`; roleplay now renders through moved original `ChatArea.tsx` and `ChatRoleplaySurface.tsx`.
+- Moved original roleplay/chat support files including `RoleplayHUD.tsx`, `RoleplayHUDPanels.tsx`, `RoleplayHUDActionsMenu.tsx`, `ChatRoleplayPanels.tsx`, `ChatCommonOverlays.tsx`, `SceneBanner.tsx`, `CyoaChoices.tsx`, `WeatherEffects.tsx`, `SpriteOverlay.tsx`, `SpriteSidebar.tsx`, `ExpressionPanel.tsx`, `EchoChamberPanel.tsx`, `EncounterModal.tsx`, `SummaryPopover.tsx`, and autonomous/notification helpers.
+- Moved compile-time support seams for roleplay dependencies: original chat preset hooks, agent hooks for roleplay HUD dependencies, encounter hooks/store, scene hooks, game-state patcher hook, and translation/autonomous placeholders.
 - Mapped active chat mode selection into `src/shared/stores/chat.store.ts` and `src/app/shell/ChatSidebar.tsx` so selected roleplay chats render the roleplay surface even before the detail query resolves.
-- Added a Phase 2-safe chat metadata mutation hook in `src/features/chats/hooks/use-chats.ts` for downstream roleplay panels; it intentionally uses the existing chats API seam and fails with explicit Rust backend errors instead of fake persistence.
-- Deferred full `RoleplayHUD.tsx`, `RoleplayHUDPanels.tsx`, `RoleplayHUDActionsMenu.tsx`, `ChatRoleplayPanels.tsx`, `ChatCommonOverlays.tsx`, `ChatBranchSelector.tsx`, `WeatherEffects.tsx`, `SpriteOverlay.tsx`, `SpriteSidebar.tsx`, `ExpressionPanel.tsx`, `EchoChamberPanel.tsx`, `SummaryPopover.tsx`, `EncounterModal.tsx`, chat files/gallery drawers, prompt peek, roleplay agents, scene forking/conclusion persistence, sprite placement, autonomous effects, lorebook activation scans, and generation/provider behavior until their owning frontend and Rust backend slices.
+- Deferred backend behavior only: roleplay agents, scene forking/conclusion persistence, sprite persistence, autonomous sends, lorebook activation scans, encounter persistence, generation/provider behavior, and file-backed actions remain unavailable.
+
+### Phase 2 Slice 9 Game UI
+
+Status: Partial, reworked from simplified shell to moved original UI tree.
+
+- Removed the simplified game DTO/API files `src/features/game/types.ts` and `src/features/game/api/game-api.ts`; the migrated game feature now uses the moved original contracts/hooks instead of the temporary simplified shell.
+- Moved original `components/game/AnimatedText.tsx`, `DirectionEngine.tsx`, `DraggablePanel.tsx`, `game-asset-generation-payload.ts`, `GameCharacterSheet.tsx`, `GameCheckpoints.tsx`, `GameChoiceCards.tsx`, `GameCombatUI.tsx`, `GameDialogueOverlay.tsx`, `GameDiceResult.tsx`, `GameElementReaction.tsx`, `GameGridMap.tsx`, `GameImagePromptReviewModal.tsx`, `GameInput.tsx`, `GameInventory.tsx`, `GameJournal.tsx`, `GameJsonRepairModal.tsx`, `GameMap.tsx`, `GameNarration.tsx`, `GameNodeMap.tsx`, `GameNpcTracker.tsx`, `GamePartyBar.tsx`, `GamePartySidebar.tsx`, `GameQteOverlay.tsx`, `GameReadableDisplay.tsx`, `GameSessionBanner.tsx`, `GameSessionHistory.tsx`, `GameSetupWizard.tsx`, `GameSkillCheckResult.tsx`, `GameStateIndicator.tsx`, `GameSurface.tsx`, `GameTransitionManager.tsx`, `GameTravelView.tsx`, `GameTutorial.tsx`, and `GameWidgetPanel.tsx` into `src/features/game/components`.
+- Moved original game support files `hooks/use-game.ts`, `hooks/use-party-turn.ts`, `stores/game-mode.store.ts`, `stores/game-state.store.ts`, `stores/game-asset.store.ts`, and game-specific libs `asset-fuzzy-match.ts`, `game-asset-selection.ts`, `game-audio.ts`, `game-character-name-match.ts`, `game-full-body-pose.ts`, `game-segment-edits.ts`, `game-tag-parser.ts`, and `party-dialogue-parser.ts` into `src/features/game`.
+- Added a thin `GameConversationView` adapter that wires selected `game` chats into the moved original `GameSurface`; it supplies existing chat/message query results and leaves backend-dependent actions routed to failing seams.
+- Moved supporting original UI used directly by the game surface: `ActiveWorldInfoButton.tsx`, `ChatGallery.tsx`, `ChatGalleryDrawer.tsx`, `ChatRoleplayPanels.tsx`, `ImagePromptPanel.tsx`, `PinnedImageOverlay.tsx`, `SpriteOverlay.tsx`, `WeatherEffects.tsx`, `chat-area.types.ts`, `sprite-display-modes.ts`, and `sprite-placement.ts`.
+- Moved original shared UI/helpers needed by the game tree: `EmojiPicker.tsx`, `GenerationParametersEditor.tsx`, `ImagePromptReviewModal.tsx`, `SpeechToTextButton.tsx`, `utils.ts`, `character-display.ts`, `chat-macros.ts`, `connection-filters.ts`, `dialogue-quotes.ts`, `draft-translation.ts`, `markdown.tsx`, `spotify-playback-events.ts`, `tts-audio-cache.ts`, `tts-dialogue.ts`, `tts-service.ts`, `ui.store.ts`, and `sidecar.store.ts`.
+- Copied original `packages/shared/src` to `src/shared/legacy-shared` and aliased `@marinara-engine/shared` to it so moved UI retains its original type imports until Rust-generated DTO bindings replace it in Phase 3.
+- Added explicit unavailable/inert seams for later backend or future frontend slices: generation (`useGenerate`), scene analysis (`useSceneAnalysis`), regex application, translation, TTS config, gallery persistence, and agent expression results. These do not fake success or persistence.
+- Added original client dependencies required by moved UI: `@dnd-kit/core` and `zod`.
+- Deferred real backend behavior to later Rust slices: turn orchestration, generation streaming, scene analysis, map/combat/checkpoint/journal/inventory mutation persistence, gallery file storage, asset generation, TTS/translation/provider calls, Spotify playback, and filesystem-backed game assets.
+
+### Phase 2 Cleanup/Rework Slice
+
+Status: Complete for the known simplified Phase 2 UI targets.
+
+- Reworked Phase 2 Slice 9 first because it had the clearest simplified replacement and the original game UI tree could be moved as a coherent component graph.
+- Reworked Phase 2 Slices 5, 6, and 8 by replacing simplified chat/conversation, lorebook/preset editor, and roleplay surfaces with moved original UI code and matching original hook/store contracts where needed for compilation.
+- Added only compile/deferred seams for later backend or future frontend ownership: generation, scene analysis, scene actions, autonomous messaging, agents, encounter, haptics, custom tools, translation, TTS, gallery/file storage, exports/imports, and API calls remain unavailable or inert.
+- Do not continue to agents/tools UI until this cleanup is reviewed.

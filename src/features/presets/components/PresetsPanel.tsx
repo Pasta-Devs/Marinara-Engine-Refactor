@@ -6,7 +6,7 @@ import { cn } from "../../../shared/lib/utils";
 import { useChatStore } from "../../../shared/stores/chat.store";
 import { useUIStore } from "../../../shared/stores/ui.store";
 import { useDeletePreset, useDuplicatePreset, usePresets, useSetDefaultPreset } from "../hooks/use-presets";
-import type { Preset } from "../types";
+import type { PromptPreset as Preset } from "@marinara-engine/shared";
 
 function deferredToast(action: string) {
   toast.error(`${action} is waiting for the Rust prompts/presets backend slice.`);
@@ -23,7 +23,7 @@ function sectionCount(preset: Preset) {
 }
 
 function isDefaultPreset(preset: Preset) {
-  return preset.isDefault === true || preset.isDefault === "true";
+  return preset.isDefault === true || String(preset.isDefault) === "true";
 }
 
 export function PresetsPanel() {
