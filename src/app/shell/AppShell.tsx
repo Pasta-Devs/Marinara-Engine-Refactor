@@ -17,6 +17,8 @@ import {
 import { cn } from "../../shared/lib/utils";
 import { CharacterLibraryView } from "../../features/characters/components/CharacterLibraryView";
 import { ChatConversationView } from "../../features/chats/components/ChatConversationView";
+import { LorebookEditor } from "../../features/lorebooks/components/LorebookEditor";
+import { PresetEditor } from "../../features/presets/components/PresetEditor";
 import { useChatStore } from "../../shared/stores/chat.store";
 import { ChatSidebar } from "./ChatSidebar";
 import { RightPanel } from "./RightPanel";
@@ -38,7 +40,10 @@ export function AppShell() {
   const rightPanelWidth = useUIStore((s) => s.rightPanelWidth);
   const characterLibraryOpen = useUIStore((s) => s.characterLibraryOpen);
   const characterDetailId = useUIStore((s) => s.characterDetailId);
+  const lorebookDetailId = useUIStore((s) => s.lorebookDetailId);
+  const presetDetailId = useUIStore((s) => s.presetDetailId);
   const personaDetailId = useUIStore((s) => s.personaDetailId);
+  const connectionDetailId = useUIStore((s) => s.connectionDetailId);
   const activeChatId = useChatStore((s) => s.activeChatId);
   const setRightPanelWidth = useUIStore((s) => s.setRightPanelWidth);
   const closeRightPanel = useUIStore((s) => s.closeRightPanel);
@@ -255,11 +260,19 @@ export function AppShell() {
         ) : (
           <>
             <TopBar />
-            {characterDetailId || personaDetailId ? (
+            {lorebookDetailId ? (
+              <LorebookEditor />
+            ) : presetDetailId ? (
+              <PresetEditor />
+            ) : characterDetailId || personaDetailId || connectionDetailId ? (
               <div className="flex flex-1 flex-col items-center justify-center overflow-hidden px-6 text-center">
                 <div className="glass max-w-xl rounded-2xl p-6">
                   <p className="text-sm font-medium text-[var(--foreground)]">
-                    {characterDetailId ? "Character editor deferred" : "Persona editor deferred"}
+                    {characterDetailId
+                      ? "Character editor deferred"
+                      : personaDetailId
+                        ? "Persona editor deferred"
+                        : "Connection editor deferred"}
                   </p>
                   <p className="mt-2 text-xs leading-relaxed text-[var(--muted-foreground)]">
                     The library click path is wired. The editor UI moves in a later reviewed slice.

@@ -3,7 +3,10 @@ import { X, Users, BookOpen, FileText, Link, Sparkles, Settings, UserCircle, Bot
 import { useUIStore } from "../../shared/stores/ui.store";
 import { SettingsPanel } from "../../features/settings/components/SettingsPanel";
 import { CharactersPanel } from "../../features/characters/components/CharactersPanel";
+import { ConnectionsPanel } from "../../features/connections/components/ConnectionsPanel";
 import { PersonasPanel } from "../../features/personas/components/PersonasPanel";
+import { LorebooksPanel } from "../../features/lorebooks/components/LorebooksPanel";
+import { PresetsPanel } from "../../features/presets/components/PresetsPanel";
 
 const PANEL_CONFIG: Record<string, { title: string; icon: ReactNode; gradient: string }> = {
   "bot-browser": { title: "Browser", icon: <Bot size="0.875rem" />, gradient: "from-cyan-400 to-blue-500" },
@@ -52,6 +55,12 @@ export function RightPanel() {
         <CharactersPanel />
       ) : panel === "personas" ? (
         <PersonasPanel />
+      ) : panel === "connections" ? (
+        <ConnectionsPanel />
+      ) : panel === "lorebooks" ? (
+        <LorebooksPanel />
+      ) : panel === "presets" ? (
+        <PresetsPanel />
       ) : (
         <div className="flex flex-1 items-center justify-center overflow-hidden px-6 text-center">
           <div className="max-w-xs">

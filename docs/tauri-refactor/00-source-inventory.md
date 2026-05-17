@@ -130,3 +130,27 @@ Status: Complete.
 - Extended `src/shared/stores/chat.store.ts` with draft input and minimal streaming display state needed by the migrated input/message surface.
 - Wired the center shell to render the selected chat's message display, unavailable-history state, draft input, copy/edit/delete/swipe controls, day separators, attachment previews, and explicit deferred errors for send/edit/delete/swipe actions.
 - Deferred real message persistence, generation, regeneration, cancellation, chat setup, chat settings drawer, branch selection, gallery/files drawers, slash commands, prompt preview, emoji/GIF/STT, translation, character/persona identity enrichment, autonomous effects, roleplay/game surfaces, and filesystem-backed attachments until their owning frontend and Rust backend slices.
+
+### Phase 2 Slice 6 Lorebooks/Prompts/Presets Editors
+
+Status: Complete.
+
+- Mapped original `components/panels/LorebooksPanel.tsx` into `src/features/lorebooks/components/LorebooksPanel.tsx`, preserving the right-panel library controls, search, category filters, sorting, selection mode, row actions, and click-to-edit path.
+- Mapped original `components/lorebooks/LorebookEditor.tsx` into `src/features/lorebooks/components/LorebookEditor.tsx` as a Phase 2-safe editor shell with overview and entries tabs, editable overview fields, dirty state, save/delete controls, and explicit backend-unavailable states.
+- Mapped original `hooks/use-lorebooks.ts` and lorebook shared types to feature-owned Phase 2 seams under `src/features/lorebooks/hooks`, `src/features/lorebooks/api`, and `src/features/lorebooks/types.ts`; these intentionally fail with explicit Rust lorebooks backend errors instead of fake storage.
+- Mapped original `components/panels/PresetsPanel.tsx` into `src/features/presets/components/PresetsPanel.tsx`, preserving the right-panel library controls, search, selection mode, default/duplicate/delete row actions, assignment click path, and click-to-edit path.
+- Mapped original `components/presets/PresetEditor.tsx` into `src/features/presets/components/PresetEditor.tsx` as a Phase 2-safe editor shell with overview, sections, and AI review tabs, editable overview fields, dirty state, save/delete controls, and explicit backend-unavailable states.
+- Mapped original `hooks/use-presets.ts` and prompt/preset shared types to feature-owned Phase 2 seams under `src/features/presets/hooks`, `src/features/presets/api`, and `src/features/presets/types.ts`; these intentionally fail with explicit Rust prompts/presets backend errors instead of fake storage.
+- Wired the right panel `lorebooks` and `presets` routes and center shell detail rendering for `lorebookDetailId` and `presetDetailId`.
+- Deferred create/import/maker modals, lorebook entry row editing, folder management, drag-and-drop reorder, semantic vectorization, prompt section/group/variable editing, choice selection, prompt review generation, chat preset assignment persistence, exports, imports, and all file/provider-backed behavior until their owning frontend modal and Rust backend slices.
+
+### Phase 2 Slice 7 Connections Read Surface
+
+Status: Complete.
+
+- Moved original `components/panels/ConnectionsPanel.tsx` read-list behavior into `src/features/connections/components/ConnectionsPanel.tsx` and wired the right-panel `connections` route to render it.
+- Mapped original `hooks/use-connections.ts` to `src/features/connections/hooks/use-connections.ts`, preserving list/detail/mutation hook contracts for downstream feature slices.
+- Added frontend-owned Phase 2 connection DTOs in `src/features/connections/types.ts` until Rust-owned DTO bindings replace them.
+- Added a feature-owned API seam in `src/features/connections/api/connections-api.ts`; it intentionally fails with explicit Rust connections backend errors instead of fake connection data or fake persistence.
+- Wired connection row clicks to the existing center-shell detail placeholder so the navigation path is accounted for without moving the full editor.
+- Deferred `components/connections/ConnectionEditor.tsx`, `components/modals/CreateConnectionModal.tsx`, local sidecar controls, TTS settings card, provider tests, model discovery, secret persistence, image test generation, chat settings integration, and active connection persistence until their owning frontend and Rust backend slices.
