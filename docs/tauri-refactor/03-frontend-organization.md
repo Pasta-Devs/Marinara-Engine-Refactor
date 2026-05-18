@@ -358,13 +358,13 @@ gallery/
     gallery.store.ts
 ```
 
-### `features/sidecar`
+### Excluded: sidecar
 
 ```text
 Sidecar is deferred by scope and has no active frontend feature surface in the Tauri app.
 ```
 
-### `features/sync`
+### Excluded: sync
 
 ```text
 Sync is deferred by scope and has no active frontend feature surface in the Tauri app.

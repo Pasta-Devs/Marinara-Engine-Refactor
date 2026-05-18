@@ -169,21 +169,28 @@ Last updated: 2026-05-18.
 - [x] Tightened remote binary loading with Rust outbound URL policy, MIME validation, and response size limits.
 - [x] Tightened managed game asset handling: upload extension/category checks, filename sanitization, media/text size caps, text-file-only editing, hidden/manifest filtering, native top-level folder flags, image dimensions, and filesystem created/modified timestamps.
 - [x] Switched SillyTavern bulk import progress from accumulated events to a real Tauri channel so the UI can receive progress while the import is running.
+- [x] Restored SillyTavern bulk import folder-token policy: Tauri dialog selections can issue short-lived tokens, manual folder browsing is constrained to home/allowed roots, and scan/run no longer trust arbitrary raw paths unless `IMPORT_ALLOWED_ROOTS` allows them.
 - [x] Fixed the sidebar new-game no-connection path so it opens the same connection-gate flow as conversation and roleplay instead of silently returning.
+- [x] Collapsed duplicated game asset API command wrappers so `assetsApi` and `gameAssetsApi` share one implementation instead of repeating Tauri invocations.
+- [x] Moved conversation autonomy hooks under `features/chats/hooks/autonomous` and updated imports so autonomy is explicitly a conversation-mode concern, not a mode-neutral feature.
+- [x] Split the no-preset generation fallback prompt by `conversation`, `roleplay`, and `game`, so the fallback path no longer uses one roleplay-flavored prompt for every mode.
+- [x] Added a dedicated game-turn generation guide to normal game sends and retries so the main game path no longer enters the generic engine without game-mode constraints.
+- [x] Added roleplay scene continuity persistence: concluded scenes now append `roleplaySceneHistory` and `lastRoleplaySceneSummary` to the origin chat, and prompt assembly includes the last scene summary.
+- [x] Replaced the tiny lorebook regex placeholder with a guarded browser-safe executor and removed stale server-timeout wording from shared regex docs.
 - [x] Updated migration docs to remove stale backup/archive compatibility, sidecar/sync active-surface instructions, `legacy-shared` guidance, and barrel/re-export recommendations.
 
 ## Remaining Migration Gaps
 
 - [~] LLM provider parity: `openai_chatgpt` and `claude_subscription` are present in contracts/model catalogs, but their local-auth transports still need native Tauri implementations rather than the old Node SDK/server path.
 - [~] LLM provider parity: common OpenAI-compatible/Anthropic/Google parameters and image inputs are wired, but full original Responses API/GPT-5 reasoning, thinking events, usage accounting, abort propagation, and local-auth ChatGPT/Claude subscription parity are still not complete.
-- [~] Game mode parity: storage/assets/mechanics routes exist, but the main `GameSurface` send path still uses generic generation instead of a fully separate game turn orchestrator, and map/party-card/encounter/session mechanics still need a deeper original-vs-refactor migration pass.
-- [~] Roleplay scene parity: scene create/fork/conclude paths exist, but original per-character scene memory persistence and richer continuity context still need migration.
-- [~] Mode separation: `chat`, `roleplay`, and `game` have separate engine homes, but UI still has deep imports and large mixed surfaces that need to be split so editing one mode cannot affect the others.
+- [~] Game mode parity: storage/assets/mechanics routes exist and game sends/retries now carry game-mode constraints, but the main `GameSurface` path still needs a fully separate game turn orchestrator, and map/party-card/encounter/session mechanics still need a deeper original-vs-refactor migration pass.
+- [~] Roleplay scene parity: scene create/fork/conclude paths exist and origin-scene summary persistence is wired, but original per-character scene memory semantics still need deeper parity review.
+- [~] Mode separation: `chat`, `roleplay`, and `game` have separate engine homes and conversation autonomy has moved under chats, but UI still has deep imports and large mixed surfaces that need to be split so editing one mode cannot affect the others.
 - [~] Prompt/command workflow parity: hidden command parsing now executes several storage/integration side effects, but UI/navigation/fetch/selfie/cross-post command families still need a complete current-app orchestration pass.
 - [~] Conversation autonomy parity: scheduleless talkativeness fallback, scene-busy filtering, follow-up limits, and hidden-window polling improved, but a Rust-side/background scheduler equivalent is still not present.
 - [~] Spotify DJ playlist parity: native Spotify transport exists, but exact DJ Mari playlist construction/playback behavior still needs original-vs-refactor parity work.
 - [~] Bot browser and paid provider parity: native routes exist, but auth/session recovery for non-Chub providers still needs live-provider verification and fixes as upstreams change.
-- [~] Import/assets parity: ST bulk import now streams, and game asset validation improved, but folder browsing/root token policy and current-package heuristics still need another source-level review.
+- [~] Import/assets parity: ST bulk import now streams, folder-token policy is restored, and game asset validation improved, but current-package heuristics still need another source-level review.
 - [~] Large-file cleanup: `GameSurface.tsx`, `ChatSettingsDrawer.tsx`, `GameNarration.tsx`, and several Rust provider/workflow modules remain above the review threshold and need focused splits.
 
 ## Remaining External QA
@@ -223,5 +230,12 @@ Last updated: 2026-05-18.
 - [x] `pnpm check:docs` passed on 2026-05-18 after generic API bridge removal checklist updates.
 - [x] `pnpm typecheck` passed on 2026-05-18 after generation input/attachment, asset validation, import streaming, and docs cleanup.
 - [x] `cargo check --manifest-path src-tauri/Cargo.toml` passed on 2026-05-18 after generation image transport, asset validation, binary URL policy, and import streaming.
+- [x] `pnpm typecheck` passed on 2026-05-18 after import token policy, shared asset API cleanup, autonomy hook move, mode fallback, and roleplay scene continuity changes.
+- [x] `cargo check --manifest-path src-tauri/Cargo.toml` passed on 2026-05-18 after import token policy and Rust import path hardening.
+- [x] `pnpm build` passed on 2026-05-18 after import token policy/mode cleanup, with Vite large-chunk warnings only.
+- [x] `pnpm check:docs` passed on 2026-05-18 after no-sidecar/no-sync docs cleanup.
+- [x] `pnpm typecheck` passed on 2026-05-18 after adding dedicated game-turn generation guides.
+- [x] `pnpm build` passed on 2026-05-18 after adding dedicated game-turn generation guides, with Vite large-chunk warnings only.
+- [x] `pnpm check:docs` passed on 2026-05-18 after the game-turn guide checklist update.
 - [x] `pnpm build` passed on 2026-05-18 after generation input/attachment, asset validation, import streaming, and docs cleanup, with Vite large-chunk warnings only.
 - [x] `pnpm check:docs` passed on 2026-05-18 after no-legacy/no-sidecar-sync docs cleanup.

@@ -321,9 +321,63 @@ function renderPersona(persona: GenerationPersonaContext | null): string {
     .join("\n");
 }
 
+function renderJsonBlock(label: string, value: unknown): string {
+  const record = parseRecord(value);
+  if (Object.keys(record).length === 0) return "";
+  return `${label}:\n${JSON.stringify(record, null, 2).slice(0, 4000)}`;
+}
+
+function fallbackSystemPrompt(input: PromptAssemblyInput, args: {
+  characters: GenerationCharacterContext[];
+  persona: GenerationPersonaContext | null;
+  worldBefore: string;
+  worldAfter: string;
+  summary: string | null;
+}): string {
+  const mode = readString(input.chat.mode || input.chat.chatMode, "conversation");
+  const meta = parseRecord(input.chat.metadata);
+  const common = [
+    renderCharacters(args.characters),
+    renderPersona(args.persona),
+    args.worldBefore,
+    args.worldAfter,
+    args.summary ? `Summary:\n${args.summary}` : "",
+  ];
+
+  if (mode === "game") {
+    return [
+      "You are Marinara's Game Master. Run the game as a structured campaign, not as a normal chat or roleplay scene.",
+      "Narrate clear consequences, keep party members distinct, preserve game mechanics, and emit game tags when state, inventory, quests, encounters, music, or scene assets should change.",
+      renderJsonBlock("Game setup", meta.gameSetupConfig),
+      renderJsonBlock("Game state", input.chat.gameState ?? meta.gameState),
+      ...common,
+    ]
+      .filter((part) => part.trim().length > 0)
+      .join("\n\n");
+  }
+
+  if (mode === "roleplay" || meta.sceneStatus === "active") {
+    return [
+      "You are roleplaying in Marinara Engine. Stay in character, respect the scenario, and continue the scene naturally.",
+      "Treat this as the roleplay path: focus on scene continuity, character action, dialogue, and immersive narration without using game-mode mechanics unless explicitly present in the chat.",
+      ...common,
+    ]
+      .filter((part) => part.trim().length > 0)
+      .join("\n\n");
+  }
+
+  return [
+    "You are participating in a Marinara Engine conversation. Reply as the appropriate assistant character or narrator for this chat.",
+    "Treat this as the conversation path: keep the exchange conversational, respect character cards and memory, and do not introduce roleplay HUD or game mechanics unless the user explicitly asks.",
+    ...common,
+  ]
+    .filter((part) => part.trim().length > 0)
+    .join("\n\n");
+}
+
 function chatSummary(chat: JsonRecord): string | null {
   const meta = parseRecord(chat.metadata);
-  const parts = [meta.conversationSummary, meta.summary, meta.daySummaries, meta.weekSummaries]
+  const parts = [meta.conversationSummary, meta.summary, meta.daySummaries, meta.weekSummaries, meta.lastRoleplaySceneSummary]
     .map((value) => (typeof value === "string" ? value : isRecord(value) || Array.isArray(value) ? JSON.stringify(value) : ""))
     .filter((value) => value.trim().length > 0);
   return parts.length > 0 ? parts.join("\n\n") : null;
@@ -699,16 +753,13 @@ export async function assembleGenerationPrompt(
   if (messages.length === 0) {
     messages.push({
       role: "system",
-      content: [
-        "You are roleplaying in Marinara Engine. Stay in character, respect the scenario, and continue the scene naturally.",
-        renderCharacters(characters),
-        renderPersona(persona),
-        processedLore.worldInfoBefore,
-        processedLore.worldInfoAfter,
-        summary ? `Summary:\n${summary}` : "",
-      ]
-        .filter((part) => part.trim().length > 0)
-        .join("\n\n"),
+      content: fallbackSystemPrompt(input, {
+        characters,
+        persona,
+        worldBefore: processedLore.worldInfoBefore,
+        worldAfter: processedLore.worldInfoAfter,
+        summary,
+      }),
       contextKind: "prompt",
     });
   }

@@ -1485,6 +1485,8 @@ const RECENT_MUSIC_HISTORY_LIMIT = 8;
 const RECENT_SPOTIFY_TRACK_HISTORY_LIMIT = 12;
 const GAME_START_GENERATION_GUIDE =
   "Begin the game now with the first visible GM VN narration/dialogue segment. This is an invisible startup trigger, not a player action. Do not mention a start command.";
+const GAME_TURN_GENERATION_GUIDE =
+  "Continue the game from the player's latest turn. Stay on the game-mode path: respond as the Game Master, preserve party/game mechanics, emit supported game tags for state changes, and do not switch into normal conversation or roleplay-scene behavior.";
 const SYNTHETIC_GAME_START_MESSAGE_RE = /^\s*\[start(?:\s+the)?\s+game\]\s*$/i;
 
 function normalizeRecentMusicHistory(value: unknown): string[] {
@@ -4344,6 +4346,8 @@ export function GameSurface({
         chatId: activeChatId,
         connectionId: null,
         regenerateMessageId: msg.id,
+        generationGuide: GAME_TURN_GENERATION_GUIDE,
+        generationGuideSource: "game_retry",
       });
       if (receivedContent) {
         toast.success("Turn regenerated.", { duration: 1800 });
@@ -4467,6 +4471,8 @@ export function GameSurface({
         chatId: activeChatId,
         connectionId: null,
         userMessage: message,
+        generationGuide: GAME_TURN_GENERATION_GUIDE,
+        generationGuideSource: "game_turn",
         ...(attachments?.length ? { attachments } : {}),
       });
     },

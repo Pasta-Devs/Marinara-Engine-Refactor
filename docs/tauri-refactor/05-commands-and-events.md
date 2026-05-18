@@ -24,7 +24,6 @@ chat_delete
 generation_start
 generation_cancel
 game_turn_start
-sidecar_install_runtime
 spotify_start_oauth
 haptic_list_devices
 ```
@@ -309,11 +308,6 @@ generation://game-state
 generation://done
 generation://error
 
-sidecar://status
-sidecar://download-progress
-sidecar://runtime-progress
-sidecar://log
-
 import://progress
 import://done
 import://error
@@ -326,13 +320,6 @@ game://turn-error
 haptic://device-status
 spotify://status
 update://available
-sync://status
-sync://heads
-sync://push-progress
-sync://pull-progress
-sync://blob-progress
-sync://conflict
-sync://error
 ```
 
 Generation event flow:
@@ -366,9 +353,7 @@ Cancellation commands:
 generation_cancel(run_id)
 game_turn_cancel(run_id)
 import_cancel(run_id)
-sidecar_cancel_download(run_id)
 update_cancel(run_id)
-sync_cancel(run_id)
 ```
 
 ## TypeScript Bindings

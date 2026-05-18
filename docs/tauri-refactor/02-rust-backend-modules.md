@@ -4,7 +4,7 @@ This file lists the Rust crates and the expected files inside each crate. File n
 
 ## Rust Simplicity Rule
 
-The team is mainly JavaScript developers, so Rust should be used deliberately and kept approachable. Rust owns the backend, filesystem, secrets, provider calls, sidecars, integrations, and other security-sensitive responsibilities, but the implementation should stay minimal and explicit.
+The team is mainly JavaScript developers, so Rust should be used deliberately and kept approachable. Rust owns the backend, filesystem, secrets, provider calls, integrations, and other security-sensitive responsibilities, but the implementation should stay minimal and explicit.
 
 Prefer:
 
@@ -46,7 +46,6 @@ Creates the application graph:
 - storage manager
 - secret manager
 - provider registry
-- sidecar manager
 - event bus
 - service registry
 
@@ -599,50 +598,12 @@ Responsibilities:
 - thumbnails
 - font discovery and serving
 
-## `sidecar`
+## Excluded: sidecar and sync
 
-Local AI runtime and model management.
-
-Preserve the current sidecar UX and feature behavior, but do not port the old custom sidecar internals line-for-line. Prefer rewriting this portion around an existing Rust inference package/runtime where practical. Rust owns runtime/model/package management, downloads, process control, logs, health checks, local inference, and sidecar-backed scene analysis. React keeps the current status, settings, model download, logs, and progress UI.
-
-Package/runtime details should be inventoried during the sidecar implementation slice from the original source and scripts, especially `scripts/build-sidecar-runtime.mjs`, `scripts/install-backgroundremover.mjs`, and `packages/server/src/services/sidecar/*`.
-
-Crane (`https://github.com/lucasjinreal/Crane`) is a sidecar runtime candidate to evaluate. It is a Rust/Candle inference engine with LLM, VLM, TTS, OCR, and OpenAI-compatible server support. Do not lock it in until model coverage, platform support, binary size, packaging complexity, and maintenance risk are reviewed.
-
-```text
-src/
-  lib.rs
-  service.rs
-  config.rs
-  models.rs
-  model_files.rs
-  downloads.rs
-  runtime/
-    mod.rs
-    install.rs
-    llama_cpp.rs
-    mlx.rs
-    env.rs
-  process/
-    mod.rs
-    manager.rs
-    launch_plan.rs
-    logs.rs
-    health.rs
-  inference.rs
-  scene_analysis.rs
-```
-
-Responsibilities:
-
-- model catalog
-- model downloads
-- runtime install
-- sidecar package/runtime management
-- llama.cpp and MLX process control
-- logs
-- local inference
-- sidecar-backed scene analysis
+Sidecar and sync are not active Rust modules in this migration. Do not keep
+placeholder crates, command shells, event names, stores, settings panels, or
+documentation that implies they are present in the app. Reintroducing either
+scope requires a new design pass.
 
 ## `import`
 

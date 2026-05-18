@@ -25,7 +25,7 @@ Prefer fewer dependencies and simpler Rust code when a small local implementatio
 | Dialogs | `tauri-plugin-dialog` | Native folder/file pickers. |
 | Opener | `tauri-plugin-opener` | External links and files. |
 | Filesystem | `tauri-plugin-fs` | Use sparingly with tight scopes. Rust should own most file access. |
-| Shell | `tauri-plugin-shell` | Avoid for sidecar internals; use Rust `tokio::process`. |
+| Shell | `tauri-plugin-shell` | Avoid unless an active feature explicitly needs a user-visible shell action. |
 | Stronghold | `tauri-plugin-stronghold` | Optional encrypted vault. Consider OS keychain first. |
 
 ## Storage
@@ -37,7 +37,7 @@ Prefer fewer dependencies and simpler Rust code when a small local implementatio
 | Storage manifest | custom serde structs | Track storage version, saved timestamp, table counts, and file-storage compatibility metadata. |
 | Full-text search | `tantivy` | Useful for chat/lorebook/knowledge search later. |
 | File walking | `walkdir` or `ignore` | Imports and asset scans. |
-| Object storage | `object_store` or S3-compatible SDK | Sync server blob abstraction. |
+| Object storage | `object_store` or S3-compatible SDK | Not part of the active local app; revisit only when sync is reopened. |
 
 ## Security
 
@@ -80,15 +80,11 @@ Recommendation: define Marinara's own `ChatProvider` trait first. Use `genai` or
 | ZIP packages | `zip` | Current profile packages and workflow imports. |
 | Audio metadata | evaluate per need | Frontend still plays audio. Rust may only manage files/cache. |
 
-## Sidecar And Processes
+## Excluded Process Scopes
 
-| Need | Candidate | Notes |
-| --- | --- | --- |
-| Process control | `tokio::process::Command` | Sidecar runtime start/stop. |
-| Free port | `tokio::net::TcpListener` | Bind port 0 on loopback. |
-| Log tailing | custom file tailer | Emit `sidecar://log` events. |
-| Archives | `zip`, `tar`, `flate2` | Runtime installs if needed. |
-| Local inference runtime | Crane, llama.cpp, MLX | Prefer an existing runtime/package over porting old custom sidecar internals line-for-line. Evaluate Crane as a Rust/Candle candidate with OpenAI-compatible server support. |
+Sidecar and sync are excluded from the active runtime. Do not add process
+control, log tailing, runtime install, or blob-sync dependencies for those
+scopes until a new design pass reopens them.
 
 ## Integrations
 

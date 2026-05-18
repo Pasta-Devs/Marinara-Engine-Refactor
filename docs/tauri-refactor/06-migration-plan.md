@@ -236,18 +236,20 @@ Exit criteria:
 - Rust owns filesystem access, validation, parsing, blob placement, and persistence.
 - Update apply is permission-gated.
 
-## Phase 12: Sidecar
+## Phase 12: Excluded Sidecar/Sync Guardrail
 
-1. Inventory current sidecar runtime/package requirements from source and scripts.
-2. Evaluate existing runtimes/packages such as Crane, llama.cpp, and MLX.
-3. Rewrite sidecar internals around the chosen runtime/package where practical.
-4. Port model catalog, downloads, runtime install, process manager, logs, health checks, local inference provider, and scene analysis.
+Sidecar and sync are excluded from the active Tauri migration. This phase is a
+guardrail, not an implementation phase:
+
+1. Remove active sidecar/sync UI, commands, stores, routes, and placeholder crates.
+2. Keep local app state sync-friendly through stable IDs and clear blob references.
+3. Do not add sidecar/sync stubs or fake-success placeholders.
 
 Exit criteria:
 
-- Current sidecar UI flow remains recognizable.
-- Runtime choice is documented with packaging, platform, model coverage, binary size, and maintenance tradeoffs.
-- Old custom sidecar internals are not ported line-for-line where a package covers the behavior.
+- Active runtime contains no sidecar/sync command surface.
+- Active frontend contains no sidecar/sync panels or stores.
+- Any future sidecar/sync work starts from a separate design pass.
 
 ## Phase 13: Integrations
 

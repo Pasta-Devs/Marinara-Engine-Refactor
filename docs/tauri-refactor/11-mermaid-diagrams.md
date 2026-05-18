@@ -207,7 +207,7 @@ sequenceDiagram
   SERVER->>DB: read changes by collection
   SERVER-->>CLIENT: changes + conflict markers
   CLIENT->>LOCAL: merge safe changes
-  CLIENT-->>UI: sync://status and sync://conflict
+  CLIENT-->>UI: future sync status/conflict events (not active)
 ```
 
 ## Data Classification

@@ -88,9 +88,7 @@ src/
     prompts/
     roleplay/
     settings/
-    sidecar/
     spotify/
-    sync/
     themes/
     translation/
     tts/
@@ -107,17 +105,19 @@ src/
 - Authenticated network calls, provider tests, image generation, TTS, translation, Spotify OAuth/playback calls, and bot-browser authenticated fetches.
 - Prompt assembly and generation orchestration.
 - Agent execution and tool calls.
-- Local model downloads and sidecar process management.
 - Imports from local folders.
-- Backups and restores.
+- Current-format profile package export/import.
 - Media validation, blob placement, character card PNG parsing/export, and thumbnail generation when needed.
 - Haptic device access.
 - Spotify OAuth token exchange and refresh.
 - Bot-browser authenticated proxy flows.
 - Update checks and update application.
-- Local sync queue, sync client, conflict metadata, and device pairing.
 - Filesystem access outside browser-selected blobs.
 - SSRF, path traversal, and content-type protections.
+
+Sidecar and sync are excluded from the active runtime graph. Do not add folders,
+commands, placeholder stores, or UI surfaces for either scope until that work is
+explicitly reopened.
 
 ### Frontend Owns
 

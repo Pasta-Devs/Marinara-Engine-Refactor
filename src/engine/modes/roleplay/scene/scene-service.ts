@@ -176,6 +176,7 @@ export async function concludeRoleplayScene(
     role: "narrator",
     content: `The scene concluded.\n\n${summary}`,
   });
+  await appendSceneMemory(capabilities.storage, originChatId, input.sceneChatId, summary);
   await patchChatMetadata(capabilities.storage, input.sceneChatId, { sceneStatus: "concluded" });
   await cleanOriginScenePointers(capabilities.storage, originChatId);
   await capabilities.storage.update("chats", input.sceneChatId, { connectedChatId: null });
@@ -395,6 +396,29 @@ async function createChatMessage(storage: StorageGateway, chatId: string, messag
 
 async function patchChatMetadata(storage: StorageGateway, chatId: string, patch: JsonRecord): Promise<void> {
   await storage.patchChatMetadata(chatId, patch);
+}
+
+async function appendSceneMemory(
+  storage: StorageGateway,
+  originChatId: string,
+  sceneChatId: string,
+  summary: string,
+): Promise<void> {
+  const originChat = await requireChat(storage, originChatId);
+  const originMeta = parseJsonObject(originChat.metadata);
+  const previous = Array.isArray(originMeta.roleplaySceneHistory) ? originMeta.roleplaySceneHistory : [];
+  const next = [
+    ...previous.filter((entry) => parseJsonObject(entry).sceneChatId !== sceneChatId),
+    {
+      sceneChatId,
+      concludedAt: new Date().toISOString(),
+      summary,
+    },
+  ].slice(-20);
+  await patchChatMetadata(storage, originChatId, {
+    roleplaySceneHistory: next,
+    lastRoleplaySceneSummary: summary,
+  });
 }
 
 async function cleanOriginScenePointers(storage: StorageGateway, originChatId: string): Promise<void> {

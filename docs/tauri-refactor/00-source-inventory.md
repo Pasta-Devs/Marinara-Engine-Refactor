@@ -38,7 +38,7 @@ Track these groups during Rust backend slices:
 - `src/utils`, `src/config`, `src/lib`: map useful behavior to `core`, `security`, or owning domain modules.
 - `packages/shared/src/types`, `schemas`, `constants`, `utils`: map to Rust domain DTOs, generated TypeScript bindings, or frontend-only helpers.
 - `assets`: copy defaults only when the owning feature slice needs them.
-- `scripts`, platform folders, installer/launcher support: account for them during sidecar, updates, packaging, and sync phases.
+- `scripts`, platform folders, installer/launcher support: account for active update and packaging behavior. Sidecar and sync scripts are reference-only until those scopes are explicitly reopened.
 - `tests`: use as behavior references for Rust service/repository tests.
 
 ## Required Slice Update
@@ -207,7 +207,7 @@ Status: Complete, reworked from simplified shell to moved original UI tree.
 - Moved original game support files `hooks/use-game.ts`, `hooks/use-party-turn.ts`, `stores/game-mode.store.ts`, `stores/game-state.store.ts`, `stores/game-asset.store.ts`, and game-specific libs `asset-fuzzy-match.ts`, `game-asset-selection.ts`, `game-audio.ts`, `game-character-name-match.ts`, `game-full-body-pose.ts`, `game-segment-edits.ts`, `game-tag-parser.ts`, and `party-dialogue-parser.ts` into `src/features/game`.
 - Added a thin `GameConversationView` adapter that wires selected `game` chats into the moved original `GameSurface`; it supplies existing chat/message query results and leaves backend-dependent actions routed to failing seams.
 - Moved supporting original UI used directly by the game surface: `ActiveWorldInfoButton.tsx`, `ChatGallery.tsx`, `ChatGalleryDrawer.tsx`, `ChatRoleplayPanels.tsx`, `ImagePromptPanel.tsx`, `PinnedImageOverlay.tsx`, `SpriteOverlay.tsx`, `WeatherEffects.tsx`, `chat-area.types.ts`, `sprite-display-modes.ts`, and `sprite-placement.ts`.
-- Moved original shared UI/helpers needed by the game tree: `EmojiPicker.tsx`, `GenerationParametersEditor.tsx`, `ImagePromptReviewModal.tsx`, `SpeechToTextButton.tsx`, `utils.ts`, `character-display.ts`, `chat-macros.ts`, `connection-filters.ts`, `dialogue-quotes.ts`, `draft-translation.ts`, `markdown.tsx`, `spotify-playback-events.ts`, `tts-audio-cache.ts`, `tts-dialogue.ts`, `tts-service.ts`, `ui.store.ts`, and `sidecar.store.ts`.
+- Moved original shared UI/helpers needed by the game tree: `EmojiPicker.tsx`, `GenerationParametersEditor.tsx`, `ImagePromptReviewModal.tsx`, `SpeechToTextButton.tsx`, `utils.ts`, `character-display.ts`, `chat-macros.ts`, `connection-filters.ts`, `dialogue-quotes.ts`, `draft-translation.ts`, `markdown.tsx`, `spotify-playback-events.ts`, `tts-audio-cache.ts`, `tts-dialogue.ts`, `tts-service.ts`, and `ui.store.ts`.
 - Earlier copied shared contracts have been moved into owner files under `src/engine/contracts`; do not recreate `legacy-shared` aliases or barrel shims.
 - Added explicit unavailable/inert seams for later backend or future frontend slices: generation (`useGenerate`), scene analysis (`useSceneAnalysis`), regex application, translation, TTS config, gallery persistence, and agent expression results. These do not fake success or persistence.
 - Added original client dependencies required by moved UI: `@dnd-kit/core` and `zod`.
@@ -219,7 +219,7 @@ Status: Complete for the known simplified Phase 2 UI targets.
 
 - Reworked Phase 2 Slice 9 first because it had the clearest simplified replacement and the original game UI tree could be moved as a coherent component graph.
 - Reworked Phase 2 Slices 1, 5, 6, 7, and 8 by replacing simplified or reduced settings, chat/conversation, lorebook/preset panels and editors, connections panel, and roleplay surfaces with moved original UI code and matching original hook/store contracts where needed for compilation.
-- Added only compile/deferred seams for later backend or future frontend ownership: generation, scene analysis, scene actions, autonomous messaging, agents, encounter, haptics, custom tools, translation, TTS, gallery/file storage, sidecar/model operations, exports/imports, and API calls remain unavailable or inert.
+- Added only compile/deferred seams for later backend or future frontend ownership: generation, scene analysis, scene actions, autonomous messaging, agents, encounter, haptics, custom tools, translation, TTS, gallery/file storage, exports/imports, and API calls remain unavailable or inert. Sidecar and sync seams are not kept active.
 - Do not continue to agents/tools UI until this cleanup is reviewed.
 
 ### Full UI Copy Continuation
@@ -238,9 +238,9 @@ Status: Complete for original client UI file coverage.
 Status: Complete for non-code source assets currently needed by migrated UI and asset features.
 
 - Refreshed original `packages/client/public` assets into root `public`.
-- Copied server default asset directories from `packages/server/data` into `src-tauri/resources/default-data`: `backgrounds`, `fonts`, `game-assets`, `knowledge-sources`, `models`, `sidecar-runtime`, and `sprites`.
+- Copied server default asset directories from `packages/server/data` into `src-tauri/resources/default-data`: `backgrounds`, `fonts`, `game-assets`, `knowledge-sources`, `models`, and `sprites`. Sidecar runtime assets are excluded from the active app.
 - Copied server default data asset `packages/server/src/db/default-preset.json` into `src-tauri/resources/default-data/db/default-preset.json`.
 - Copied platform icon assets from `android/app/src/main/res/mipmap-*` and `win/installer/app-icon.ico` into `src-tauri/resources/platform-assets`, and replaced the active Tauri Windows `src-tauri/icons/icon.ico` with the original Windows app icon.
 - Added those copied defaults/platform assets to the Tauri bundle resource list so they can be packaged without adding Rust behavior in this pass.
-- Deferred Rust/backend asset behavior: default-data seeding, `/api/backgrounds`, `/api/game-assets/file`, gallery/avatars/sprites/font routes, asset mutation, model installation, sidecar runtime management, and user-data migration.
+- Deferred Rust/backend asset behavior at that point: default-data seeding, `/api/backgrounds`, `/api/game-assets/file`, gallery/avatars/sprites/font routes, asset mutation, model installation, and user-data migration. Sidecar runtime management is excluded from active scope.
 - Intentionally not copied: `packages/server/data/.encryption-key`, `marinara-engine.db`, `marinara-engine.db-shm`, and `marinara-engine.db-wal`, because those are runtime user data/secrets rather than source assets.

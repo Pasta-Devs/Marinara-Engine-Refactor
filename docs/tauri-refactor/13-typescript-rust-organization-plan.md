@@ -246,14 +246,8 @@ Generated from 2887 files in the current refactor repository, excluding node_mod
 | src-tauri/crates/roleplay/src/lib.rs | Rust capability crate | Keep Rust. Own privileged capabilities, command support, and native-safe operations. |
 | src-tauri/crates/security/Cargo.toml | Rust capability crate | Keep Rust. Own privileged capabilities, command support, and native-safe operations. |
 | src-tauri/crates/security/src/lib.rs | Rust capability crate | Keep Rust. Own privileged capabilities, command support, and native-safe operations. |
-| src-tauri/crates/sidecar/Cargo.toml | Deferred Rust external service | Keep placeholder only for now; sidecar and sync are out of scope. |
-| src-tauri/crates/sidecar/src/lib.rs | Deferred Rust external service | Keep placeholder only for now; sidecar and sync are out of scope. |
 | src-tauri/crates/storage/Cargo.toml | Rust capability crate | Keep Rust. Own privileged capabilities, command support, and native-safe operations. |
 | src-tauri/crates/storage/src/lib.rs | Rust capability crate | Keep Rust. Own privileged capabilities, command support, and native-safe operations. |
-| src-tauri/crates/sync-client/Cargo.toml | Deferred Rust external service | Keep placeholder only for now; sidecar and sync are out of scope. |
-| src-tauri/crates/sync-client/src/lib.rs | Deferred Rust external service | Keep placeholder only for now; sidecar and sync are out of scope. |
-| src-tauri/crates/sync-protocol/Cargo.toml | Deferred Rust external service | Keep placeholder only for now; sidecar and sync are out of scope. |
-| src-tauri/crates/sync-protocol/src/lib.rs | Deferred Rust external service | Keep placeholder only for now; sidecar and sync are out of scope. |
 | src-tauri/crates/updates/Cargo.toml | Rust capability crate | Keep Rust. Own privileged capabilities, command support, and native-safe operations. |
 | src-tauri/crates/updates/src/lib.rs | Rust capability crate | Keep Rust. Own privileged capabilities, command support, and native-safe operations. |
 | src-tauri/gen/android/.editorconfig | Generated Android scaffold | Keep generated; do not hand-edit except platform configuration. |
@@ -2997,7 +2991,6 @@ Generated from 2887 files in the current refactor repository, excluding node_mod
 | src/shared/stores/dialog.store.ts | UI/session store | Keep in TypeScript for ephemeral UI state. Durable state should flow through storage capabilities/query cache. |
 | src/shared/stores/encounter.store.ts | UI/session store | Keep in TypeScript for ephemeral UI state. Durable state should flow through storage capabilities/query cache. |
 | src/shared/stores/gallery.store.ts | UI/session store | Keep in TypeScript for ephemeral UI state. Durable state should flow through storage capabilities/query cache. |
-| src/shared/stores/sidecar.store.ts | UI/session store | Keep in TypeScript for ephemeral UI state. Durable state should flow through storage capabilities/query cache. |
 | src/shared/stores/translation.store.ts | UI/session store | Keep in TypeScript for ephemeral UI state. Durable state should flow through storage capabilities/query cache. |
 | src/shared/stores/ui.store.ts | UI/session store | Keep in TypeScript for ephemeral UI state. Durable state should flow through storage capabilities/query cache. |
 | src/shared/types/generated/README.md | Project config/root file | Keep in repo root; update for aliases, builds, docs, and checks. |
@@ -3285,7 +3278,7 @@ Generated from 562 TypeScript/TSX files under original packages/shared/src, pack
 | packages/client/src/stores/game-asset.store.ts | Copy/adapt | src/shared/stores or src/features/*/stores | Ephemeral UI/session state stays TS; durable state moves behind storage capability. |
 | packages/client/src/stores/game-mode.store.ts | Copy/adapt | src/shared/stores or src/features/*/stores | Ephemeral UI/session state stays TS; durable state moves behind storage capability. |
 | packages/client/src/stores/game-state.store.ts | Copy/adapt | src/shared/stores or src/features/*/stores | Ephemeral UI/session state stays TS; durable state moves behind storage capability. |
-| packages/client/src/stores/sidecar.store.ts | Copy/adapt | src/shared/stores or src/features/*/stores | Ephemeral UI/session state stays TS; durable state moves behind storage capability. |
+| packages/client/src/stores/sidecar.store.ts | Removed by scope | none | Sidecar is excluded from the active app; do not recreate the store or a placeholder surface. |
 | packages/client/src/stores/translation.store.ts | Copy/adapt | src/shared/stores or src/features/*/stores | Ephemeral UI/session state stays TS; durable state moves behind storage capability. |
 | packages/client/src/stores/ui.store.ts | Copy/adapt | src/shared/stores or src/features/*/stores | Ephemeral UI/session state stays TS; durable state moves behind storage capability. |
 | packages/server/src/app.ts | Do not copy | src-tauri/src/lib.rs/app.rs | Fastify bootstrap is replaced by Tauri host. |
@@ -3382,7 +3375,7 @@ Generated from 562 TypeScript/TSX files under original packages/shared/src, pack
 | packages/server/src/routes/prompts.routes.ts | Do not copy route shell | src/shared/api + src-tauri/src/commands | Fastify route wrapper is replaced by Tauri command/event wrapper; preserve behavior only. |
 | packages/server/src/routes/regex-scripts.routes.ts | Do not copy route shell | src/shared/api + src-tauri/src/commands | Fastify route wrapper is replaced by Tauri command/event wrapper; preserve behavior only. |
 | packages/server/src/routes/scene.routes.ts | Do not copy route shell | src/shared/api + src-tauri/src/commands | Fastify route wrapper is replaced by Tauri command/event wrapper; preserve behavior only. |
-| packages/server/src/routes/sidecar.routes.ts | Do not copy route shell | src/shared/api + src-tauri/src/commands | Fastify route wrapper is replaced by Tauri command/event wrapper; preserve behavior only. |
+| packages/server/src/routes/sidecar.routes.ts | Removed by scope | none | Sidecar routes are excluded from the active app; do not create command shells. |
 | packages/server/src/routes/spotify-auth.routes.ts | Do not copy route shell | src/shared/api + src-tauri/src/commands | Fastify route wrapper is replaced by Tauri command/event wrapper; preserve behavior only. |
 | packages/server/src/routes/sprites.routes.ts | Do not copy route shell | src/shared/api + src-tauri/src/commands | Fastify route wrapper is replaced by Tauri command/event wrapper; preserve behavior only. |
 | packages/server/src/routes/themes.routes.ts | Do not copy route shell | src/shared/api + src-tauri/src/commands | Fastify route wrapper is replaced by Tauri command/event wrapper; preserve behavior only. |
@@ -3443,13 +3436,13 @@ Generated from 562 TypeScript/TSX files under original packages/shared/src, pack
 | packages/server/src/services/import/st-prompt.importer.ts | Mostly Rust with TS review helpers | src-tauri/crates/import + src/engine/imports | Parsing review logic can be TS; filesystem scanning/writes are Rust. |
 | packages/server/src/services/llm/base-provider.ts | Split | src/engine/llm + Rust llm-transport | Context fitting/types may stay TS; authenticated network transport moves to Rust. |
 | packages/server/src/services/llm/inline-thinking.ts | Split | src/engine/llm + Rust llm-transport | Context fitting/types may stay TS; authenticated network transport moves to Rust. |
-| packages/server/src/services/llm/local-sidecar.ts | Split | src/engine/llm + Rust llm-transport | Context fitting/types may stay TS; authenticated network transport moves to Rust. |
+| packages/server/src/services/llm/local-sidecar.ts | Removed by scope | none | Local sidecar LLM transport is excluded with sidecar. |
 | packages/server/src/services/llm/openai-chatgpt-auth.ts | Split | src/engine/llm + Rust llm-transport | Context fitting/types may stay TS; authenticated network transport moves to Rust. |
 | packages/server/src/services/llm/provider-registry.ts | Split | src/engine/llm + Rust llm-transport | Context fitting/types may stay TS; authenticated network transport moves to Rust. |
 | packages/server/src/services/llm/providers/anthropic.provider.ts | Split | src/engine/llm + src-tauri/crates/llm-transport | Provider request shapes can be TS; auth headers, secrets, safe fetch, and streaming transport are Rust. |
 | packages/server/src/services/llm/providers/claude-subscription.provider.ts | Split | src/engine/llm + src-tauri/crates/llm-transport | Provider request shapes can be TS; auth headers, secrets, safe fetch, and streaming transport are Rust. |
 | packages/server/src/services/llm/providers/google.provider.ts | Split | src/engine/llm + src-tauri/crates/llm-transport | Provider request shapes can be TS; auth headers, secrets, safe fetch, and streaming transport are Rust. |
-| packages/server/src/services/llm/providers/local-sidecar.provider.ts | Split | src/engine/llm + src-tauri/crates/llm-transport | Provider request shapes can be TS; auth headers, secrets, safe fetch, and streaming transport are Rust. |
+| packages/server/src/services/llm/providers/local-sidecar.provider.ts | Removed by scope | none | Local sidecar provider is excluded with sidecar. |
 | packages/server/src/services/llm/providers/openai-chatgpt.provider.ts | Split | src/engine/llm + src-tauri/crates/llm-transport | Provider request shapes can be TS; auth headers, secrets, safe fetch, and streaming transport are Rust. |
 | packages/server/src/services/llm/providers/openai.provider.ts | Split | src/engine/llm + src-tauri/crates/llm-transport | Provider request shapes can be TS; auth headers, secrets, safe fetch, and streaming transport are Rust. |
 | packages/server/src/services/local-embedder.ts | Review/split | src/engine or Rust capability | Classify by whether it is pure domain logic or privileged IO. |
@@ -3596,4 +3589,4 @@ Generated from 562 TypeScript/TSX files under original packages/shared/src, pack
 - Which custom tool types should be allowed in desktop: static only, webhook through Rust safe fetch, or sandboxed scripts?
 - Should provider-specific request body construction remain TS, or should Rust own each provider format once transport moves?
 - Do we want the engine to run only in the webview, or eventually in a separate JS worker/runtime for isolation?
-- Which sidecar and sync files should be removed from near-term docs versus kept as placeholders?
+- Sidecar and sync placeholders should not be kept in active docs or runtime code.
