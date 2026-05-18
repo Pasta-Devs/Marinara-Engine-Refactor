@@ -127,7 +127,7 @@ export function WindowTitleBar() {
     <header
       data-component="WindowTitleBar"
       data-tauri-drag-region
-      className="mari-window-titlebar relative z-40 flex h-8 shrink-0 items-center overflow-hidden"
+      className="mari-window-titlebar relative z-40 flex shrink-0 items-center overflow-hidden"
       onMouseDown={startWindowDrag}
       onDoubleClick={toggleMaximizeFromDragRegion}
     >

@@ -194,6 +194,7 @@ Last updated: 2026-05-18.
 - [x] Restored connected command effects for `schedule_update`, `selfie`, and `scene`, including storage updates, image generation attachments, scene chat creation, and frontend generation events.
 - [x] Restored local-auth provider source parity: `openai_chatgpt` now routes through the local Codex auth/Responses path and `claude_subscription` invokes local Claude Code directly from the Tauri backend instead of relying on the old Node SDK/server transport.
 - [x] Restored Responses API, reasoning/thinking stream events, tool-call extraction, and usage accounting for OpenAI-compatible/GPT-5 style provider flows.
+- [x] Fixed native LLM connection tests to use the saved connection generation controls instead of hardcoded tiny token budgets, and restored OpenRouter request fields for reasoning, provider routing, prompt caching, assistant prefill, max-token caps, and array/refusal/tool-call response parsing.
 - [x] Restored DJ Mari playlist behavior in Rust: context/taste collection, LLM playlist planning, Spotify search matching, liked-song fill, playlist creation, track add, and playback start.
 - [x] Restored ST persona media heuristics for bulk imports by scanning `User Avatars`, `settings.json` persona names/descriptions, and persona text/JSON files.
 - [x] Restored sprite cleanup parity with optional local `backgroundremover` CLI dispatch, model-cache environment support, saved-sprite restore points, and built-in matte cleanup fallback.

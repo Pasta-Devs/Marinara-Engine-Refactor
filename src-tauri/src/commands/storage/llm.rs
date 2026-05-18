@@ -170,11 +170,33 @@ pub(crate) fn llm_connection_from_value(value: &Value) -> AppResult<marinara_llm
         .and_then(Value::as_str)
         .unwrap_or("")
         .to_string();
+    let openrouter_provider = value
+        .get("openrouterProvider")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let enable_caching = match value.get("enableCaching") {
+        Some(Value::Bool(value)) => *value,
+        Some(Value::String(value)) => value.eq_ignore_ascii_case("true"),
+        _ => false,
+    };
+    let caching_at_depth = value
+        .get("cachingAtDepth")
+        .and_then(|value| value.as_u64().or_else(|| value.as_str()?.parse::<u64>().ok()));
+    let max_tokens_override = value
+        .get("maxTokensOverride")
+        .and_then(|value| value.as_u64().or_else(|| value.as_str()?.parse::<u64>().ok()))
+        .filter(|value| *value > 0);
     Ok(marinara_llm::LlmConnection {
         provider,
         model,
         api_key,
         base_url,
+        openrouter_provider,
+        enable_caching,
+        caching_at_depth,
+        max_tokens_override,
     })
 }
 

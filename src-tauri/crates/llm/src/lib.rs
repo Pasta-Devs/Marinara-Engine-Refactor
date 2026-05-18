@@ -32,6 +32,14 @@ pub struct LlmConnection {
     pub api_key: String,
     #[serde(rename = "baseUrl", default)]
     pub base_url: String,
+    #[serde(rename = "openrouterProvider", default)]
+    pub openrouter_provider: Option<String>,
+    #[serde(rename = "enableCaching", default)]
+    pub enable_caching: bool,
+    #[serde(rename = "cachingAtDepth", default)]
+    pub caching_at_depth: Option<u64>,
+    #[serde(rename = "maxTokensOverride", default)]
+    pub max_tokens_override: Option<u64>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -182,6 +190,16 @@ fn max_tokens(parameters: &Value, fallback: u64) -> u64 {
         .unwrap_or(fallback)
 }
 
+fn request_max_tokens(request: &LlmRequest, fallback: u64) -> u64 {
+    let value = max_tokens(&request.parameters, fallback);
+    request
+        .connection
+        .max_tokens_override
+        .filter(|cap| *cap > 0)
+        .map(|cap| value.min(cap))
+        .unwrap_or(value)
+}
+
 fn ensure_url_allowed(url: &str) -> AppResult<()> {
     if is_allowed_outbound_url(url, true) {
         Ok(())
@@ -213,6 +231,25 @@ fn reasoning_effort(parameters: &Value) -> Option<String> {
         "maximum" => Some("high".to_string()),
         _ => None,
     }
+}
+
+fn assistant_prefill(parameters: &Value) -> Option<String> {
+    param_string(parameters, &["assistantPrefill", "assistant_prefill"])
+}
+
+fn request_messages(request: &LlmRequest) -> Vec<LlmMessage> {
+    let mut messages = request.messages.clone();
+    if let Some(prefill) = assistant_prefill(&request.parameters) {
+        messages.push(LlmMessage {
+            role: "assistant".to_string(),
+            content: prefill,
+            name: None,
+            images: Vec::new(),
+            tool_call_id: None,
+            tool_calls: None,
+        });
+    }
+    messages
 }
 
 #[derive(Debug, Clone)]
@@ -371,8 +408,7 @@ async fn complete_openai_compatible_rich(request: LlmRequest) -> AppResult<LlmCo
     let base = base_url(&request.connection.provider, &request.connection.base_url);
     let url = format!("{base}/chat/completions");
     ensure_url_allowed(&url)?;
-    let messages: Vec<Value> = request
-        .messages
+    let messages: Vec<Value> = request_messages(&request)
         .iter()
         .map(openai_message)
         .collect();
@@ -380,7 +416,7 @@ async fn complete_openai_compatible_rich(request: LlmRequest) -> AppResult<LlmCo
         "model": request.connection.model,
         "messages": messages,
         "stream": false,
-        "max_tokens": max_tokens(&request.parameters, 1024),
+        "max_tokens": request_max_tokens(&request, 1024),
     });
     if !request.tools.is_empty() {
         body["tools"] = Value::Array(
@@ -395,7 +431,7 @@ async fn complete_openai_compatible_rich(request: LlmRequest) -> AppResult<LlmCo
     if let Some(temp) = temperature(&request.parameters) {
         body["temperature"] = json!(temp);
     }
-    apply_openai_parameters(&mut body, &request.parameters);
+    apply_openai_parameters(&mut body, &request);
     let client = reqwest::Client::new();
     let mut req = client.post(url).json(&body);
     if !request.connection.api_key.trim().is_empty() {
@@ -419,17 +455,17 @@ async fn stream_openai_compatible(
     let base = base_url(&request.connection.provider, &request.connection.base_url);
     let url = format!("{base}/chat/completions");
     ensure_url_allowed(&url)?;
-    let messages: Vec<Value> = request.messages.iter().map(openai_message).collect();
+    let messages: Vec<Value> = request_messages(&request).iter().map(openai_message).collect();
     let mut body = json!({
         "model": request.connection.model,
         "messages": messages,
         "stream": true,
-        "max_tokens": max_tokens(&request.parameters, 1024),
+        "max_tokens": request_max_tokens(&request, 1024),
     });
     if let Some(temp) = temperature(&request.parameters) {
         body["temperature"] = json!(temp);
     }
-    apply_openai_parameters(&mut body, &request.parameters);
+    apply_openai_parameters(&mut body, &request);
     let client = reqwest::Client::new();
     let mut req = client.post(url).json(&body);
     if !request.connection.api_key.trim().is_empty() {
@@ -501,11 +537,12 @@ fn responses_input(messages: &[LlmMessage]) -> Value {
 }
 
 fn build_openai_responses_body(request: &LlmRequest, stream: bool) -> Value {
+    let messages = request_messages(request);
     let mut body = json!({
         "model": request.connection.model,
-        "input": responses_input(&request.messages),
+        "input": responses_input(&messages),
         "stream": stream,
-        "max_output_tokens": max_tokens(&request.parameters, 1024),
+        "max_output_tokens": request_max_tokens(request, 1024),
     });
     if let Some(effort) = reasoning_effort(&request.parameters) {
         body["reasoning"] = json!({ "effort": effort, "summary": "auto" });
@@ -514,6 +551,15 @@ fn build_openai_responses_body(request: &LlmRequest, stream: bool) -> Value {
         if format == "json_object" {
             body["text"] = json!({ "format": { "type": "json_object" } });
         }
+    }
+    if let Some(verbosity) = param_string(&request.parameters, &["verbosity"]) {
+        let mut text = body
+            .get("text")
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        text.insert("verbosity".to_string(), json!(verbosity));
+        body["text"] = Value::Object(text);
     }
     if !request.tools.is_empty() {
         body["tools"] = Value::Array(
@@ -588,7 +634,7 @@ async fn complete_openai_responses_rich(request: LlmRequest) -> AppResult<LlmCom
         }
     }
     let tool_calls = responses_tool_calls(&json);
-    if content.is_empty() && tool_calls.is_empty() {
+    if content.trim().is_empty() && tool_calls.is_empty() {
         return Err(AppError::with_details(
             "llm_response_error",
             "Responses API result did not contain assistant text or tool calls",
@@ -772,9 +818,13 @@ fn openai_message(message: &LlmMessage) -> Value {
     Value::Object(object)
 }
 
-fn apply_openai_parameters(body: &mut Value, parameters: &Value) {
+fn apply_openai_parameters(body: &mut Value, request: &LlmRequest) {
+    let parameters = &request.parameters;
     if let Some(top_p) = param_f64(parameters, &["topP", "top_p"]) {
         body["top_p"] = json!(top_p);
+    }
+    if let Some(top_k) = param_i64(parameters, &["topK", "top_k"]).filter(|value| *value > 0) {
+        body["top_k"] = json!(top_k);
     }
     if let Some(frequency_penalty) = param_f64(parameters, &["frequencyPenalty", "frequency_penalty"]) {
         body["frequency_penalty"] = json!(frequency_penalty);
@@ -790,6 +840,23 @@ fn apply_openai_parameters(body: &mut Value, parameters: &Value) {
     }
     if let Some(format) = param_string(parameters, &["responseFormat", "response_format"]) {
         body["response_format"] = json!({ "type": format });
+    }
+    if request.connection.provider == "openrouter" {
+        if let Some(effort) = reasoning_effort(parameters) {
+            body["reasoning"] = json!({ "effort": effort });
+        }
+        if let Some(openrouter_provider) = request
+            .connection
+            .openrouter_provider
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            body["provider"] = json!({ "order": [openrouter_provider] });
+        }
+        if request.connection.enable_caching {
+            body["cache_control"] = json!({ "type": "ephemeral" });
+        }
     }
     if let Some(extra) = parameters.get("customParameters").or_else(|| parameters.get("custom_params")) {
         if let Some(entries) = extra.as_object() {
@@ -907,7 +974,8 @@ fn parse_claude_subscription_output(raw: &str) -> AppResult<String> {
 }
 
 async fn complete_claude_subscription(request: LlmRequest) -> AppResult<String> {
-    let (system_prompt, prompt) = render_claude_subscription_transcript(&request.messages);
+    let messages = request_messages(&request);
+    let (system_prompt, prompt) = render_claude_subscription_transcript(&messages);
     let mut command = Command::new(claude_subscription_command());
     command
         .arg("-p")
@@ -973,14 +1041,15 @@ async fn complete_anthropic(request: LlmRequest) -> AppResult<String> {
     let url = format!("{base}/v1/messages");
     ensure_url_allowed(&url)?;
     let mut system = Vec::new();
-    let mut messages = Vec::new();
-    for message in request.messages {
+    let mut anthropic_messages = Vec::new();
+    let messages = request_messages(&request);
+    for message in messages {
         if message.role == "system" {
             system.push(message.content);
         } else {
             let role = if message.role == "assistant" { "assistant" } else { "user" };
             if message.images.is_empty() {
-                messages.push(json!({ "role": role, "content": message.content }));
+                anthropic_messages.push(json!({ "role": role, "content": message.content }));
             } else {
                 let mut content = Vec::new();
                 if !message.content.is_empty() {
@@ -998,14 +1067,14 @@ async fn complete_anthropic(request: LlmRequest) -> AppResult<String> {
                         }));
                     }
                 }
-                messages.push(json!({ "role": role, "content": content }));
+                anthropic_messages.push(json!({ "role": role, "content": content }));
             }
         }
     }
     let mut body = json!({
         "model": request.connection.model,
-        "messages": messages,
-        "max_tokens": max_tokens(&request.parameters, 1024),
+        "messages": anthropic_messages,
+        "max_tokens": request_max_tokens(&request, 1024),
     });
     if !system.is_empty() {
         body["system"] = json!(system.join("\n\n"));
@@ -1047,8 +1116,7 @@ async fn complete_google(request: LlmRequest) -> AppResult<String> {
         request.connection.api_key.trim()
     );
     ensure_url_allowed(&url)?;
-    let contents: Vec<Value> = request
-        .messages
+    let contents: Vec<Value> = request_messages(&request)
         .into_iter()
         .filter(|message| message.role != "system")
         .map(|message| {
@@ -1069,7 +1137,7 @@ async fn complete_google(request: LlmRequest) -> AppResult<String> {
         "contents": contents,
         "generationConfig": {
             "temperature": temperature(&request.parameters).unwrap_or(0.7),
-            "maxOutputTokens": max_tokens(&request.parameters, 1024),
+            "maxOutputTokens": request_max_tokens(&request, 1024),
         }
     });
     if let Some(top_p) = param_f64(&request.parameters, &["topP", "top_p"]) {
@@ -1125,6 +1193,53 @@ where
     })
 }
 
+fn content_text(value: &Value) -> String {
+    match value {
+        Value::String(text) => text.clone(),
+        Value::Array(parts) => parts
+            .iter()
+            .filter_map(|part| {
+                if let Some(text) = part.as_str() {
+                    return Some(text.to_string());
+                }
+                part.get("text")
+                    .and_then(Value::as_str)
+                    .or_else(|| part.get("content").and_then(Value::as_str))
+                    .map(str::to_string)
+            })
+            .collect::<Vec<_>>()
+            .join(""),
+        _ => String::new(),
+    }
+}
+
+fn assistant_message_text(message: &Value) -> String {
+    let content = message.get("content").map(content_text).unwrap_or_default();
+    if !content.trim().is_empty() {
+        return content;
+    }
+    message
+        .get("refusal")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string()
+}
+
+fn response_reasoning_text(choice: &Value, message: &Value) -> String {
+    [
+        message.get("reasoning"),
+        message.get("reasoning_content"),
+        message.get("thinking"),
+        choice.get("reasoning"),
+        choice.get("reasoning_content"),
+    ]
+    .into_iter()
+    .flatten()
+    .map(content_text)
+    .find(|text| !text.trim().is_empty())
+    .unwrap_or_default()
+}
+
 async fn parse_json_response_rich(response: reqwest::Response) -> AppResult<LlmCompletion> {
     let status = response.status();
     let json: Value = response
@@ -1138,23 +1253,22 @@ async fn parse_json_response_rich(response: reqwest::Response) -> AppResult<LlmC
             json,
         ));
     }
-    let message = json
+    let choice = json
         .get("choices")
         .and_then(Value::as_array)
         .and_then(|choices| choices.first())
-        .and_then(|choice| choice.get("message"))
         .ok_or_else(|| {
             AppError::with_details(
                 "llm_response_error",
-                "Provider response did not contain an assistant message",
+                "Provider response did not contain a completion choice",
                 json.clone(),
             )
         })?;
-    let content = message
-        .get("content")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string();
+    let message = choice.get("message").unwrap_or(choice);
+    let mut content = assistant_message_text(message);
+    if content.trim().is_empty() {
+        content = choice.get("text").map(content_text).unwrap_or_default();
+    }
     let tool_calls = message
         .get("tool_calls")
         .and_then(Value::as_array)
@@ -1163,7 +1277,26 @@ async fn parse_json_response_rich(response: reqwest::Response) -> AppResult<LlmC
         .into_iter()
         .map(normalize_tool_call)
         .collect::<Vec<_>>();
-    if content.is_empty() && tool_calls.is_empty() {
+    let tool_calls = if tool_calls.is_empty() {
+        message
+            .get("function_call")
+            .filter(|value| value.is_object())
+            .cloned()
+            .map(normalize_tool_call)
+            .into_iter()
+            .collect::<Vec<_>>()
+    } else {
+        tool_calls
+    };
+    if content.trim().is_empty() && tool_calls.is_empty() {
+        let reasoning = response_reasoning_text(choice, message);
+        if !reasoning.trim().is_empty() {
+            return Err(AppError::with_details(
+                "llm_response_error",
+                "Provider returned reasoning but no final assistant text. Increase Max Output Tokens or lower Reasoning Effort in this connection's generation controls.",
+                json,
+            ));
+        }
         return Err(AppError::with_details(
             "llm_response_error",
             "Provider response did not contain assistant text or tool calls",

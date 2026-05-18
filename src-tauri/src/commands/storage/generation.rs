@@ -2,6 +2,17 @@ use super::llm::llm_connection_from_value;
 use super::shared::*;
 use super::*;
 
+fn stored_generation_parameters(connection: &Value) -> Value {
+    match connection.get("defaultParameters") {
+        Some(Value::Object(map)) => Value::Object(map.clone()),
+        Some(Value::String(raw)) => serde_json::from_str::<Value>(raw)
+            .ok()
+            .filter(Value::is_object)
+            .unwrap_or_else(|| json!({})),
+        _ => json!({}),
+    }
+}
+
 pub(crate) async fn test_connection(state: &AppState, id: &str) -> AppResult<Value> {
     let started = std::time::Instant::now();
     let connection = get_required(state, "connections", id)?;
@@ -15,7 +26,7 @@ pub(crate) async fn test_connection(state: &AppState, id: &str) -> AppResult<Val
             tool_call_id: None,
             tool_calls: None,
         }],
-        parameters: json!({ "maxTokens": 16, "temperature": 0 }),
+        parameters: stored_generation_parameters(&connection),
         tools: Vec::new(),
     };
     let response = marinara_llm::complete(request).await?;
@@ -40,7 +51,7 @@ pub(crate) async fn test_message(state: &AppState, id: &str) -> AppResult<Value>
             tool_call_id: None,
             tool_calls: None,
         }],
-        parameters: json!({ "maxTokens": 64, "temperature": 0.7 }),
+        parameters: stored_generation_parameters(&connection),
         tools: Vec::new(),
     };
     let response = marinara_llm::complete(request).await?;
