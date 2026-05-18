@@ -1,7 +1,15 @@
-# Tauri + React + Typescript
+# Marinara Engine
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+Marinara Engine is a Tauri desktop app with a React frontend, a TypeScript product engine, and Rust capability crates for local storage, assets, provider transport, and integrations.
 
-## Recommended IDE Setup
+## Developer Docs
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+Open `docs/developer/index.html` directly, or serve the docs locally:
+
+```sh
+pnpm docs:dev
+```
+
+Then open `http://127.0.0.1:4174/`.
+
+The docs cover getting started, local run/build commands, architecture, module ownership, and impact areas for bug fixes and new features.

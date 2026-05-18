@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Marinara Architecture</title>
+    <link rel="stylesheet" href="./docs.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <strong>Marinara Engine</strong>
+          <span>Developer docs</span>
+        </div>
+        <nav class="nav" aria-label="Documentation">
+          <a href="./index.html">Overview</a>
+          <a href="./getting-started.html">Getting started</a>
+          <a href="./run-build.html">Run and build</a>
+          <a href="./architecture.html" aria-current="page">Architecture</a>
+          <a href="./modules.html">Modules</a>
+          <a href="./impact-areas.html">Impact areas</a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <p class="eyebrow">Architecture</p>
+        <h1>Dependency direction is the main guardrail.</h1>
+        <p class="lead">
+          The app is layered so product behavior stays readable and privileged
+          local work stays behind Tauri and Rust capability boundaries.
+        </p>
+
+        <h2>Layer Diagram</h2>
+        <pre class="mermaid">
+flowchart TB
+  App[src/app<br/>bootstrap, shell, providers]
+  Features[src/features<br/>feature UI, hooks, UI stores]
+  SharedUI[src/shared<br/>UI primitives, browser helpers, stores]
+  SharedAPI[src/shared/api<br/>typed Tauri adapters]
+  Engine[src/engine<br/>React-free product engine]
+  Ports[src/engine/capabilities<br/>TypeScript capability ports]
+  Commands[src-tauri/src/commands<br/>thin command facades]
+  RustCrates[src-tauri/crates<br/>storage, llm, assets, integrations, security]
+
+  App --> Features
+  App --> SharedUI
+  Features --> SharedUI
+  Features --> SharedAPI
+  Features --> Engine
+  Engine --> Ports
+  SharedAPI --> Commands
+  Commands --> RustCrates
+  Ports -. implementation boundary .-> SharedAPI
+        </pre>
+
+        <h2>Engine Layers</h2>
+        <pre class="mermaid">
+flowchart BT
+  Contracts[contracts and core<br/>types, schemas, constants, ids]
+  Capabilities[capabilities<br/>ports only]
+  Shared[shared<br/>pure helpers]
+  Repositories[repositories<br/>storage-backed wrappers]
+  GenCore[generation-core<br/>prompt, lorebook, regex, LLM DTOs]
+  Agents[agents-runtime<br/>agents, tools, knowledge]
+  Generation[generation<br/>streaming lifecycle and persistence]
+  Modes[modes<br/>chat, roleplay, game]
+
+  Capabilities --> Contracts
+  Shared --> Contracts
+  Repositories --> Capabilities
+  Repositories --> Shared
+  GenCore --> Repositories
+  GenCore --> Shared
+  Agents --> GenCore
+  Generation --> Agents
+  Generation --> GenCore
+  Modes --> Generation
+  Modes --> Repositories
+        </pre>
+
+        <h2>Ownership Rules</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Layer</th>
+              <th>Owns</th>
+              <th>Must not own</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>React features</td>
+              <td>Rendering, local UI state, user actions, feature hooks.</td>
+              <td>Prompt rules, provider transport, storage formats, cross-mode orchestration.</td>
+            </tr>
+            <tr>
+              <td>TypeScript engine</td>
+              <td>Product behavior, mode orchestration, prompt construction, generation flow.</td>
+              <td>React imports, Tauri invokes, secrets, filesystem access, native network policy.</td>
+            </tr>
+            <tr>
+              <td>shared/api</td>
+              <td>Typed Tauri adapter functions and channel/listen wrappers.</td>
+              <td>Product decisions or mode-specific behavior.</td>
+            </tr>
+            <tr>
+              <td>Rust commands</td>
+              <td>Input validation, DTO boundaries, command routing to capability services.</td>
+              <td>Long product workflows, prompt semantics, UI decisions.</td>
+            </tr>
+            <tr>
+              <td>Rust crates</td>
+              <td>Storage, path safety, provider transport, assets, imports, integrations.</td>
+              <td>Mode state machines or UI feature logic.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>Mode Boundary</h2>
+        <pre class="mermaid">
+flowchart LR
+  Chat[modes/chat]
+  Roleplay[modes/roleplay]
+  Game[modes/game]
+  Lower[Lower layers<br/>contracts, shared helpers, repositories,<br/>generation-core, generation, capabilities]
+
+  Chat --> Lower
+  Roleplay --> Lower
+  Game --> Lower
+  Chat -. no imports .- Roleplay
+  Roleplay -. no imports .- Game
+  Game -. no imports .- Chat
+        </pre>
+
+        <h2>When To Add A Module</h2>
+        <ol>
+          <li>Put UI rendering under the owning feature.</li>
+          <li>Put product rules under the owning engine mode or engine service.</li>
+          <li>Put reusable pure helpers below the modes.</li>
+          <li>Put Tauri wrappers in <code>src/shared/api</code>.</li>
+          <li>Put privileged local work in Rust commands and crates.</li>
+        </ol>
+
+        <p class="footer">
+          If a file needs to import sideways across modes or private features,
+          move the shared concept down before adding the import.
+        </p>
+      </main>
+    </div>
+    <script type="module" src="./shared.js"></script>
+  </body>
+</html>

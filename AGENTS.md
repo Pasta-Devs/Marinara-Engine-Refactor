@@ -1,50 +1,223 @@
 # Agent Instructions
 
-The Marinara Engine Tauri migration is not complete until the entire application works locally in Tauri, except for sidecar and sync. Sidecar and sync are the only deferred scopes.
+This repo is a Tauri application with a TypeScript product engine and Rust local capability layer. Maintain it as a clean, layered application. Every bug fix or feature should leave the code easier to reason about, not more tangled.
 
-Original source reference:
+## Repo Skills
 
-- The original Marinara Engine repo is at `E:\Personal Projects\Marinara-Engine`.
-- During migration, constantly compare against that original repo to verify behavior, files, routes, services, types, hooks, stores, and UI workflows have been ported correctly.
-- Treat the original repo as the source of truth for what must exist in the Tauri refactor, except for sidecar and sync, which should be removed from the active app surface.
-- Use new rust packages where you see fit, even for things like LLM generation, if you think we can support MANY LLM providers easily with a package do so, find other places
-- Update docs to keep track of the FULL MIGRATION
+Load the relevant repo-local skill before editing code in that area:
 
-Important migration rule:
+- `skills/marinara-architecture-guard/SKILL.md`: architecture, imports, file layout, shared modules, Tauri adapters, Rust capabilities, repositories, or cross-feature boundaries.
+- `skills/marinara-mode-separation/SKILL.md`: chat/conversation, roleplay, game, generation guides, prompt assembly, scene logic, autonomous flows, game turns, or mode UI.
+- `skills/marinara-bugfix-discipline/SKILL.md`: bugs, regressions, broken UI actions, failing checks, storage/provider/import/generation issues, or any fix with dependent callers.
+- `skills/marinara-getting-started/SKILL.md`: onboarding, "how do I get started?", repo tours, running docs, running the app, first testing paths, and guided bug-fixing flow.
 
-- Move or rebuild every non-sidecar, non-sync backend feature into the new layered Tauri architecture so the UI works end to end.
-- Do not leave placeholder routes, fake-success stubs, or "not configured yet" responses for normal app features such as chat, roleplay, game mode, agents, generation, LLM providers, storage, imports, assets, integrations, lorebooks, presets, characters, personas, themes, TTS, translation, backgrounds, avatars, and game mechanics.
-- Remove sidecar and sync from the active app surface instead of trying to keep their old server endpoints alive. Any UI, stores, docs, routes, or capability modules that only exist for sidecar or sync should be deleted or cleanly hidden until those services are intentionally reintroduced.
-- Do not add runtime compatibility for legacy installs, old server-shaped `/api/...` asset URLs, old profile backups, or old backup/archive formats. This refactor is a fresh Tauri application; any old-data conversion will be handled later by an explicit migration script, not by broad compatibility branches in normal app code.
-- Keep the architecture layered as described in `docs/tauri-refactor/13-typescript-rust-organization-plan.md` and `docs/tauri-refactor/14-layered-module-architecture.md`: TypeScript owns expressive engine logic; Rust owns local capabilities, storage, security, provider transport, filesystem assets, and Tauri commands.
-- Keep `docs/tauri-refactor/15-engine-migration-checklist.md` updated while moving code so future compaction or new sessions do not lose track of remaining work.Also, keep things separated as much as possible.
+Keep these skills updated when architectural decisions change.
 
-Verification expectation before calling the migration done:
+## User Docs
 
-- `pnpm typecheck`
-- `pnpm build`
-- `cargo check --manifest-path src-tauri/Cargo.toml`
-- `pnpm check:docs`
+User-facing developer docs live in `docs/developer/`.
 
-Do not mark the migration complete while any normal non-sidecar/non-sync application workflow still depends on an old server endpoint or placeholder behavior.
+- Main entry: `docs/developer/index.html`
+- Getting started guide: `docs/developer/getting-started.html`
+- Run/build guide: `docs/developer/run-build.html`
+- Architecture guide: `docs/developer/architecture.html`
+- Module guide: `docs/developer/modules.html`
+- Impact guide: `docs/developer/impact-areas.html`
 
-## IMPORTANT
+When the user asks to view or "run" the docs, start the static docs server from the repo root:
 
-## TOP PRIORITY: FEATURE PARITY AND MODE SEPARATION
+```text
+pnpm docs:dev
+```
 
-Feature parity and strict mode separation are the highest-priority migration work. Ignore cleanup-only work until every normal non-sidecar, non-sync feature from the original application has a working Tauri implementation.
+Then give the user this URL:
 
-- Every original non-sidecar, non-sync feature must be either fully migrated into Tauri/TypeScript or explicitly removed only if it is obsolete by product decision. Do not leave incomplete parity as a checklist-only item.
-- Conversation, roleplay, and game mode must remain separate product paths. Editing one mode must not silently alter behavior in the other modes.
-- Shared code is allowed only for genuinely mode-neutral primitives such as storage repositories, LLM transport, asset IO, generic chat message persistence, and UI atoms. Mode behavior, prompts, orchestration, memory semantics, commands, and state transitions belong in their own mode folders.
-- Do not paper over mode separation with guide strings in a generic path when a mode needs its own orchestrator. Game turns, roleplay scenes, and conversation/autonomous flows should each have their own entry points.
-- Large mixed surfaces must be split when they prevent mode isolation or feature parity review. Prioritize splitting files that combine orchestration, persistence, rendering, provider calls, and mode-specific rules.
-- Before claiming completion, compare against `E:\Personal Projects\Marinara-Engine` again and verify feature parity at the source level, then run the required checks.
+```text
+http://127.0.0.1:4174/
+```
 
-## MIGRATE THE ENTIRE APPLICATION. THE ENTIRE THING SHOULD WORK, ALL BUTTONS, UI COMPONENTS, ETC. SPIN UP SUBAGENTS FOR TESTING OR MOVING PIECES. MAKE SURE TO ONLY RE-WRITE THINGS THAT MUST BE RE-WRITTEN FOR MUCH BETTER CODE ORGANIZATION. THIS IS THE MAIN IMPORTANT FOCUS. MOVING TO TAURI AND MUCH MORE READABLE ORGANIZED CODE (i see a massive storage.rs file kreeping that should heavily be split, stuff like that is horrible).
+If port `4174` is busy, run Vite directly with another port:
 
-### KEEP THINGS SEPARATED AS MUCH AS POSSIBLE. DO NOT DUPLICATE CODE OVER AND OVER AGAIN. FOR EXAMPLE, RUST SHOULD JUST DIRECTLY BE CALLED IN TAURI ITS OKAY TO DO THAT. AVOID GIANT FILES.
+```text
+pnpm exec vite docs/developer --host 127.0.0.1 --port <free-port>
+```
 
-## API CALLS NEED TO FULLY BE REFACTORED. NO MORE API CALLS, ALL IS JUST CALLING RUST CODE DIRECTLY OR CALLING TYPESCRIPT CODE LIKE AGENTS THAT CALL RUST CODE.
+For docs-only edits, run `pnpm check:docs`. If the run/build commands, scripts, or Tauri config change, update `docs/developer/run-build.html` in the same change.
 
-# AGAIN, YOUR TASK IS COMPLETE WHEN THE ENTIRE APP IS PORTED AND WORKING EXCEPT FOR SYNC AND SIDECAR.
+Do not tell users to run `pnpm docs`; that collides with pnpm/npm's package documentation command in this environment.
+
+## Getting Started Requests
+
+When a user asks "how do I get started?", "onboard me", "teach me this repo", or anything similar:
+
+1. Load `skills/marinara-getting-started/SKILL.md`.
+2. Start the developer docs with `pnpm docs:dev` unless the user explicitly wants text only.
+3. Give the docs URL: `http://127.0.0.1:4174/`.
+4. Point them first to `docs/developer/getting-started.html`, then `run-build.html`, `architecture.html`, `modules.html`, and `impact-areas.html`.
+5. Explain the repo shape: React UI in `src/features`, product behavior in `src/engine`, Tauri adapters in `src/shared/api`, Rust capabilities in `src-tauri`.
+6. Instruct them to run the app with `pnpm install` and `pnpm tauri dev`.
+7. Guide manual testing through chat, roleplay, game, settings/providers, imports, exports, and assets.
+8. When they find a bug, ask for workflow, steps, expected result, actual result, mode/feature, data used, and any error output. Then switch to `skills/marinara-bugfix-discipline/SKILL.md` and fix the root cause.
+
+Do not begin code edits from a vague getting-started prompt. Onboard, run, test, then edit only after a concrete bug or feature request exists.
+
+## Core Standard
+
+Build code with bricks, not sticks.
+
+- Prefer small, explicit owner modules over compact files that touch many things.
+- Keep modules separated and clear about what they import and use.
+- Use shared modules for real reusable primitives, not copied code.
+- Fix root causes. Never stack patches, fake-success branches, compatibility shims, or UI-only guards over broken contracts.
+- Each change should have a clear impact area, clear dependent callers, and a coherent commit shape.
+
+## Architecture
+
+The main architecture references are:
+
+- `docs/developer/architecture.html`
+- `docs/developer/modules.html`
+- `docs/developer/impact-areas.html`
+
+Treat the layered structure in these docs as the maintenance architecture unless a newer decision replaces it.
+
+Core flow:
+
+```text
+React app/features
+  -> shared/api Tauri adapters
+  -> TypeScript engine use cases
+  -> engine capability ports
+  -> Rust Tauri commands
+  -> Rust capability crates
+```
+
+TypeScript owns product behavior:
+
+- chat, autonomous conversation, roleplay, and game rules
+- agents, prompt rules, generation orchestration, and mode state transitions
+- deterministic parsing, formatting, scoring, prompt-building, and UI-facing application flow
+
+Rust owns privileged local capabilities:
+
+- Tauri commands, events, and channels
+- storage, atomic writes, path safety, managed files, and assets
+- provider transport, secrets, OAuth, safe fetch, and native filesystem access
+- integrations such as Spotify, TTS, translation, haptics, imports, exports, and local file operations
+
+## Dependency Rules
+
+- A behavior has one owner: React UI, TypeScript engine, or Rust capability.
+- Import from owner files or explicit public feature APIs. Do not reach into another feature's private internals.
+- Avoid convenience barrels, one-line re-export shims, `legacy-*` aliases, and dumping-ground `utils` files.
+- Engine code must not import React, Zustand stores, `@tauri-apps/api`, or concrete `src/shared/api` adapters.
+- React components must not duplicate engine rules. They call feature hooks, feature APIs, or engine use cases through adapters.
+- Rust commands stay thin: validate inputs, call capability services, return DTOs/events.
+- Shared code is allowed only for genuinely mode-neutral primitives, generic UI atoms, deterministic helpers, capability ports, repositories, transport, and asset IO.
+
+When an import feels convenient but crosses ownership, make a lower-layer contract or move the reusable primitive down.
+
+## Mode Separation
+
+Chat/conversation, roleplay, and game are separate product paths.
+
+- `src/engine/modes/chat` owns normal chat, autonomous behavior, schedules, summaries, awareness, and chat commands.
+- `src/engine/modes/roleplay` owns scenes, roleplay encounters, roleplay scene memory, roleplay sprites, and visual-novel choices.
+- `src/engine/modes/game` owns game turns, GM/party prompts, game state, maps, combat, loot, checks, weather, time, game assets, sessions, and game scene analysis.
+- Top-level mode engines must not import each other.
+- Shared scene, sprite, transcript, macro, parser, game-state text, and attachment utilities belong in lower layers when more than one mode needs them.
+- Do not hide mode differences behind a generic guide string, a mode flag, or a shared catch-all orchestrator when a mode needs its own entry point.
+
+Editing one mode must not silently alter another mode. If a shared layer change affects multiple modes, say so before editing and verify the affected modes.
+
+## API And Capability Rules
+
+- Frontend code calls typed Tauri wrappers in `src/shared/api` or local TypeScript feature/engine APIs.
+- Engine code accepts capability interfaces from `src/engine/capabilities`; it does not invoke Tauri directly.
+- Rust Tauri commands are grouped by capability and backed by focused crates/modules.
+- Do not add generic string routers, fake local API bridges, server-shaped fallback paths, or browser fetches for local app behavior.
+- Provider URL paths are allowed only inside the appropriate Rust transport or integration capability code.
+
+## Bug Fix Workflow
+
+Before editing a bug:
+
+1. State the failing behavior.
+2. Identify the owning layer and module.
+3. Identify the expected impact area and dependent callers.
+4. Trace the data contract across UI, engine, adapter, command, and capability boundaries as needed.
+5. Decide which focused checks will prove the fix.
+
+While fixing:
+
+- Fix the lowest correct owner, not the most convenient caller.
+- Remove obsolete fallbacks or placeholders exposed by the fix.
+- Keep the change scoped to the behavior under repair.
+- If the scope grows, update the impact area before continuing.
+
+Do not hide failures behind silent catches, fake success, broad defaults, old-shape compatibility, or UI-only conditionals. If the state contract is wrong, fix the contract. If the behavior owner is wrong, move it.
+
+## New Feature Workflow
+
+Before adding a feature:
+
+1. Identify the product owner: chat, roleplay, game, another feature, shared engine, shared UI, or Rust capability.
+2. Define the public entry point and the private implementation files.
+3. Decide which existing contracts, repositories, capabilities, and UI primitives can be reused.
+4. Add new shared code only when at least two owners truly need the same primitive.
+5. Keep mode-specific prompts, orchestration, memory semantics, and state transitions in the owning mode.
+6. Add verification that covers the feature's real path through UI, engine, adapters, and Rust when applicable.
+
+New features should be vertical enough to work end to end, but split into focused modules. Avoid one large feature file that renders UI, loads data, mutates storage, calls providers, and owns orchestration.
+
+## File Size And Separation
+
+Large files are a warning sign when they combine multiple concerns.
+
+Split when a file mixes several of these:
+
+- UI rendering
+- data loading
+- state transitions
+- prompt assembly
+- mode orchestration
+- provider transport
+- storage persistence
+- import/export parsing
+- Tauri command registration
+- filesystem/path safety
+
+Prefer focused files named after one responsibility. Do not duplicate code to avoid splitting. Move mode-neutral reuse into `engine/shared`, `engine/entities`, `engine/generation-core`, `src/shared`, or Rust capability helpers as appropriate.
+
+## Informative Agent Workflow
+
+Agents must be clear about impact.
+
+Before edits, state:
+
+- owner
+- expected impact area
+- likely files/folders
+- affected modes or capabilities
+- checks planned
+
+Final responses for code changes must include:
+
+- behavior changed
+- primary files/modules touched
+- impact area and dependent areas reviewed
+- verification run, or why a check could not be run
+- remaining risk or external QA needed
+
+Each commit should make sense as a coherent unit. Do not mix unrelated formatting, cleanup, bug fixes, and architecture moves in one commit.
+
+## Verification
+
+Run checks that match the changed area:
+
+- TypeScript/UI/engine: `pnpm typecheck`
+- Build/import graph/bundling: `pnpm build`
+- Rust commands/capabilities/provider transport: `cargo check --manifest-path src-tauri/Cargo.toml`
+- Docs/skills/agent guidance: `pnpm check:docs`
+
+Prefer the full set when touching shared contracts, generation, storage, provider transport, mode orchestration, or architecture boundaries. If a check cannot be run, say exactly why.

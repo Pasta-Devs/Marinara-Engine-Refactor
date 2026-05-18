@@ -6,6 +6,7 @@
   "packageManager": "pnpm@10.33.2",
   "scripts": {
     "dev": "vite",
+    "docs:dev": "vite docs/developer --host 127.0.0.1 --port 4174",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "check:frontend": "tsc -b",
