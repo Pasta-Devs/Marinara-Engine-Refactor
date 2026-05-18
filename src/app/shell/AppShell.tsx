@@ -763,7 +763,10 @@ export function AppShell() {
         </>
       )}
 
-      <WindowTitleBar />
+      <header data-component="AppChrome" className="mari-app-chrome relative z-40 flex shrink-0 flex-col overflow-hidden">
+        <WindowTitleBar />
+        <TopBar />
+      </header>
 
       <div data-component="AppShellBody" className="relative flex min-h-0 flex-1 overflow-hidden">
       {/* Mobile sidebar backdrop */}
@@ -819,7 +822,6 @@ export function AppShell() {
         aria-label="Main content"
         className="@container mari-main relative flex min-w-0 flex-1 flex-col overflow-hidden"
       >
-        <TopBar />
         <div className="relative flex flex-1 flex-col overflow-hidden">
           {/* Bot Browser — kept mounted once opened so state persists across close/reopen */}
           <MountOnceWhenOpened open={botBrowserOpen} overlay>

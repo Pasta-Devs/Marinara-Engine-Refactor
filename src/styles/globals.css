@@ -555,9 +555,15 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.mari-app-chrome {
+  background: color-mix(in srgb, var(--card) 92%, var(--background));
+  backdrop-filter: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+}
+
 .mari-topbar,
 .mari-window-titlebar {
-  background: color-mix(in srgb, var(--card) 92%, var(--background));
+  background: transparent;
   backdrop-filter: none;
   user-select: none;
   -webkit-user-select: none;
@@ -565,10 +571,11 @@ body {
 
 .mari-window-titlebar {
   border-bottom: 0;
+  min-height: 1.875rem;
   padding: 0;
 }
 
-.mari-window-titlebar + [data-component="AppShellBody"] .mari-topbar {
+.mari-app-chrome .mari-topbar {
   border-top: 0;
   box-shadow: none;
 }
@@ -1065,6 +1072,7 @@ summary[class*="cursor-pointer"],
 /* Firefox on Windows can rasterize text inside large blurred/translucent layout layers,
    which shows up most clearly on high-DPI displays. Fall back to opaque shell chrome there. */
 @supports (-moz-appearance: none) {
+  .mari-app-chrome,
   .mari-topbar,
   .mari-sidebar,
   .mari-sidebar-header,
@@ -1074,6 +1082,7 @@ summary[class*="cursor-pointer"],
     backdrop-filter: none !important;
   }
 
+  .mari-app-chrome,
   .mari-topbar,
   .mari-sidebar-header,
   .mari-sidebar-footer,
