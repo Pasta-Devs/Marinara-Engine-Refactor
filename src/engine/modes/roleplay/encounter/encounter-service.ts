@@ -21,7 +21,6 @@ import type {
   EncounterLogEntry,
   EncounterSummaryRequest,
   EncounterSummaryResponse,
-  LorebookEntry,
   Message,
   NarrativeStyle,
   PersonaStatsConfig,
@@ -306,7 +305,7 @@ async function loadSpellbookContext(
   const context = enabledEntries
     .map((entry) => {
       const name = stringValue(entry.name, "Spell");
-      const content = stringValue((entry as LorebookEntry).content);
+      const content = stringValue(entry.content);
       return content.trim() ? `<spell name="${name}">\n${content.trim()}\n</spell>` : "";
     })
     .filter(Boolean)
@@ -478,7 +477,7 @@ function fallbackInitState(input: {
   const gameRpgStats = parseRpgStats(gamePlayer?.rpgStats);
   const playerMaxHp = input.personaMaxHp ?? positiveNumber(gameRpgStats?.hp?.max) ?? 24;
   const playerItems = input.worldState.playerItems.length > 0 ? input.worldState.playerItems : ["Healing Potion x1"];
-  const attacks =
+  const attacks: CombatAttack[] =
     input.spellbookAttacks.length > 0
       ? input.spellbookAttacks
       : [{ name: "Attack", type: "single-target", description: "A basic attack.", power: 1, cooldown: 0 }];
@@ -623,15 +622,19 @@ function fallbackSummary(encounterLog: EncounterLogEntry[], result: string): str
 
 function sanitizeCombatInitState(value: JsonRecord | null, fallback: CombatInitState): CombatInitState {
   const source = value ?? {};
+  const itemEffects = arrayValue(source.itemEffects) as CombatItemEffect[] | null;
+  const dialogueCues = arrayValue(source.dialogueCues) as CombatInitState["dialogueCues"] | null;
+  const mechanics = arrayValue(source.mechanics) as CombatInitState["mechanics"] | null;
+  const visuals = recordValue(source.visuals) as CombatInitState["visuals"] | null;
   return {
     party: sanitizePartyArray(arrayValue(source.party), fallback.party),
     enemies: sanitizeEnemyArray(arrayValue(source.enemies), fallback.enemies),
     environment: stringValue(source.environment) || fallback.environment,
     styleNotes: sanitizeStyleNotes(recordValue(source.styleNotes), fallback.styleNotes),
-    itemEffects: arrayValue(source.itemEffects) as CombatItemEffect[] | undefined,
-    dialogueCues: arrayValue(source.dialogueCues) as CombatInitState["dialogueCues"],
-    mechanics: arrayValue(source.mechanics) as CombatInitState["mechanics"],
-    visuals: recordValue(source.visuals) as CombatInitState["visuals"],
+    itemEffects: itemEffects ?? fallback.itemEffects ?? [],
+    dialogueCues: dialogueCues ?? fallback.dialogueCues ?? [],
+    mechanics: mechanics ?? fallback.mechanics ?? [],
+    visuals: visuals ?? fallback.visuals,
   };
 }
 
@@ -707,20 +710,26 @@ function sanitizeEnemy(value: JsonRecord | null, fallback?: CombatEnemy): Combat
 
 function sanitizeAttacks(values: unknown[] | null, fallback: CombatAttack[]): CombatAttack[] {
   const attacks = (values ?? [])
-    .map((value) => {
+    .map((value): CombatAttack | null => {
       const record = recordValue(value);
       const name = stringValue(record?.name);
       if (!name) return null;
       const type = stringValue(record?.type);
-      return {
+      const attack: CombatAttack = {
         name,
         type: type === "AoE" || type === "both" || type === "single-target" ? type : "single-target",
-        description: stringValue(record?.description) || undefined,
-        power: optionalNumber(record?.power),
-        cooldown: optionalNumber(record?.cooldown),
-        element: stringValue(record?.element) || undefined,
-        statusEffect: stringValue(record?.statusEffect) || undefined,
-      } satisfies CombatAttack;
+      };
+      const description = stringValue(record?.description);
+      const power = optionalNumber(record?.power);
+      const cooldown = optionalNumber(record?.cooldown);
+      const element = stringValue(record?.element);
+      const statusEffect = stringValue(record?.statusEffect);
+      if (description) attack.description = description;
+      if (power !== undefined) attack.power = power;
+      if (cooldown !== undefined) attack.cooldown = cooldown;
+      if (element) attack.element = element;
+      if (statusEffect) attack.statusEffect = statusEffect;
+      return attack;
     })
     .filter((attack): attack is CombatAttack => !!attack);
   return attacks.length > 0 ? attacks : fallback;
@@ -728,18 +737,20 @@ function sanitizeAttacks(values: unknown[] | null, fallback: CombatAttack[]): Co
 
 function sanitizeStatuses(values: unknown[] | null, fallback: CombatStatus[]): CombatStatus[] {
   const statuses = (values ?? [])
-    .map((value) => {
+    .map((value): CombatStatus | null => {
       const record = recordValue(value);
       const name = stringValue(record?.name);
       if (!name) return null;
       const stat = stringValue(record?.stat);
-      return {
+      const status: CombatStatus = {
         name,
         emoji: stringValue(record?.emoji) || "",
         duration: numberValue(record?.duration, 1),
-        modifier: optionalNumber(record?.modifier),
-        stat: stat === "attack" || stat === "defense" || stat === "speed" || stat === "hp" ? stat : undefined,
-      } satisfies CombatStatus;
+      };
+      const modifier = optionalNumber(record?.modifier);
+      if (modifier !== undefined) status.modifier = modifier;
+      if (stat === "attack" || stat === "defense" || stat === "speed" || stat === "hp") status.stat = stat;
+      return status;
     })
     .filter((status): status is CombatStatus => !!status);
   return statuses.length > 0 ? statuses : fallback;
