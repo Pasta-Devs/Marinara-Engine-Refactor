@@ -7,6 +7,7 @@ import { wrapContent } from "../generation-core/prompt/format-engine";
 import { mergeAdjacentMessages, squashLeadingSystemMessages } from "../generation-core/prompt/merger";
 import { applyRegexScriptsToPromptMessages } from "../generation-core/regex/regex-application";
 import { resolveMacros, type MacroContext } from "../shared/macros/macro-engine";
+import { buildGenerationPromptPresetCandidates } from "./prompt-preset-selection";
 import {
   bySortOrder,
   boolish,
@@ -186,13 +187,16 @@ async function loadPersona(storage: StorageGateway, chat: JsonRecord): Promise<G
 }
 
 function promptPresetId(chat: JsonRecord, connection: JsonRecord, request: JsonRecord, defaultPromptId: string | null) {
-  return (
-    readString(request.promptPresetId).trim() ||
-    readString(request.presetId).trim() ||
-    readString(chat.promptPresetId).trim() ||
-    readString(connection.promptPresetId).trim() ||
-    defaultPromptId
-  );
+  const mode = readString(chat.mode || chat.chatMode, "conversation");
+  const candidates = buildGenerationPromptPresetCandidates({
+    chatMode: mode,
+    chatPromptPresetId: chat.promptPresetId,
+    connectionPromptPresetId: connection.promptPresetId,
+    impersonate: request.impersonate === true,
+    impersonatePromptPresetId: request.impersonatePresetId,
+    requestPromptPresetId: readString(request.promptPresetId).trim() || readString(request.presetId).trim(),
+  });
+  return candidates[0]?.id ?? (mode === "conversation" ? null : defaultPromptId);
 }
 
 async function loadDefaultPromptId(storage: StorageGateway): Promise<string | null> {
@@ -327,12 +331,25 @@ function renderJsonBlock(label: string, value: unknown): string {
   return `${label}:\n${JSON.stringify(record, null, 2).slice(0, 4000)}`;
 }
 
+function mariContextBlock(chat: JsonRecord): string {
+  const meta = parseRecord(chat.metadata);
+  const mariContext = parseRecord(meta.mariContext);
+  const entries = Object.entries(mariContext)
+    .map(([key, value]) => {
+      const text = readString(value).trim();
+      return text ? `### ${key}\n${text}` : "";
+    })
+    .filter(Boolean);
+  return entries.length ? `Fetched app context:\n${entries.join("\n\n")}` : "";
+}
+
 function fallbackSystemPrompt(input: PromptAssemblyInput, args: {
   characters: GenerationCharacterContext[];
   persona: GenerationPersonaContext | null;
   worldBefore: string;
   worldAfter: string;
   summary: string | null;
+  mariContext: string;
 }): string {
   const mode = readString(input.chat.mode || input.chat.chatMode, "conversation");
   const meta = parseRecord(input.chat.metadata);
@@ -342,6 +359,7 @@ function fallbackSystemPrompt(input: PromptAssemblyInput, args: {
     args.worldBefore,
     args.worldAfter,
     args.summary ? `Summary:\n${args.summary}` : "",
+    args.mariContext,
   ];
 
   if (mode === "game") {
@@ -702,6 +720,7 @@ export async function assembleGenerationPrompt(
     input.latestUserInput,
     readNumber(input.connection.maxContext, 0) || undefined,
   );
+  const fetchedContextBlock = mariContextBlock(input.chat);
   const defaultPrompt = await loadDefaultPromptId(storage);
   const presetId = promptPresetId(input.chat, input.connection, input.request, defaultPrompt);
   const wrapFormat = (readString(input.chat.wrapFormat) || readString(input.connection.wrapFormat) || "xml") as WrapFormat;
@@ -759,6 +778,7 @@ export async function assembleGenerationPrompt(
         worldBefore: processedLore.worldInfoBefore,
         worldAfter: processedLore.worldInfoAfter,
         summary,
+        mariContext: fetchedContextBlock,
       }),
       contextKind: "prompt",
     });
@@ -773,6 +793,15 @@ export async function assembleGenerationPrompt(
     messages.splice(insertAt >= 0 ? insertAt : messages.length, 0, {
       role: "system",
       content: memoryRecallBlock,
+      contextKind: "prompt",
+    });
+  }
+
+  if (fetchedContextBlock && messages.length > 0 && !messages.some((message) => message.content.includes("Fetched app context:"))) {
+    const insertAt = messages.findIndex((message) => message.role === "user" || message.role === "assistant");
+    messages.splice(insertAt >= 0 ? insertAt : messages.length, 0, {
+      role: "system",
+      content: fetchedContextBlock,
       contextKind: "prompt",
     });
   }

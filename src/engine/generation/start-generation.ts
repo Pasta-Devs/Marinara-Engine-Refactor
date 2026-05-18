@@ -3,6 +3,7 @@ import type { EventGateway } from "../capabilities/events";
 import type { IntegrationGateway } from "../capabilities/integrations";
 import type { LlmGateway, LlmMessage } from "../capabilities/llm";
 import type { StorageGateway } from "../capabilities/storage";
+import type { GenerationGuideSource } from "../shared/text/generation-guide";
 import { createGenerationAgentRuntime } from "./agent-runner";
 import { persistConnectedCommandTags } from "./connected-commands";
 import { llmParameters, loadChatMessages, requireRecord, resolveGenerationConnection } from "./context";
@@ -13,6 +14,7 @@ import {
   type PromptAttachment,
 } from "./generate-route-utils";
 import type { GenerationEvent } from "./generation-events";
+import { buildGenerationReplay } from "./generation-replay";
 import { assembleGenerationPrompt } from "./prompt-assembly";
 import type { GenerationCharacterContext } from "./prompt-assembly";
 import { applyRuntimeRegexScripts } from "./regex-runtime";
@@ -27,9 +29,12 @@ export interface StartGenerationInput extends JsonRecord {
   parameters?: Record<string, unknown>;
   promptPresetId?: string | null;
   generationGuide?: string | null;
+  generationGuideSource?: GenerationGuideSource | null;
   regenerateMessageId?: string | null;
   impersonate?: boolean;
   impersonateBlockAgents?: boolean;
+  impersonatePresetId?: string | null;
+  impersonateConnectionId?: string | null;
   impersonatePromptTemplate?: string | null;
   forCharacterId?: string | null;
   mentionedCharacterNames?: string[];
@@ -98,6 +103,17 @@ async function saveUserMessage(
   const extra: Record<string, unknown> = {};
   if (prepared.attachments.length) extra.attachments = prepared.attachments;
   if (prepared.mentionedCharacterNames.length) extra.mentionedCharacterNames = prepared.mentionedCharacterNames;
+  const generationReplay = buildGenerationReplay({
+    userMessage: inputUserMessage(input) || null,
+    impersonate: false,
+    generationGuide: input.generationGuide,
+    generationGuideSource: input.generationGuideSource,
+    impersonatePresetId: readString(input.impersonatePresetId) || null,
+    impersonateConnectionId: readString(input.impersonateConnectionId) || null,
+    impersonateBlockAgents: input.impersonateBlockAgents === true,
+    impersonatePromptTemplate: input.impersonatePromptTemplate,
+  });
+  if (generationReplay) extra.generationReplay = generationReplay;
   await storage.createChatMessage(input.chatId, {
     role: "user",
     content: prepared.content,
@@ -394,15 +410,18 @@ export async function* startGeneration(
     const allAgentResults = [...(runtime?.preResults ?? []), ...parallelResults, ...postResults, ...agentEvents];
     content = await applyRuntimeRegexScripts(deps.storage, "ai_output", content);
     const connected = await persistConnectedCommandTags(deps.storage, chat, content, deps.integrations);
-    const saved = await saveAssistantMessage({
-      storage: deps.storage,
-      chat,
-      input,
-      connection,
-      content: connected.displayContent,
-      agentResults: allAgentResults,
-      noteCount: connected.createdNotes.length + connected.executedCommands.length,
-    });
+    for (const event of connected.events) yield event;
+    const saved = connected.suppressAssistantMessage
+      ? null
+      : await saveAssistantMessage({
+          storage: deps.storage,
+          chat,
+          input,
+          connection,
+          content: connected.displayContent,
+          agentResults: allAgentResults,
+          noteCount: connected.createdNotes.length + connected.executedCommands.length,
+        });
     await persistAgentResults(deps.storage, chatId, messageId(saved), allAgentResults);
     if (saved) yield { type: "assistant_message", data: saved };
     yield { type: "done", data: { transcript: visibleTranscript(storedMessages) } };
@@ -431,15 +450,18 @@ export async function* startGeneration(
   }
   content = await applyRuntimeRegexScripts(deps.storage, "ai_output", content);
   const connected = await persistConnectedCommandTags(deps.storage, chat, content, deps.integrations);
-  const saved = await saveAssistantMessage({
-    storage: deps.storage,
-    chat,
-    input,
-    connection,
-    content: connected.displayContent,
-    agentResults: [],
-    noteCount: connected.createdNotes.length + connected.executedCommands.length,
-  });
+  for (const event of connected.events) yield event;
+  const saved = connected.suppressAssistantMessage
+    ? null
+    : await saveAssistantMessage({
+        storage: deps.storage,
+        chat,
+        input,
+        connection,
+        content: connected.displayContent,
+        agentResults: [],
+        noteCount: connected.createdNotes.length + connected.executedCommands.length,
+      });
   if (saved) yield { type: "assistant_message", data: saved };
   yield { type: "done" };
 }

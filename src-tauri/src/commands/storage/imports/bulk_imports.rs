@@ -623,11 +623,7 @@ fn run_st_bulk_import_inner(
         let result = fs::read(&path)
             .map_err(AppError::from)
             .and_then(|bytes| parse_object(&bytes))
-            .and_then(|payload| {
-                state
-                    .storage
-                    .create("prompts", with_entity_defaults("prompts", payload))
-            });
+            .and_then(|payload| import_st_preset_payload(state, payload, Some(&file_stem(&path))));
         match result {
             Ok(_) => bump_imported(&mut imported, "presets"),
             Err(error) => errors.push(Value::String(format!(

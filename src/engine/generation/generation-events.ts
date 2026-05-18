@@ -4,4 +4,7 @@ export type GenerationEvent =
   | { type: "token"; data: string }
   | { type: "assistant_message"; data: unknown }
   | { type: "agent_result"; data: unknown }
+  | { type: "cross_post"; data: unknown }
+  | { type: "assistant_action"; data: unknown }
+  | { type: "ooc_posted"; data: unknown }
   | { type: "done"; data?: unknown };

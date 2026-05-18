@@ -1,4 +1,4 @@
-export type GenerationGuideSource = "narrator" | "guide" | "game_start";
+export type GenerationGuideSource = "narrator" | "guide" | "game_start" | "game_turn" | "game_retry";
 
 export function buildNarratorInstructionMessage(direction: string): string {
   return `[Narrator instruction — do not include a reply from {{user}}. Instead, write the next part of the narrative steering it toward the following: ${direction.trim()}]`;

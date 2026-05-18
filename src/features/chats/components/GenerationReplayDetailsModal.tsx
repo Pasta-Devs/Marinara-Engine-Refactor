@@ -9,6 +9,8 @@ const GUIDE_SOURCE_LABELS: Record<GuideSource, string> = {
   narrator: "/guided",
   guide: "Guided regenerate",
   game_start: "Game start",
+  game_turn: "Game turn",
+  game_retry: "Game retry",
 };
 
 function storedText(value: unknown): string | null {

@@ -24,7 +24,13 @@ export interface GenerationReplayInput {
   impersonatePromptTemplate?: string | null;
 }
 
-const GUIDE_SOURCES = new Set<GenerationReplayGuideSource>(["narrator", "guide", "game_start"]);
+const GUIDE_SOURCES = new Set<GenerationReplayGuideSource>([
+  "narrator",
+  "guide",
+  "game_start",
+  "game_turn",
+  "game_retry",
+]);
 
 function asNonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;

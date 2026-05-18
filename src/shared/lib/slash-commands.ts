@@ -33,7 +33,7 @@ export interface SlashCommandContext {
     connectionId: string | null;
     userMessage?: string;
     generationGuide?: string;
-    generationGuideSource?: "narrator" | "guide" | "game_start";
+    generationGuideSource?: "narrator" | "guide" | "game_start" | "game_turn" | "game_retry";
     impersonate?: boolean;
     attachments?: { type: string; data: string }[];
     impersonatePresetId?: string;

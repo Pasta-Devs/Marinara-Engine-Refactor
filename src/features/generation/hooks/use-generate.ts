@@ -22,7 +22,7 @@ import { useGameStateStore } from "../../world-state/stores/world-state.store";
 import { chatKeys } from "../../chats/hooks/use-chats";
 import { characterKeys } from "../../characters/hooks/use-characters";
 
-type GenerateArgs = {
+export type GenerateArgs = {
   chatId: string;
   connectionId?: string | null;
   message?: string;
@@ -30,6 +30,8 @@ type GenerateArgs = {
 };
 
 type StreamEvent = { type: string; data?: unknown };
+type QueryClient = ReturnType<typeof useQueryClient>;
+type GenerationStreamFactory = (args: GenerateArgs, signal: AbortSignal) => AsyncGenerator<StreamEvent>;
 
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
@@ -334,6 +336,25 @@ function applyQuestUpdates(rawData: unknown) {
   } as never);
 }
 
+function applyAssistantAction(rawData: unknown) {
+  const data = parseMaybeRecord(rawData);
+  const action = readString(data.action);
+  if (action === "navigate") {
+    const panel = readString(data.panel).trim();
+    if (panel) {
+      useUIStore.getState().openRightPanel(panel as never);
+      const tab = readString(data.tab).trim();
+      if (panel === "settings" && tab) useUIStore.getState().setSettingsTab(tab);
+      toast(`Opening ${panel}.`);
+    }
+    return;
+  }
+  if (action === "data_fetched") {
+    const label = readString(data.label).trim();
+    toast(label ? `Fetched ${label}.` : "Fetched requested data.");
+  }
+}
+
 async function applyAgentResultEffects(
   queryClient: ReturnType<typeof useQueryClient>,
   chatId: string,
@@ -386,84 +407,124 @@ async function applyAgentResultEffects(
   if (result.agentType === "quest") applyQuestUpdates(result.data);
 }
 
+export async function runGenerationWithUi(
+  queryClient: QueryClient,
+  args: GenerateArgs,
+  streamFactory: GenerationStreamFactory,
+  options: { beforeStart?: (args: GenerateArgs) => Promise<void> } = {},
+): Promise<boolean> {
+  const chatId = args.chatId;
+  const controller = new AbortController();
+  const chatStore = useChatStore.getState();
+  chatStore.setAbortController(chatId, controller);
+  chatStore.setStreaming(true, chatId);
+  chatStore.setGenerationPhase("Starting generation...");
+  chatStore.setStreamBuffer("", chatId);
+  chatStore.setThinkingBuffer("", chatId);
+  useAgentStore.getState().setProcessing(true);
+
+  let received = "";
+  try {
+    await options.beforeStart?.(args);
+    for await (const event of streamFactory(args, controller.signal)) {
+      switch (event.type) {
+        case "phase":
+          if (typeof event.data === "string") {
+            useChatStore.getState().setGenerationPhase(event.data);
+          }
+          break;
+        case "thinking":
+          if (typeof event.data === "string") {
+            useChatStore.getState().appendThinkingBuffer(event.data, chatId);
+          }
+          break;
+        case "token":
+        case "delta":
+          if (typeof event.data === "string") {
+            received += event.data;
+            useChatStore.getState().appendStreamBuffer(event.data, chatId);
+            useChatStore.getState().setMariPhase(chatId, "thinking");
+          }
+          break;
+        case "message":
+        case "assistant_message":
+          if (event.data && typeof event.data === "object") {
+            await queryClient.invalidateQueries({ queryKey: ["chats"] });
+          }
+          break;
+        case "agent_result":
+          await applyAgentResultEffects(queryClient, chatId, event.data);
+          break;
+        case "cross_post": {
+          const data = parseMaybeRecord(event.data);
+          const target = readString(data.targetChatName).trim();
+          toast(target ? `Message moved to ${target}.` : "Message moved to another chat.");
+          await queryClient.invalidateQueries({ queryKey: ["chats"] });
+          break;
+        }
+        case "assistant_action":
+          applyAssistantAction(event.data);
+          await queryClient.invalidateQueries({ queryKey: ["chats"] });
+          break;
+        case "ooc_posted": {
+          const data = parseMaybeRecord(event.data);
+          const count = typeof data.count === "number" ? data.count : 1;
+          toast(`${count} message${count === 1 ? "" : "s"} posted.`);
+          await queryClient.invalidateQueries({ queryKey: ["chats"] });
+          break;
+        }
+        case "done":
+          break;
+      }
+    }
+    await queryClient.invalidateQueries({ queryKey: ["chats"] });
+    return received.length > 0;
+  } catch (error) {
+    if (!(error instanceof DOMException && error.name === "AbortError")) {
+      toast.error(errorMessage(error));
+    }
+    throw error;
+  } finally {
+    useChatStore.getState().setAbortController(chatId, null);
+    useChatStore.getState().setStreaming(false, chatId);
+    useChatStore.getState().setMariPhase(chatId, "idle");
+    useChatStore.getState().setGenerationPhase(null);
+    useChatStore.getState().setTypingCharacterName(null);
+    useChatStore.getState().setStreamingCharacterId(null);
+    useAgentStore.getState().setProcessing(false);
+    await queryClient.invalidateQueries({ queryKey: ["chats"] });
+  }
+}
+
 export function useGenerate() {
   const queryClient = useQueryClient();
 
   const generate = useCallback(
-    async (args: GenerateArgs): Promise<boolean> => {
-      const chatId = args.chatId;
-      const controller = new AbortController();
-      const chatStore = useChatStore.getState();
-      chatStore.setAbortController(chatId, controller);
-      chatStore.setStreaming(true, chatId);
-      chatStore.setGenerationPhase("Starting generation...");
-      chatStore.setStreamBuffer("", chatId);
-      chatStore.setThinkingBuffer("", chatId);
-      useAgentStore.getState().setProcessing(true);
-
-      let received = "";
-      try {
-        await backfillConversationSummaries(
-          { storage: storageApi, llm: llmApi },
-          { chatId, connectionId: typeof args.connectionId === "string" ? args.connectionId : null, maxMissingDays: 2 },
-        ).catch(() => {
-          // Summary refresh should never block an otherwise valid generation.
-        });
-        for await (const event of startGeneration(
-          { storage: storageApi, llm: llmApi, integrations: integrationGateway },
-          args,
-          controller.signal,
-        ) as AsyncGenerator<StreamEvent>) {
-          switch (event.type) {
-            case "phase":
-              if (typeof event.data === "string") {
-                useChatStore.getState().setGenerationPhase(event.data);
-              }
-              break;
-            case "thinking":
-              if (typeof event.data === "string") {
-                useChatStore.getState().appendThinkingBuffer(event.data, chatId);
-              }
-              break;
-            case "token":
-            case "delta":
-              if (typeof event.data === "string") {
-                received += event.data;
-                useChatStore.getState().appendStreamBuffer(event.data, chatId);
-                useChatStore.getState().setMariPhase(chatId, "thinking");
-              }
-              break;
-            case "message":
-            case "assistant_message":
-              if (event.data && typeof event.data === "object") {
-                await queryClient.invalidateQueries({ queryKey: ["chats"] });
-              }
-              break;
-            case "agent_result":
-              await applyAgentResultEffects(queryClient, chatId, event.data);
-              break;
-            case "done":
-              break;
-          }
-        }
-        await queryClient.invalidateQueries({ queryKey: ["chats"] });
-        return received.length > 0;
-      } catch (error) {
-        if (!(error instanceof DOMException && error.name === "AbortError")) {
-          toast.error(errorMessage(error));
-        }
-        throw error;
-      } finally {
-        useChatStore.getState().setAbortController(chatId, null);
-        useChatStore.getState().setStreaming(false, chatId);
-        useChatStore.getState().setMariPhase(chatId, "idle");
-        useChatStore.getState().setGenerationPhase(null);
-        useChatStore.getState().setTypingCharacterName(null);
-        useChatStore.getState().setStreamingCharacterId(null);
-        useAgentStore.getState().setProcessing(false);
-        await queryClient.invalidateQueries({ queryKey: ["chats"] });
-      }
-    },
+    (args: GenerateArgs): Promise<boolean> =>
+      runGenerationWithUi(
+        queryClient,
+        args,
+        (streamArgs, signal) =>
+          startGeneration(
+            { storage: storageApi, llm: llmApi, integrations: integrationGateway },
+            streamArgs,
+            signal,
+          ) as AsyncGenerator<StreamEvent>,
+        {
+          beforeStart: async (beforeArgs) => {
+            await backfillConversationSummaries(
+              { storage: storageApi, llm: llmApi },
+              {
+                chatId: beforeArgs.chatId,
+                connectionId: typeof beforeArgs.connectionId === "string" ? beforeArgs.connectionId : null,
+                maxMissingDays: 2,
+              },
+            ).catch(() => {
+              // Summary refresh should never block an otherwise valid generation.
+            });
+          },
+        },
+      ),
     [queryClient],
   );
 

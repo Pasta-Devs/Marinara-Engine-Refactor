@@ -179,18 +179,29 @@ Last updated: 2026-05-18.
 - [x] Replaced the tiny lorebook regex placeholder with a guarded browser-safe executor and removed stale server-timeout wording from shared regex docs.
 - [x] Updated migration docs to remove stale backup/archive compatibility, sidecar/sync active-surface instructions, `legacy-shared` guidance, and barrel/re-export recommendations.
 
+## 2026-05-18 Feature Parity And Mode Separation Pass
+
+- [x] Added `AGENTS.md` top-priority instructions making feature parity and strict conversation/roleplay/game separation the main migration focus before cleanup-only work.
+- [x] Split game generation dispatch through a game-owned hook and `engine/modes/game/turn` service. Game start, normal turns, and retries now validate game chat mode and own their guide/replay source before delegating to shared generation infrastructure.
+- [x] Expanded generation guide source contracts, schemas, replay normalization, and replay display to include `game_turn` and `game_retry`; guided user messages now persist generation replay metadata.
+- [x] Replaced prompt preset selection in active prompt assembly with the original mode-aware selector so connection-level roleplay prompt presets cannot leak into conversation or game mode.
+- [x] Added real hidden command side effects for cross-post, navigate, fetch-context, and direct-message commands; fetched app context is persisted to chat metadata and injected into later prompts.
+- [x] Split game scene analysis into `engine/modes/game/scene` and `features/game/hooks/use-game-scene-analysis`; deleted the unused visual hook that routed game analysis through roleplay scene service.
+- [x] Replaced raw ST preset import with a native SillyTavern preset importer that creates prompt records, sections, groups, marker configs, order fields, generation parameters, and variable groups for both single and bulk imports.
+- [x] Restored Spotify playlist listing ownership and track-count fallback by resolving `/me` and querying playlist item totals for owned playlists when Spotify omits `tracks.total`.
+
 ## Remaining Migration Gaps
 
 - [~] LLM provider parity: `openai_chatgpt` and `claude_subscription` are present in contracts/model catalogs, but their local-auth transports still need native Tauri implementations rather than the old Node SDK/server path.
 - [~] LLM provider parity: common OpenAI-compatible/Anthropic/Google parameters and image inputs are wired, but full original Responses API/GPT-5 reasoning, thinking events, usage accounting, abort propagation, and local-auth ChatGPT/Claude subscription parity are still not complete.
-- [~] Game mode parity: storage/assets/mechanics routes exist and game sends/retries now carry game-mode constraints, but the main `GameSurface` path still needs a fully separate game turn orchestrator, and map/party-card/encounter/session mechanics still need a deeper original-vs-refactor migration pass.
+- [~] Game mode parity: game dispatch now has a game-owned service/hook and scene analysis is game-owned, but prompt assembly still needs a dedicated game GM assembler and map/party-card/encounter/session mechanics still need a deeper original-vs-refactor migration pass.
 - [~] Roleplay scene parity: scene create/fork/conclude paths exist and origin-scene summary persistence is wired, but original per-character scene memory semantics still need deeper parity review.
 - [~] Mode separation: `chat`, `roleplay`, and `game` have separate engine homes and conversation autonomy has moved under chats, but UI still has deep imports and large mixed surfaces that need to be split so editing one mode cannot affect the others.
-- [~] Prompt/command workflow parity: hidden command parsing now executes several storage/integration side effects, but UI/navigation/fetch/selfie/cross-post command families still need a complete current-app orchestration pass.
+- [~] Prompt/command workflow parity: cross-post, navigate, fetch-context, direct-message, storage, haptic, and Spotify command effects now execute locally, but selfie generation, scene command orchestration, and richer frontend command events still need parity.
 - [~] Conversation autonomy parity: scheduleless talkativeness fallback, scene-busy filtering, follow-up limits, and hidden-window polling improved, but a Rust-side/background scheduler equivalent is still not present.
-- [~] Spotify DJ playlist parity: native Spotify transport exists, but exact DJ Mari playlist construction/playback behavior still needs original-vs-refactor parity work.
+- [~] Spotify DJ playlist parity: native Spotify transport and playlist ownership/count fallback exist, but exact DJ Mari LLM playlist construction/add/playback behavior still needs original-vs-refactor parity work.
 - [~] Bot browser and paid provider parity: native routes exist, but auth/session recovery for non-Chub providers still needs live-provider verification and fixes as upstreams change.
-- [~] Import/assets parity: ST bulk import now streams, folder-token policy is restored, and game asset validation improved, but current-package heuristics still need another source-level review.
+- [~] Import/assets parity: ST preset import is now structured and ST bulk import streams with folder-token policy, but ST persona media/settings heuristics and sprite cleanup/background-remover parity still need migration.
 - [~] Large-file cleanup: `GameSurface.tsx`, `ChatSettingsDrawer.tsx`, `GameNarration.tsx`, and several Rust provider/workflow modules remain above the review threshold and need focused splits.
 
 ## Remaining External QA
@@ -239,3 +250,7 @@ Last updated: 2026-05-18.
 - [x] `pnpm check:docs` passed on 2026-05-18 after the game-turn guide checklist update.
 - [x] `pnpm build` passed on 2026-05-18 after generation input/attachment, asset validation, import streaming, and docs cleanup, with Vite large-chunk warnings only.
 - [x] `pnpm check:docs` passed on 2026-05-18 after no-legacy/no-sidecar-sync docs cleanup.
+- [x] `pnpm typecheck` passed on 2026-05-18 after feature parity and mode-separation pass.
+- [x] `pnpm build` passed on 2026-05-18 after feature parity and mode-separation pass, with Vite large-chunk warnings only.
+- [x] `cargo check --manifest-path src-tauri/Cargo.toml` passed on 2026-05-18 after ST preset import and Spotify playlist fallback migration.
+- [x] `pnpm check:docs` passed on 2026-05-18 after feature parity and mode-separation checklist update.

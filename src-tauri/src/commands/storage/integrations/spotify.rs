@@ -427,23 +427,60 @@ async fn playlists(state: &AppState, route: &ParsedPath, body: &Value) -> AppRes
             json!({ "status": response.status, "body": response.body }),
         ));
     }
-    let playlists = response
+    let user = spotify_api(&credentials, "/me", "GET", None).await.ok();
+    let my_id = user
+        .as_ref()
+        .filter(|response| (200..300).contains(&response.status))
+        .and_then(|response| response.json.get("id"))
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned);
+
+    let mut playlists = Vec::new();
+    for playlist in response
         .json
         .get("items")
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default()
-        .into_iter()
-        .map(|playlist| {
-            json!({
-                "id": playlist.get("id").and_then(Value::as_str).unwrap_or(""),
-                "name": playlist.get("name").and_then(Value::as_str).unwrap_or("Untitled playlist"),
-                "uri": playlist.get("uri").and_then(Value::as_str).unwrap_or(""),
-                "trackCount": playlist.get("tracks").and_then(|tracks| tracks.get("total")).cloned().unwrap_or(Value::Null),
-                "owned": Value::Null
-            })
-        })
-        .collect::<Vec<_>>();
+    {
+        let id = playlist.get("id").and_then(Value::as_str).unwrap_or("");
+        let owned = my_id.as_ref().and_then(|my_id| {
+            playlist
+                .get("owner")
+                .and_then(|owner| owner.get("id"))
+                .and_then(Value::as_str)
+                .map(|owner_id| owner_id == my_id)
+        });
+        let mut track_count = playlist
+            .get("tracks")
+            .and_then(|tracks| tracks.get("total"))
+            .and_then(Value::as_i64)
+            .map(Value::from)
+            .unwrap_or(Value::Null);
+        if track_count.is_null() && owned == Some(true) && !id.is_empty() {
+            if let Ok(items) = spotify_api(
+                &credentials,
+                &format!("/playlists/{}/items?limit=1", percent_encode_component(id)),
+                "GET",
+                None,
+            )
+            .await
+            {
+                if (200..300).contains(&items.status) {
+                    if let Some(total) = items.json.get("total").and_then(Value::as_i64) {
+                        track_count = Value::from(total);
+                    }
+                }
+            }
+        }
+        playlists.push(json!({
+            "id": id,
+            "name": playlist.get("name").and_then(Value::as_str).unwrap_or("Untitled playlist"),
+            "uri": playlist.get("uri").and_then(Value::as_str).unwrap_or(""),
+            "trackCount": track_count,
+            "owned": owned.map(Value::from).unwrap_or(Value::Null)
+        }));
+    }
     Ok(json!({ "playlists": playlists }))
 }
 

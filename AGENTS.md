@@ -30,6 +30,17 @@ Do not mark the migration complete while any normal non-sidecar/non-sync applica
 
 ## IMPORTANT
 
+## TOP PRIORITY: FEATURE PARITY AND MODE SEPARATION
+
+Feature parity and strict mode separation are the highest-priority migration work. Ignore cleanup-only work until every normal non-sidecar, non-sync feature from the original application has a working Tauri implementation.
+
+- Every original non-sidecar, non-sync feature must be either fully migrated into Tauri/TypeScript or explicitly removed only if it is obsolete by product decision. Do not leave incomplete parity as a checklist-only item.
+- Conversation, roleplay, and game mode must remain separate product paths. Editing one mode must not silently alter behavior in the other modes.
+- Shared code is allowed only for genuinely mode-neutral primitives such as storage repositories, LLM transport, asset IO, generic chat message persistence, and UI atoms. Mode behavior, prompts, orchestration, memory semantics, commands, and state transitions belong in their own mode folders.
+- Do not paper over mode separation with guide strings in a generic path when a mode needs its own orchestrator. Game turns, roleplay scenes, and conversation/autonomous flows should each have their own entry points.
+- Large mixed surfaces must be split when they prevent mode isolation or feature parity review. Prioritize splitting files that combine orchestration, persistence, rendering, provider calls, and mode-specific rules.
+- Before claiming completion, compare against `E:\Personal Projects\Marinara-Engine` again and verify feature parity at the source level, then run the required checks.
+
 ## MIGRATE THE ENTIRE APPLICATION. THE ENTIRE THING SHOULD WORK, ALL BUTTONS, UI COMPONENTS, ETC. SPIN UP SUBAGENTS FOR TESTING OR MOVING PIECES. MAKE SURE TO ONLY RE-WRITE THINGS THAT MUST BE RE-WRITTEN FOR MUCH BETTER CODE ORGANIZATION. THIS IS THE MAIN IMPORTANT FOCUS. MOVING TO TAURI AND MUCH MORE READABLE ORGANIZED CODE (i see a massive storage.rs file kreeping that should heavily be split, stuff like that is horrible).
 
 ### KEEP THINGS SEPARATED AS MUCH AS POSSIBLE. DO NOT DUPLICATE CODE OVER AND OVER AGAIN. FOR EXAMPLE, RUST SHOULD JUST DIRECTLY BE CALLED IN TAURI ITS OKAY TO DO THAT. AVOID GIANT FILES.

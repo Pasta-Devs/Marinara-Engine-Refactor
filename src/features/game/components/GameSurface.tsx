@@ -45,7 +45,7 @@ import {
   useUpdateMessage,
 } from "../../chats/hooks/use-chats";
 import { useConnections } from "../../connections/hooks/use-connections";
-import { useGenerate } from "../../generation/hooks/use-generate";
+import { useGameGeneration } from "../hooks/use-game-generation";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { spriteKeys, type SpriteInfo } from "../../characters/hooks/use-characters";
 import { getJsonRepairRequest, type JsonRepairRequest } from "../../../shared/api/api-errors";
@@ -80,7 +80,7 @@ import { filterGameAssetMap, parseGameAssetExcludedFolders } from "../lib/game-a
 import { resolveCombatFullBodyPose, resolveDialogueFullBodyPose } from "../lib/game-full-body-pose";
 import { characterNamesMatch, findNamedEntry } from "../lib/game-character-name-match";
 import { normalizeGameSegmentEdit, serializeGameSegmentEdit, type GameSegmentEdit } from "../lib/game-segment-edits";
-import { useSceneAnalysis } from "../../visuals/hooks/use-scene-analysis";
+import { useGameSceneAnalysis } from "../hooks/use-game-scene-analysis";
 import { parsePartyDialogue } from "../lib/party-dialogue-parser";
 import { dispatchSpotifySceneTrackChange } from "../../../shared/lib/spotify-playback-events";
 import { ActiveWorldInfoButton, ActiveWorldInfoModal } from "../../visuals/components/ActiveWorldInfoButton";
@@ -1483,10 +1483,6 @@ function getSceneBackgroundTags(assetKeys: string[]): string[] {
 
 const RECENT_MUSIC_HISTORY_LIMIT = 8;
 const RECENT_SPOTIFY_TRACK_HISTORY_LIMIT = 12;
-const GAME_START_GENERATION_GUIDE =
-  "Begin the game now with the first visible GM VN narration/dialogue segment. This is an invisible startup trigger, not a player action. Do not mention a start command.";
-const GAME_TURN_GENERATION_GUIDE =
-  "Continue the game from the player's latest turn. Stay on the game-mode path: respond as the Game Master, preserve party/game mechanics, emit supported game tags for state changes, and do not switch into normal conversation or roleplay-scene behavior.";
 const SYNTHETIC_GAME_START_MESSAGE_RE = /^\s*\[start(?:\s+the)?\s+game\]\s*$/i;
 
 function normalizeRecentMusicHistory(value: unknown): string[] {
@@ -2605,7 +2601,7 @@ export function GameSurface({
   void _rollEncounter;
   void _journalEntry;
   const transitionGameState = useTransitionGameState();
-  const sceneAnalysis = useSceneAnalysis();
+  const sceneAnalysis = useGameSceneAnalysis();
   const sceneAnalysisEnabled = chatMeta.enableAgents === true || chatMeta.enableAgents === "true";
 
   // Process GM tags from the latest assistant message
@@ -4293,21 +4289,20 @@ export function GameSurface({
   ]);
 
   // Message sending via generate hook
-  const { generate, retryAgents } = useGenerate();
+  const { generateGameTurn, retryAgents } = useGameGeneration();
 
   const retryGeneration = useCallback(() => {
     setGenerationFailed(false);
-    generate({ chatId: activeChatId, connectionId: null });
-  }, [activeChatId, generate]);
+    generateGameTurn({ chatId: activeChatId, connectionId: null, kind: "turn" });
+  }, [activeChatId, generateGameTurn]);
 
   const generateInitialGameTurn = useCallback(() => {
-    generate({
+    generateGameTurn({
       chatId: activeChatId,
       connectionId: null,
-      generationGuide: GAME_START_GENERATION_GUIDE,
-      generationGuideSource: "game_start",
+      kind: "start",
     });
-  }, [activeChatId, generate]);
+  }, [activeChatId, generateGameTurn]);
 
   const handleRetryTurn = useCallback(async () => {
     const msg = latestAssistantMsgRef.current;
@@ -4342,12 +4337,11 @@ export function GameSurface({
     lastProcessedMsgRef.current = null;
 
     try {
-      const receivedContent = await generate({
+      const receivedContent = await generateGameTurn({
         chatId: activeChatId,
         connectionId: null,
+        kind: "retry",
         regenerateMessageId: msg.id,
-        generationGuide: GAME_TURN_GENERATION_GUIDE,
-        generationGuideSource: "game_retry",
       });
       if (receivedContent) {
         toast.success("Turn regenerated.", { duration: 1800 });
@@ -4355,7 +4349,7 @@ export function GameSurface({
     } catch {
       /* generate handles its own error toast */
     }
-  }, [activeChatId, generate, isStreaming]);
+  }, [activeChatId, generateGameTurn, isStreaming]);
 
   const handleRetrySpotifyMusic = useCallback(async () => {
     if (!activeChatId || !useSpotifyGameMusic || isStreaming || sceneAnalysis.isPending) return;
@@ -4467,16 +4461,15 @@ export function GameSurface({
   const sendMessage = useCallback(
     (message: string, attachments?: Array<{ type: string; data: string }>) => {
       if ((chatMeta.gameSessionStatus as string) === "concluded") return;
-      generate({
+      generateGameTurn({
         chatId: activeChatId,
         connectionId: null,
+        kind: "turn",
         userMessage: message,
-        generationGuide: GAME_TURN_GENERATION_GUIDE,
-        generationGuideSource: "game_turn",
         ...(attachments?.length ? { attachments } : {}),
       });
     },
-    [activeChatId, chatMeta.gameSessionStatus, generate],
+    [activeChatId, chatMeta.gameSessionStatus, generateGameTurn],
   );
 
   // Game mutations
