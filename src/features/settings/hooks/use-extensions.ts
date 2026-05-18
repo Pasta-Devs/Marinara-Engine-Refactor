@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// Hooks: Installed Extensions (server-synced)
+// Hooks: Installed Extensions
 // ──────────────────────────────────────────────
 import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";

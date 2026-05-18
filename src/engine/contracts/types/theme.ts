@@ -2,7 +2,7 @@
 // Theme Types
 // ──────────────────────────────────────────────
 
-/** A synced custom theme stored on the Marinara server. */
+/** A custom theme stored by the local app. */
 export interface Theme {
   id: string;
   name: string;

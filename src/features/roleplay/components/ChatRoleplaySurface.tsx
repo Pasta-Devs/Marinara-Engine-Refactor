@@ -31,12 +31,12 @@ import { resolveManagedLocalAssetUrl } from "../../../shared/api/local-file-api"
 import { useUIStore } from "../../../shared/stores/ui.store";
 import { useChatStore } from "../../../shared/stores/chat.store";
 import { useGameStateStore } from "../../world-state/stores/world-state.store";
-import { ChatMessage } from "../../chats/components/ChatMessage";
-import { ChatInput } from "../../chats/components/ChatInput";
+import { ChatMessage } from "../../conversation/components/ChatMessage";
+import { ChatInput } from "../../conversation/components/ChatInput";
 import { CyoaChoices } from "./CyoaChoices";
-import { ChatBranchSelector } from "../../chats/components/ChatBranchSelector";
+import { ChatBranchSelector } from "../../conversation/components/ChatBranchSelector";
 import { EndSceneBar } from "./SceneBanner";
-import { ChatCommonOverlays } from "../../chats/components/ChatCommonOverlays";
+import { ChatCommonOverlays } from "../../conversation/components/ChatCommonOverlays";
 import { ActiveWorldInfoButton } from "../../visuals/components/ActiveWorldInfoButton";
 import type { SpriteDisplayMode } from "../../visuals/components/sprite-display-modes";
 import type {
@@ -45,7 +45,7 @@ import type {
   MessageWithSwipes,
   PeekPromptData,
   PersonaInfo,
-} from "../../chats/components/chat-area.types";
+} from "../../conversation/types/conversation-ui";
 
 type ChatData = ComponentProps<typeof ChatCommonOverlays>["chat"];
 
@@ -65,7 +65,7 @@ const SpriteOverlay = lazy(async () => {
 });
 
 const EchoChamberPanel = lazy(async () => {
-  const module = await import("../../chats/components/EchoChamberPanel");
+  const module = await import("../../conversation/components/EchoChamberPanel");
   return { default: module.EchoChamberPanel };
 });
 
@@ -75,7 +75,7 @@ const EncounterModal = lazy(async () => {
 });
 
 const SummaryPopover = lazy(async () => {
-  const module = await import("../../chats/components/SummaryPopover");
+  const module = await import("../../conversation/components/SummaryPopover");
   return { default: module.SummaryPopover };
 });
 

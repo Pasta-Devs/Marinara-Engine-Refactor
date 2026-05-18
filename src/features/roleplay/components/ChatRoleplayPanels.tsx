@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { PenLine, X } from "lucide-react";
-import { useUpdateChatMetadata } from "../../chats/hooks/use-chats";
+import { useUpdateChatMetadata } from "../../conversation/hooks/use-conversation-data";
 
 export function AuthorNotesPanel({
   chatId,

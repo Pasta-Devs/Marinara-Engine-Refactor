@@ -178,7 +178,7 @@ export function EditAgentModal({ open, onClose, agent }: Props) {
           </select>
           <span className="text-[0.625rem] text-[var(--muted-foreground)]">
             {form.connectionId === LOCAL_SIDECAR_CONNECTION_ID
-              ? "This agent will use the built-in Local Model from the Connections panel."
+              ? "This agent was using the deferred local sidecar option. Pick a normal connection before saving."
               : "Leave empty to use the default agent connection or the chat connection."}
           </span>
         </label>

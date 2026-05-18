@@ -56,7 +56,7 @@ import { ttsService } from "../../../shared/lib/tts-service";
 import { getOrCreateCachedTTSAudioBlob } from "../../../shared/lib/tts-audio-cache";
 import { resolveTTSVoiceForSpeaker, splitTTSChunks, ttsConfigMatchesSpeaker } from "../../../shared/lib/tts-dialogue";
 import type { PartyDialogueLine, Message, TTSConfig, GameNpc, SkillCheckResult } from "@marinara-engine/shared";
-import type { CharacterMap, PersonaInfo } from "../../chats/components/chat-area.types";
+import type { CharacterMap, PersonaInfo } from "../../conversation/types/conversation-ui";
 
 export { formatNarration } from "../lib/game-narration-format";
 

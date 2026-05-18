@@ -43,7 +43,7 @@ import {
   useUpdateChat,
   useUpdateChatMetadata,
   useUpdateMessage,
-} from "../../chats/hooks/use-chats";
+} from "../../conversation/hooks/use-conversation-data";
 import { useConnections } from "../../connections/hooks/use-connections";
 import { useGenerate } from "../../generation/hooks/use-generate";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -132,7 +132,7 @@ import {
   buildMissingSceneAssetGenerationPayload,
   normalizeSceneAssetNameForGeneration,
 } from "./game-asset-generation-payload";
-import { ChatGalleryDrawer } from "../../chats/components/ChatGalleryDrawer";
+import { ChatGalleryDrawer } from "../../conversation/components/ChatGalleryDrawer";
 import type { ReadableTag } from "../lib/game-tag-parser";
 import type { DirectionCommand, GameNpc } from "@marinara-engine/shared";
 
@@ -930,7 +930,7 @@ const GameCombatUI = lazy(async () => {
 
 import { Modal } from "../../../shared/components/ui/Modal";
 import type { Chat, SessionSummary, Combatant, Message, GameCombatStateSnapshot } from "@marinara-engine/shared";
-import type { CharacterMap, PersonaInfo } from "../../chats/components/chat-area.types";
+import type { CharacterMap, PersonaInfo } from "../../conversation/types/conversation-ui";
 
 /** Typewriter component for the intro screen — reveals text character-by-character. */
 function IntroTypewriter({ text, onComplete }: { text: string; onComplete?: () => void }) {

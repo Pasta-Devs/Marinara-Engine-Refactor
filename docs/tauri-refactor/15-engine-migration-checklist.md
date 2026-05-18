@@ -34,7 +34,7 @@ Last updated: 2026-05-18.
 - [~] Layer 6: `src/engine/agents-runtime` agent executor, pipeline, knowledge, and tools.
 - [~] Layer 7: `src/engine/generation` generation orchestration and stream event DTOs.
 - [~] Layer 8: `src/engine/modes/chat` chat core, autonomous, awareness, schedules, commands.
-- [ ] Layer 8: `src/engine/modes/roleplay` scene, sprites, encounter, visual-novel.
+- [~] Layer 8: `src/engine/modes/roleplay` scene, sprites, encounter, visual-novel.
 - [~] Layer 8: `src/engine/modes/game` turn, prompts, mechanics, state, world, assets.
 
 ## Rust Capability Layers
@@ -71,7 +71,7 @@ Last updated: 2026-05-18.
 - [~] `packages/server/src/services/lorebook`
 - [x] `packages/server/src/services/regex`
 - [~] `packages/server/src/services/agents`
-- [ ] `packages/server/src/services/tools`
+- [~] `packages/server/src/services/tools`
 - [~] `packages/server/src/routes/generate`
 - [~] `packages/server/src/services/conversation`
 - [~] `packages/server/src/services/game`
@@ -104,7 +104,7 @@ Last updated: 2026-05-18.
 
 ## 2026-05-18 Migration Pass
 
-- [x] Split the previous monolithic native storage route shim into focused modules (`router`, `shared`, `chats`, `imports`, `bulk_imports`, `llm`, `scene`, `game`, assets, integrations, and related capability slices).
+- [x] Split the previous monolithic native storage route shim into focused modules (`router`, `shared`, `chats`, `imports`, `bulk_imports`, `llm`, assets, integrations, and related capability slices). Product-owned game/encounter/conversation orchestration has been moved out of Rust routes.
 - [x] Added visible error toasts to create connection, character, persona, and preset modals so failed native calls no longer look like dead sidebar buttons.
 - [x] Reworked import routes for the sidebar/settings import flows: ST character inspect/batch now returns the frontend shape, PNG character-card metadata is parsed from `chara`/`ccv3` chunks, CharX reads `card.json` and embedded icons, and native `.marinara` packages read `data.json` plus avatar assets.
 - [x] Added native JSONL chat import and branch import routes used by the chat/settings import UI.
@@ -122,13 +122,18 @@ Last updated: 2026-05-18.
 - [x] Replaced avatar upload echo routes with local avatar persistence for characters, personas, and NPC portraits while keeping frontend-compatible avatar paths.
 - [x] Replaced persona activation, prompt default, chat-preset active, regex reorder, game-assets rescan/open-folder/folder-description, scoped admin expunge, and character-version restore placeholders with storage-backed behavior.
 - [~] Replaced game setup, session lorebook regeneration, and campaign progression stubs with LLM-backed native flows plus deterministic local fallbacks.
+- [x] Removed active `/game`, `/encounter`, `/conversation`, `/agents/retry`, and `/sidecar` frontend product-route calls; normal mode workflows now use TypeScript mode APIs over storage/assets/LLM/integration capabilities.
+- [x] Split shared chat/message repository hooks and shared conversation UI types into `src/features/conversation`, so conversation, roleplay, and game mode code do not depend on `features/chats` hooks.
+- [x] Wired custom static/webhook tools into the migrated agent runtime through native `/custom-tools/execute`; script execution remains explicitly disabled in the native runtime.
+- [~] Expanded native image-provider parity: NovelAI native ZIP/image responses, RunPod Serverless ComfyUI, ComfyUI default/custom workflows, OpenRouter/Gemini chat image parsing, xAI aspect-ratio payloads, Automatic1111 defaults, and selected image connection use for sprite generation are wired. Remaining image work is edge parity for reference-image/provider-specific request surfaces and live-provider QA.
+- [x] Removed active settings copy that presented theme/extension data as server-synced runtime behavior; sync remains deferred scope.
 
 ## Current Blockers Before Migration Can Be Called Complete
 
-- [ ] Finish full image-generation provider parity beyond the default Pollinations path: OpenAI-compatible image APIs, NovelAI, Stability, Horde, ComfyUI, Automatic1111, RunPod ComfyUI, Draw Things, and NanoGPT.
+- [~] Finish full image-generation provider parity edge cases and live-provider QA across OpenAI-compatible image APIs, NovelAI, Stability, Horde, ComfyUI, Automatic1111, RunPod ComfyUI, Draw Things, NanoGPT, xAI, OpenRouter, and Gemini image responses.
 - [~] Finish TTS edge parity for provider-specific voice metadata, streaming/playback timing, and live-device QA.
 - [~] Finish Spotify and haptic live-provider/device QA. Native Spotify Web API transport and Rust Buttplug/Intiface transport are wired, but hardware/account-dependent paths still need manual verification.
-- [~] Finish sprite sheet generation, cleanup, and restore parity; native routes now do file-backed sprite upload/list/delete, Pollinations-backed sprite generation, image crate sheet slicing, built-in white-matte cleanup, and cleanup backup/restore, but provider-specific image generation parity still remains.
+- [~] Finish sprite sheet generation, cleanup, and restore parity; native routes now do file-backed sprite upload/list/delete, selected-provider sprite generation, image crate sheet slicing, built-in white-matte cleanup, and cleanup backup/restore, but provider-specific reference-image edge parity still remains.
 - [~] Finish bot-browser parity for all non-Chub source edge cases, upstream schema drift, and authenticated source session recovery.
 - [~] Finish import/export parity for exact SillyTavern/Marinara media bundling, timestamp fidelity, and original importer heuristics.
 - [~] Finish game route parity for deeper mechanics and long-running campaign state behaviors beyond the native setup/lorebook/progression pass.
@@ -147,3 +152,6 @@ Last updated: 2026-05-18.
 - [x] `pnpm check:docs` passed on 2026-05-18.
 - [x] `cargo check --manifest-path src-tauri/Cargo.toml` passed on 2026-05-18 after haptic, export, avatar, vectorization, game-assets, admin, and game workflow patches.
 - [x] `pnpm typecheck` passed on 2026-05-18 after deferred sidecar UI cleanup.
+- [x] `cargo check --manifest-path src-tauri/Cargo.toml` passed on 2026-05-18 after image-provider parity expansion.
+- [x] `pnpm typecheck` passed on 2026-05-18 after conversation-data split.
+- [x] `pnpm build` passed on 2026-05-18 after conversation-data split and active sync-copy cleanup.

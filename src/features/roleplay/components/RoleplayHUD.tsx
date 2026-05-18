@@ -27,7 +27,7 @@ import { worldStateApi } from "../../world-state/api/world-state-api";
 import { useGameStateStore } from "../../world-state/stores/world-state.store";
 import { useAgentStore } from "../../../shared/stores/agent.store";
 import { useAgentConfigs, useCustomAgentRuns, type AgentConfigRow } from "../../agents/hooks/use-agents";
-import { useChat } from "../../chats/hooks/use-chats";
+import { useChat } from "../../conversation/hooks/use-conversation-data";
 import { discardPendingGameStatePatch, useGameStatePatcher } from "../../world-state/hooks/use-world-state-patcher";
 import { useUIStore } from "../../../shared/stores/ui.store";
 import type {

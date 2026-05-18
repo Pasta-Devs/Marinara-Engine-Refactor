@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { isJsonRepairApiError } from "../../../shared/api/api-client";
-import { chatKeys } from "../../chats/hooks/use-chats";
+import { chatKeys } from "../../conversation/hooks/use-conversation-data";
 import { lorebookKeys } from "../../lorebooks/hooks/use-lorebooks";
 import {
   getHudWidgetStateSignature,

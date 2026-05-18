@@ -27,7 +27,7 @@ import {
   useUpdateChatMetadata,
   useBranchChat,
   useChats,
-} from "../../chats/hooks/use-chats";
+} from "../../conversation/hooks/use-conversation-data";
 
 import { useChatStore } from "../../../shared/stores/chat.store";
 import { useGenerate } from "../../generation/hooks/use-generate";
@@ -64,7 +64,7 @@ import { useTTSConfig } from "../../../shared/hooks/use-tts";
 import { buildTTSMessageText, resolveTTSVoiceForSpeaker } from "../../../shared/lib/tts-dialogue";
 import { mirrorSpritePlacements, normalizeSpritePlacements } from "../../visuals/components/sprite-placement";
 import { normalizeSpriteDisplayModes } from "../../visuals/components/sprite-display-modes";
-import type { CharacterMap, MessageSelectionToggle, MessageWithSwipes, PeekPromptData } from "../../chats/components/chat-area.types";
+import type { CharacterMap, MessageSelectionToggle, MessageWithSwipes, PeekPromptData } from "../../conversation/types/conversation-ui";
 import { RecentChats } from "../../chats/components/RecentChats";
 import { HomeFaq } from "../../chats/components/HomeFaq";
 import { NewChatConnectionGate } from "../../chats/components/NewChatConnectionGate";

@@ -121,7 +121,7 @@ const EXPUNGE_SCOPE_OPTIONS: Array<{ id: ExpungeScope; label: string; descriptio
   {
     id: "automation",
     label: "Automation & Themes",
-    description: "Agents, tools, regex scripts, synced themes, and automation state.",
+    description: "Agents, tools, regex scripts, custom themes, and automation state.",
   },
   {
     id: "media",
@@ -2068,13 +2068,13 @@ function BackgroundPicker({ selected, onSelect }: { selected: string | null; onS
 }
 
 function ThemesSettings() {
-  const { data: syncedThemes = [], isLoading } = useThemes();
+  const { data: customThemes = [], isLoading } = useThemes();
   const createTheme = useCreateTheme();
   const updateTheme = useUpdateTheme();
   const deleteTheme = useDeleteTheme();
   const setActiveTheme = useSetActiveTheme();
   const fileRef = useRef<HTMLInputElement>(null);
-  const activeCustomTheme = syncedThemes.find((theme) => theme.isActive) ?? null;
+  const activeCustomTheme = customThemes.find((theme) => theme.isActive) ?? null;
   const isSavingTheme = createTheme.isPending || updateTheme.isPending || setActiveTheme.isPending;
 
   // Editor state
@@ -2162,7 +2162,7 @@ function ThemesSettings() {
       const latestThemes = await api.get<Theme[]>("/themes");
       const duplicate = findDuplicateTheme(latestThemes, importedThemeName, importedThemeCss);
       if (duplicate) {
-        toast.success(`Theme "${duplicate.name}" is already synced`);
+        toast.success(`Theme "${duplicate.name}" is already installed`);
       } else {
         await createTheme.mutateAsync({
           name: importedThemeName,
@@ -2281,8 +2281,8 @@ function ThemesSettings() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
         <Palette size="0.75rem" />
-        Create or import custom CSS themes. Themes sync across devices connected to this Marinara server, while
-        extensions stay local to this browser.
+        Create or import custom CSS themes. Themes are stored locally in this Tauri app, while extensions stay local to
+        this device.
       </div>
 
       {/* Action buttons */}
@@ -2327,7 +2327,7 @@ function ThemesSettings() {
         </button>
 
         {/* Custom theme list */}
-        {syncedThemes.map((t) => (
+        {customThemes.map((t) => (
           <div
             key={t.id}
             className={cn(
@@ -2395,13 +2395,13 @@ function ThemesSettings() {
           </div>
         ))}
 
-        {isLoading && syncedThemes.length === 0 && (
-          <p className="py-2 text-center text-[0.625rem] text-[var(--muted-foreground)]">Loading synced themes...</p>
+        {isLoading && customThemes.length === 0 && (
+          <p className="py-2 text-center text-[0.625rem] text-[var(--muted-foreground)]">Loading custom themes...</p>
         )}
 
-        {!isLoading && syncedThemes.length === 0 && (
+        {!isLoading && customThemes.length === 0 && (
           <p className="py-2 text-center text-[0.625rem] text-[var(--muted-foreground)]">
-            No synced custom themes yet. Create one or import a .css file above.
+            No custom themes yet. Create one or import a .css file above.
           </p>
         )}
       </div>
@@ -2412,7 +2412,7 @@ function ThemesSettings() {
         <code className="rounded bg-[var(--secondary)] px-1">--background</code>,{" "}
         <code className="rounded bg-[var(--secondary)] px-1">--primary</code>) or add custom styles. JSON themes should
         have <code className="rounded bg-[var(--secondary)] px-1">{`{ "name": "...", "css": "..." }`}</code> format.
-        Imported theme files sync to this Marinara server but do not auto-activate.
+        Imported theme files are stored locally but do not auto-activate.
       </div>
     </div>
   );
@@ -2803,7 +2803,7 @@ function ImportSettings() {
   return (
     <div className="flex flex-col gap-3">
       <div className="text-xs text-[var(--muted-foreground)]">
-        Import data from Marinara exports, SillyTavern, or other tools. Full profile imports also restore synced custom
+        Import data from Marinara exports, SillyTavern, or other tools. Full profile imports also restore custom
         themes.
       </div>
 

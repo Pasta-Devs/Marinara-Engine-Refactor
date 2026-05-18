@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// Hooks: Synced Custom Themes
+// Hooks: Custom Themes
 // ──────────────────────────────────────────────
 import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -91,18 +91,18 @@ export function useLegacyThemeMigration() {
         let migratedActiveThemeId: string | null = null;
 
         for (const legacyTheme of legacyThemes) {
-          let syncedTheme = findDuplicateTheme(workingThemes, legacyTheme.name, legacyTheme.css);
-          if (!syncedTheme) {
-            syncedTheme = await api.post<Theme>("/themes", {
+          let storedTheme = findDuplicateTheme(workingThemes, legacyTheme.name, legacyTheme.css);
+          if (!storedTheme) {
+            storedTheme = await api.post<Theme>("/themes", {
               name: legacyTheme.name,
               css: legacyTheme.css,
               installedAt: legacyTheme.installedAt,
             });
-            workingThemes = [syncedTheme, ...workingThemes];
+            workingThemes = [storedTheme, ...workingThemes];
           }
 
           if (!serverAlreadyHasActiveTheme && legacyActiveCustomTheme === legacyTheme.id) {
-            migratedActiveThemeId = syncedTheme.id;
+            migratedActiveThemeId = storedTheme.id;
           }
         }
 
