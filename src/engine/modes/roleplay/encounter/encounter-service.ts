@@ -477,10 +477,14 @@ function fallbackInitState(input: {
   const gameRpgStats = parseRpgStats(gamePlayer?.rpgStats);
   const playerMaxHp = input.personaMaxHp ?? positiveNumber(gameRpgStats?.hp?.max) ?? 24;
   const playerItems = input.worldState.playerItems.length > 0 ? input.worldState.playerItems : ["Healing Potion x1"];
-  const attacks: CombatAttack[] =
-    input.spellbookAttacks.length > 0
-      ? input.spellbookAttacks
-      : [{ name: "Attack", type: "single-target", description: "A basic attack.", power: 1, cooldown: 0 }];
+  const defaultAttack: CombatAttack = {
+    name: "Attack",
+    type: "single-target",
+    description: "A basic attack.",
+    power: 1,
+    cooldown: 0,
+  };
+  const attacks: CombatAttack[] = input.spellbookAttacks.length > 0 ? input.spellbookAttacks : [defaultAttack];
   const party: CombatPartyMember[] = [
     {
       name: playerName,
@@ -731,7 +735,7 @@ function sanitizeAttacks(values: unknown[] | null, fallback: CombatAttack[]): Co
       if (statusEffect) attack.statusEffect = statusEffect;
       return attack;
     })
-    .filter((attack): attack is CombatAttack => !!attack);
+    .filter((attack): attack is NonNullable<typeof attack> => attack !== null);
   return attacks.length > 0 ? attacks : fallback;
 }
 
@@ -752,7 +756,7 @@ function sanitizeStatuses(values: unknown[] | null, fallback: CombatStatus[]): C
       if (stat === "attack" || stat === "defense" || stat === "speed" || stat === "hp") status.stat = stat;
       return status;
     })
-    .filter((status): status is CombatStatus => !!status);
+    .filter((status): status is NonNullable<typeof status> => status !== null);
   return statuses.length > 0 ? statuses : fallback;
 }
 
