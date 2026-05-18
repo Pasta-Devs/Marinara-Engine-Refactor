@@ -1,4 +1,4 @@
-import { api } from "../api/api-client";
+import { importApi } from "../api/import-api";
 
 export interface EmbeddedLorebookImportPreview {
   filename: string;
@@ -52,10 +52,10 @@ export async function inspectCharacterFilesForEmbeddedLorebooks(
     form.append("files", file);
   }
 
-  const result = await api.upload<{
+  const result = await importApi.stCharacterInspect<{
     success: boolean;
     results: EmbeddedLorebookImportPreview[];
-  }>("/import/st-character/inspect", form);
+  }>(form);
 
   return result.results.filter((item) => item.success && item.hasEmbeddedLorebook);
 }

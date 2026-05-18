@@ -6,7 +6,8 @@ import { Modal } from "../../../shared/components/ui/Modal";
 import { Download, FileJson, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { characterKeys } from "../../characters/hooks/use-characters";
-import { api } from "../../../shared/api/api-client";
+import { importApi } from "../../../shared/api/import-api";
+import { storageApi } from "../../../shared/api/storage-api";
 
 interface Props {
   open: boolean;
@@ -54,10 +55,7 @@ export function ImportPersonaModal({ open, onClose }: Props) {
             "timestampOverrides",
             JSON.stringify({ createdAt: file.lastModified, updatedAt: file.lastModified }),
           );
-          const data = await api.upload<{ success: boolean; name?: string; error?: string }>(
-            "/import/marinara-file",
-            form,
-          );
+          const data = await importApi.marinaraFile<{ success: boolean; name?: string; error?: string }>(file);
           nextResults.push({
             filename: file.name,
             success: data.success,
@@ -73,7 +71,7 @@ export function ImportPersonaModal({ open, onClose }: Props) {
           json.version === 1 && typeof json.type === "string" && (json.type as string).startsWith("marinara_");
 
         if (isMarinaraEnvelope) {
-          const data = await api.post<{ success: boolean; name?: string; error?: string }>("/import/marinara", {
+          const data = await importApi.marinara<{ success: boolean; name?: string; error?: string }>({
             ...json,
             timestampOverrides: {
               createdAt: file.lastModified,
@@ -89,7 +87,7 @@ export function ImportPersonaModal({ open, onClose }: Props) {
         }
 
         const name = typeof json.name === "string" ? json.name : "Imported Persona";
-        const data = await api.post<{ id?: string; error?: string }>("/characters/personas", {
+        const data = await storageApi.create<{ id?: string; error?: string }>("personas", {
           name,
           description: stringField(json.description),
           personality: stringField(json.personality),

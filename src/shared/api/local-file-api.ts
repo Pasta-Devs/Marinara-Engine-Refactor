@@ -1,5 +1,5 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { api } from "./api-client";
+import { invokeTauri } from "./tauri-client";
 
 export const USER_BACKGROUND_URL_PREFIX = "marinara-background:";
 export const GAME_ASSET_URL_PREFIX = "marinara-game-asset:";
@@ -74,17 +74,17 @@ export function backgroundFileUrlFromPath(filename: string, absolutePath?: strin
 }
 
 export async function resolveGameAssetFileUrl(path: string): Promise<string> {
-  const response = await api.get<PathResponse>(`/game-assets/file-path/${encodeLocalAssetPath(path)}`);
+  const response = await invokeTauri<PathResponse>("game_assets_file_path", { path });
   return filePathToAssetUrl(response.path ?? "");
 }
 
 export async function resolveBackgroundFileUrl(filename: string): Promise<string> {
-  const response = await api.get<PathResponse>(`/backgrounds/file-path/${encodeLocalAssetPath(filename)}`);
+  const response = await invokeTauri<PathResponse>("background_file_path", { filename });
   return filePathToAssetUrl(response.path ?? "");
 }
 
 export async function resolveLorebookImageFileUrl(filename: string): Promise<string> {
-  const response = await api.get<PathResponse>(`/lorebooks/images/file-path/${encodeLocalAssetPath(filename)}`);
+  const response = await invokeTauri<PathResponse>("lorebook_image_file_path", { filename });
   return filePathToAssetUrl(response.path ?? "");
 }
 

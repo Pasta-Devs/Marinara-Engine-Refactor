@@ -329,7 +329,7 @@ pub(crate) async fn route_request(
                 .storage
                 .patch("connections", id, json!({ "defaultParameters": body }))
         }
-        ["connections", id, "models"] if method == "GET" => connection_models(state, id).await,
+        ["connections", id, "models"] if method == "GET" => super::llm::connection_models(state, id).await,
         ["connections", id, "test"] if method == "POST" => test_connection(state, id).await,
         ["connections", id, "test-message"] if method == "POST" => test_message(state, id).await,
         ["connections", id, "test-image"] if method == "POST" => {
@@ -374,7 +374,7 @@ pub(crate) async fn route_request(
         ),
         ["lorebooks", "scan", chat_id] if method == "GET" => scan_lorebooks(state, chat_id),
         ["lorebooks", "images", "file-path", encoded] if method == "GET" => {
-            lorebook_image_file_path(state, encoded)
+            super::lorebook_images::lorebook_image_file_path(state, encoded)
         }
         ["lorebooks", lorebook_id, "export"] if method == "GET" => export_lorebook(
             state,
@@ -440,15 +440,17 @@ pub(crate) async fn route_request(
             "root": state.game_assets.root().to_string_lossy()
         })),
         ["game-assets", "manifest"] if method == "GET" => game_assets_manifest(state),
-        ["game-assets", "tree"] if method == "GET" => game_assets_tree(state),
-        ["game-assets", "upload"] if method == "POST" => game_assets_upload(state, body),
+        ["game-assets", "tree"] if method == "GET" => super::game_assets::game_assets_tree(state),
+        ["game-assets", "upload"] if method == "POST" => {
+            super::game_assets::game_assets_upload(state, body)
+        }
         ["game-assets", "folders"] if method == "POST" => {
             let path = body.get("path").and_then(Value::as_str).unwrap_or("");
             state.game_assets.create_folder(path)?;
             Ok(json!({ "path": path }))
         }
         ["game-assets", "folders", "description"] if method == "PATCH" => {
-            game_assets_folder_description(state, body)
+            super::game_assets::game_assets_folder_description(state, body)
         }
         ["game-assets", "folders", encoded] if method == "DELETE" => {
             let recursive = route.query.get("recursive").map(String::as_str) == Some("true");
@@ -528,8 +530,10 @@ pub(crate) async fn route_request(
         ["game-assets", "file-info", encoded] if method == "GET" => {
             state.game_assets.file_info(&decode_path(encoded))
         }
-        ["game-assets", "rescan"] if method == "POST" => game_assets_rescan(state),
-        ["game-assets", "open-folder"] if method == "POST" => game_assets_open_folder(state, body),
+        ["game-assets", "rescan"] if method == "POST" => super::game_assets::game_assets_rescan(state),
+        ["game-assets", "open-folder"] if method == "POST" => {
+            super::game_assets::game_assets_open_folder(state, body)
+        }
         ["sprites", "capabilities"] if method == "GET" => sprite_capabilities(),
         ["sprites", "cleanup", "status"] if method == "GET" => sprite_cleanup_status(),
         ["sprites", "generate-sheet", "preview"] if method == "POST" => {
@@ -558,7 +562,7 @@ pub(crate) async fn route_request(
             patch_agent_type(state, agent_type, body)
         }
         ["agents", "cadence", agent_type, chat_id] if method == "GET" => {
-            agent_cadence_status(state, agent_type, chat_id)
+            super::agents::agent_cadence_status(state, agent_type, chat_id)
         }
         ["agents", "runs", chat_id, "custom"] if method == "GET" => {
             list_collection(state, "agent-runs", Some(("chatId", *chat_id)))
@@ -573,7 +577,9 @@ pub(crate) async fn route_request(
         ["agents", "echo-messages", chat_id] => echo_messages(state, method, chat_id),
         ["agents"] => collection_root(state, method, "agents", body),
         ["agents", id] => collection_item_or_action(state, method, "agents", id, None, body),
-        ["custom-tools", "capabilities"] if method == "GET" => Ok(custom_tool_capabilities()),
+        ["custom-tools", "capabilities"] if method == "GET" => {
+            Ok(super::custom_tools::custom_tool_capabilities())
+        }
         ["custom-tools", "execute"] if method == "POST" => execute_custom_tool(state, body).await,
         ["regex-scripts", "reorder"] if method == "PUT" => {
             reorder_collection(state, "regex-scripts", "scriptIds", body)

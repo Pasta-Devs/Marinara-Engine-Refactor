@@ -8,7 +8,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BUILT_IN_AGENTS, getDefaultBuiltInAgentSettings } from "../../../engine/contracts/types/agent";
 import type { Message } from "../../../engine/contracts/types/chat";
 import { cn } from "../../../shared/lib/utils";
-import { api } from "../../../shared/api/api-client";
+import { invokeTauri } from "../../../shared/api/tauri-client";
 import { chatKeys, useUpdateMessageExtra } from "../../chats/hooks/use-chats";
 import { useGenerate } from "../../generation/hooks/use-generate";
 import { HelpTooltip } from "../../../shared/components/ui/HelpTooltip";
@@ -138,7 +138,7 @@ export function ContextInjectionPanel({
   const directorCadence = useQuery({
     queryKey: directorCadenceQueryKey,
     enabled: !!chatId && showDirectorCadence,
-    queryFn: () => api.get<AgentCadenceStatus>(`/agents/cadence/director/${chatId}`),
+    queryFn: () => invokeTauri<AgentCadenceStatus>("agent_cadence_status", { agentType: "director", chatId }),
     staleTime: 15_000,
   });
   const directorIntervalMeta = getAgentRunIntervalMeta("director");

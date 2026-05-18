@@ -7,7 +7,7 @@ import { Download, FileJson, Image, CheckCircle, XCircle, Loader2, BookOpen } fr
 import { useQueryClient } from "@tanstack/react-query";
 import { characterKeys } from "../hooks/use-characters";
 import { lorebookKeys } from "../../lorebooks/hooks/use-lorebooks";
-import { api } from "../../../shared/api/api-client";
+import { importApi } from "../../../shared/api/import-api";
 import {
   inspectCharacterFilesForEmbeddedLorebooks,
   type EmbeddedLorebookImportPreview,
@@ -116,7 +116,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
         form.append("importEmbeddedLorebook", String(importEmbeddedLorebook ?? true));
         form.append("tagImportMode", tagImportMode);
 
-        const batchResult = await api.upload<{
+        const batchResult = await importApi.stCharacterBatch<{
           success: boolean;
           results: Array<{
             filename: string;
@@ -126,7 +126,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
             lorebook?: { lorebookId?: string };
             embeddedLorebook?: { hasEmbeddedLorebook?: boolean; skipped?: boolean; entries?: number };
           }>;
-        }>("/import/st-character/batch", form);
+        }>(form);
 
         for (const result of batchResult.results) {
           if (result.lorebook?.lorebookId) importedLorebook = true;
@@ -148,11 +148,11 @@ export function ImportCharacterModal({ open, onClose }: Props) {
 
       for (const item of marinaraPayloads) {
         try {
-          const result = await api.post<{
+          const result = await importApi.marinara<{
             success: boolean;
             name?: string;
             error?: string;
-          }>("/import/marinara", {
+          }>({
             ...item.payload,
             timestampOverrides: {
               createdAt: item.file.lastModified,
@@ -182,10 +182,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
             "timestampOverrides",
             JSON.stringify({ createdAt: file.lastModified, updatedAt: file.lastModified }),
           );
-          const result = await api.upload<{ success: boolean; name?: string; error?: string }>(
-            "/import/marinara-file",
-            form,
-          );
+          const result = await importApi.marinaraFile<{ success: boolean; name?: string; error?: string }>(file);
           nextResults.push({
             filename: file.name,
             success: result.success,

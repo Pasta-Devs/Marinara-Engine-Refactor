@@ -5,7 +5,7 @@ import { useState, useRef } from "react";
 import { Modal } from "../../../shared/components/ui/Modal";
 import { Download, FileJson, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api } from "../../../shared/api/api-client";
+import { importApi } from "../../../shared/api/import-api";
 
 interface Props {
   open: boolean;
@@ -33,7 +33,6 @@ export function ImportPresetModal({ open, onClose }: Props) {
 
         // Detect Marinara native export format vs SillyTavern format
         const isMarinara = json.type === "marinara_preset" && json.version === 1;
-        const endpoint = isMarinara ? "/import/marinara" : "/import/st-preset";
         const payload = isMarinara
           ? {
               ...json,
@@ -51,7 +50,9 @@ export function ImportPresetModal({ open, onClose }: Props) {
               },
             };
 
-        const data = await api.post<{ success: boolean; error?: string }>(endpoint, payload);
+        const data = isMarinara
+          ? await importApi.marinara<{ success: boolean; error?: string }>(payload)
+          : await importApi.stPreset<{ success: boolean; error?: string }>(payload);
         nextResults.push({
           filename: file.name,
           success: data.success,

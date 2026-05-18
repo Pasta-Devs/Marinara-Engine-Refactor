@@ -314,6 +314,11 @@ pub async fn tts_speak(state: State<'_, AppState>, input: Value) -> Result<Value
 }
 
 #[tauri::command]
+pub async fn translate_text_command(state: State<'_, AppState>, input: Value) -> Result<Value, AppError> {
+    translation::translate_text(&state, input).await
+}
+
+#[tauri::command]
 pub async fn haptic_status() -> Result<Value, AppError> {
     integrations::haptic_call(&["status"], Value::Null).await
 }
@@ -392,6 +397,33 @@ pub async fn spotify_player(state: State<'_, AppState>, body: Option<Value>) -> 
 #[tauri::command]
 pub async fn spotify_devices(state: State<'_, AppState>, body: Option<Value>) -> Result<Value, AppError> {
     spotify_direct(state, "GET", &["devices"], body.unwrap_or(Value::Null)).await
+}
+
+#[tauri::command]
+pub async fn spotify_access_token(state: State<'_, AppState>, body: Option<Value>) -> Result<Value, AppError> {
+    spotify_direct(state, "GET", &["access-token"], body.unwrap_or(Value::Null)).await
+}
+
+#[tauri::command]
+pub async fn spotify_playlists(
+    state: State<'_, AppState>,
+    agent_id: Option<String>,
+    limit: Option<u32>,
+) -> Result<Value, AppError> {
+    let route = shared::ParsedPath::new(&format!("/spotify/playlists?limit={}", limit.unwrap_or(50)));
+    integrations::spotify_call(
+        &state,
+        "GET",
+        &["playlists"],
+        &route,
+        json!({ "agentId": agent_id }),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn spotify_playlist_tracks(state: State<'_, AppState>, input: Value) -> Result<Value, AppError> {
+    spotify_direct(state, "POST", &["playlist-tracks"], input).await
 }
 
 #[tauri::command]
@@ -535,6 +567,39 @@ pub fn import_st_bulk_run_events(state: State<'_, AppState>, payload: Value) -> 
 }
 
 #[tauri::command]
+pub async fn custom_tool_execute(state: State<'_, AppState>, body: Value) -> Result<Value, AppError> {
+    custom_tools::execute_custom_tool(&state, body).await
+}
+
+#[tauri::command]
+pub fn custom_tool_capabilities() -> Result<Value, AppError> {
+    Ok(custom_tools::custom_tool_capabilities())
+}
+
+#[tauri::command]
+pub fn agent_patch_by_type(
+    state: State<'_, AppState>,
+    agent_type: String,
+    patch: Value,
+) -> Result<Value, AppError> {
+    agents::patch_agent_type(&state, &agent_type, patch)
+}
+
+#[tauri::command]
+pub fn agent_toggle_by_type(state: State<'_, AppState>, agent_type: String) -> Result<Value, AppError> {
+    agents::toggle_agent_type(&state, &agent_type)
+}
+
+#[tauri::command]
+pub fn agent_cadence_status(
+    state: State<'_, AppState>,
+    agent_type: String,
+    chat_id: String,
+) -> Result<Value, AppError> {
+    agents::agent_cadence_status(&state, &agent_type, &chat_id)
+}
+
+#[tauri::command]
 pub fn storage_list(
     state: State<'_, AppState>,
     entity: String,
@@ -625,6 +690,87 @@ pub fn storage_delete(
 ) -> Result<Value, AppError> {
     let deleted = state.storage.delete(&entity, &id)?;
     Ok(json!({ "deleted": deleted }))
+}
+
+#[tauri::command]
+pub fn storage_duplicate(
+    state: State<'_, AppState>,
+    entity: String,
+    id: String,
+) -> Result<Value, AppError> {
+    shared::duplicate_record(&state, &entity, &id)
+}
+
+#[tauri::command]
+pub async fn connection_test(state: State<'_, AppState>, id: String) -> Result<Value, AppError> {
+    generation::test_connection(&state, &id).await
+}
+
+#[tauri::command]
+pub async fn connection_test_message(state: State<'_, AppState>, id: String) -> Result<Value, AppError> {
+    generation::test_message(&state, &id).await
+}
+
+#[tauri::command]
+pub async fn connection_test_image(state: State<'_, AppState>, id: String) -> Result<Value, AppError> {
+    images::test_image_generation(&state, &id).await
+}
+
+#[tauri::command]
+pub async fn connection_models(state: State<'_, AppState>, id: String) -> Result<Value, AppError> {
+    llm::connection_models(&state, &id).await
+}
+
+#[tauri::command]
+pub fn connection_save_default_parameters(
+    state: State<'_, AppState>,
+    id: String,
+    params: Value,
+) -> Result<Value, AppError> {
+    state
+        .storage
+        .patch("connections", &id, json!({ "defaultParameters": params }))
+}
+
+#[tauri::command]
+pub fn persona_activate(state: State<'_, AppState>, id: String) -> Result<Value, AppError> {
+    characters::activate_persona(&state, &id)
+}
+
+#[tauri::command]
+pub fn character_avatar_upload(
+    state: State<'_, AppState>,
+    id: String,
+    body: Value,
+) -> Result<Value, AppError> {
+    avatars::update_character_avatar(&state, "characters", &id, body)
+}
+
+#[tauri::command]
+pub fn character_restore_version(
+    state: State<'_, AppState>,
+    character_id: String,
+    version_id: String,
+) -> Result<Value, AppError> {
+    characters::restore_character_version(&state, &character_id, &version_id)
+}
+
+#[tauri::command]
+pub fn persona_avatar_upload(
+    state: State<'_, AppState>,
+    id: String,
+    body: Value,
+) -> Result<Value, AppError> {
+    avatars::update_character_avatar(&state, "personas", &id, body)
+}
+
+#[tauri::command]
+pub fn lorebook_image_upload(
+    state: State<'_, AppState>,
+    id: String,
+    body: Value,
+) -> Result<Value, AppError> {
+    lorebook_images::update_lorebook_image(&state, &id, body)
 }
 
 #[tauri::command]

@@ -3,6 +3,8 @@
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../../shared/api/api-client";
+import { storageApi } from "../../../shared/api/storage-api";
+import { invokeTauri } from "../../../shared/api/tauri-client";
 import type { CharacterCardVersion } from "../../../engine/contracts/types/character";
 
 export const characterKeys = {
@@ -23,7 +25,7 @@ export const characterKeys = {
 export function useCharacters(enabled = true) {
   return useQuery({
     queryKey: characterKeys.list(),
-    queryFn: () => api.get<unknown[]>("/characters"),
+    queryFn: () => storageApi.list<unknown>("characters"),
     enabled,
     staleTime: 5 * 60_000,
   });
@@ -32,7 +34,7 @@ export function useCharacters(enabled = true) {
 export function useCharacter(id: string | null) {
   return useQuery({
     queryKey: characterKeys.detail(id ?? ""),
-    queryFn: () => api.get(`/characters/${id}`),
+    queryFn: () => storageApi.get("characters", id!),
     enabled: !!id,
     staleTime: 5 * 60_000,
   });
@@ -41,7 +43,7 @@ export function useCharacter(id: string | null) {
 export function useCreateCharacter() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Record<string, unknown>) => api.post("/characters", data),
+    mutationFn: (data: Record<string, unknown>) => storageApi.create("characters", data),
     onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.list() }),
   });
 }
@@ -60,7 +62,7 @@ export function useUpdateCharacter() {
       versionSource?: string;
       versionReason?: string;
       skipVersionSnapshot?: boolean;
-    }) => api.patch(`/characters/${id}`, data),
+    }) => storageApi.update("characters", id, data),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: characterKeys.list() });
       qc.invalidateQueries({ queryKey: characterKeys.detail(variables.id) });
@@ -72,7 +74,7 @@ export function useUpdateCharacter() {
 export function useCharacterVersions(id: string | null) {
   return useQuery({
     queryKey: characterKeys.versions(id ?? ""),
-    queryFn: () => api.get<CharacterCardVersion[]>(`/characters/${id}/versions`),
+    queryFn: () => storageApi.list<CharacterCardVersion>("character-versions", { filters: { characterId: id } }),
     enabled: !!id,
     staleTime: 60_000,
   });
@@ -82,7 +84,7 @@ export function useRestoreCharacterVersion() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, versionId }: { id: string; versionId: string }) =>
-      api.post(`/characters/${id}/versions/${versionId}/restore`, {}),
+      invokeTauri("character_restore_version", { characterId: id, versionId }),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: characterKeys.list() });
       qc.invalidateQueries({ queryKey: characterKeys.detail(variables.id) });
@@ -94,8 +96,7 @@ export function useRestoreCharacterVersion() {
 export function useDeleteCharacterVersion() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, versionId }: { id: string; versionId: string }) =>
-      api.delete(`/characters/${id}/versions/${versionId}`),
+    mutationFn: ({ versionId }: { id: string; versionId: string }) => storageApi.delete("character-versions", versionId),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: characterKeys.versions(variables.id) });
     },
@@ -105,7 +106,8 @@ export function useDeleteCharacterVersion() {
 export function useUploadAvatar() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, avatar }: { id: string; avatar: string }) => api.post(`/characters/${id}/avatar`, { avatar }),
+    mutationFn: ({ id, avatar }: { id: string; avatar: string }) =>
+      invokeTauri("character_avatar_upload", { id, body: { avatar } }),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: characterKeys.list() });
       qc.invalidateQueries({ queryKey: characterKeys.detail(variables.id) });
@@ -116,7 +118,7 @@ export function useUploadAvatar() {
 export function useDeleteCharacter() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/characters/${id}`),
+    mutationFn: (id: string) => storageApi.delete("characters", id),
     onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.list() }),
   });
 }
@@ -124,7 +126,7 @@ export function useDeleteCharacter() {
 export function useDuplicateCharacter() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.post(`/characters/${id}/duplicate`, {}),
+    mutationFn: (id: string) => invokeTauri("storage_duplicate", { entity: "characters", id }),
     onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.list() }),
   });
 }
@@ -317,7 +319,7 @@ export function useDeleteCharacterGalleryImage(characterId: string) {
 export function usePersonas(enabled = true) {
   return useQuery({
     queryKey: characterKeys.personas,
-    queryFn: () => api.get<unknown[]>("/characters/personas/list"),
+    queryFn: () => storageApi.list<unknown>("personas"),
     enabled,
     staleTime: 5 * 60_000,
   });
@@ -343,7 +345,7 @@ export function useCreatePersona() {
       tags?: string;
       savedStatusOptions?: string;
       avatarCrop?: string;
-    }) => api.post("/characters/personas", data),
+    }) => storageApi.create("personas", data),
     onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.personas }),
   });
 }
@@ -372,7 +374,7 @@ export function useUpdatePersona() {
       tags?: string;
       savedStatusOptions?: string;
       avatarCrop?: string;
-    }) => api.patch(`/characters/personas/${id}`, data),
+    }) => storageApi.update("personas", id, data),
     onSuccess: (updatedPersona, variables) => {
       qc.setQueryData<unknown[] | undefined>(characterKeys.personas, (old) => {
         if (!Array.isArray(old)) return old;
@@ -395,7 +397,7 @@ export function useUpdatePersona() {
 export function useDeletePersona() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/characters/personas/${id}`),
+    mutationFn: (id: string) => storageApi.delete("personas", id),
     onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.personas }),
   });
 }
@@ -403,7 +405,7 @@ export function useDeletePersona() {
 export function useDuplicatePersona() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.post(`/characters/personas/${id}/duplicate`, {}),
+    mutationFn: (id: string) => invokeTauri("storage_duplicate", { entity: "personas", id }),
     onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.personas }),
   });
 }
@@ -411,7 +413,7 @@ export function useDuplicatePersona() {
 export function useActivatePersona() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.put(`/characters/personas/${id}/activate`, {}),
+    mutationFn: (id: string) => invokeTauri("persona_activate", { id }),
     onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.personas }),
   });
 }
@@ -420,7 +422,7 @@ export function useUploadPersonaAvatar() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, avatar, filename }: { id: string; avatar: string; filename?: string }) =>
-      api.post(`/characters/personas/${id}/avatar`, { avatar, filename }),
+      invokeTauri("persona_avatar_upload", { id, body: { avatar, filename } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.personas }),
   });
 }
@@ -430,14 +432,14 @@ export function useUploadPersonaAvatar() {
 export function useCharacterGroups() {
   return useQuery({
     queryKey: characterKeys.groups,
-    queryFn: () => api.get<unknown[]>("/characters/groups/list"),
+    queryFn: () => storageApi.list<unknown>("character-groups"),
   });
 }
 
 export function useCharacterGroup(id: string | null) {
   return useQuery({
     queryKey: characterKeys.groupDetail(id ?? ""),
-    queryFn: () => api.get(`/characters/groups/${id}`),
+    queryFn: () => storageApi.get("character-groups", id!),
     enabled: !!id,
   });
 }
@@ -446,7 +448,7 @@ export function useCreateGroup() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { name: string; description?: string; characterIds?: string[] }) =>
-      api.post("/characters/groups", data),
+      storageApi.create("character-groups", data),
     onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.groups }),
   });
 }
@@ -455,7 +457,7 @@ export function useUpdateGroup() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; characterIds?: string[] }) =>
-      api.patch(`/characters/groups/${id}`, data),
+      storageApi.update("character-groups", id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.groups }),
   });
 }
@@ -463,7 +465,7 @@ export function useUpdateGroup() {
 export function useDeleteGroup() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/characters/groups/${id}`),
+    mutationFn: (id: string) => storageApi.delete("character-groups", id),
     onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.groups }),
   });
 }
@@ -473,7 +475,7 @@ export function useDeleteGroup() {
 export function usePersonaGroups() {
   return useQuery({
     queryKey: characterKeys.personaGroups,
-    queryFn: () => api.get<unknown[]>("/characters/persona-groups/list"),
+    queryFn: () => storageApi.list<unknown>("persona-groups"),
   });
 }
 
@@ -481,7 +483,7 @@ export function useCreatePersonaGroup() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { name: string; description?: string; personaIds?: string[] }) =>
-      api.post("/characters/persona-groups", data),
+      storageApi.create("persona-groups", data),
     onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.personaGroups }),
   });
 }
@@ -490,7 +492,7 @@ export function useUpdatePersonaGroup() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; personaIds?: string[] }) =>
-      api.patch(`/characters/persona-groups/${id}`, data),
+      storageApi.update("persona-groups", id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.personaGroups }),
   });
 }
@@ -498,7 +500,7 @@ export function useUpdatePersonaGroup() {
 export function useDeletePersonaGroup() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/characters/persona-groups/${id}`),
+    mutationFn: (id: string) => storageApi.delete("persona-groups", id),
     onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.personaGroups }),
   });
 }

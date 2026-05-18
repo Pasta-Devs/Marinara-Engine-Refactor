@@ -1,4 +1,4 @@
-import { api } from "./api-client";
+import { invokeTauri } from "./tauri-client";
 
 export interface DownloadPayload {
   blob: Blob;
@@ -56,12 +56,12 @@ function downloadPayloadFromApiValue(
 }
 
 export async function exportProfile(): Promise<DownloadPayload> {
-  const value = await api.get("/profile/export?format=native");
+  const value = await invokeTauri("profile_export");
   return downloadPayloadFromApiValue(value, "marinara-profile.json", "application/json");
 }
 
 export async function importProfile<T>(envelope: unknown): Promise<T> {
-  return api.post<T>("/profile/import", envelope);
+  return invokeTauri<T>("profile_import", { envelope });
 }
 
 export const profileApi = {

@@ -3,6 +3,8 @@ import type { CombatAttack, CombatEnemy, CombatInitState, CombatMechanic, Combat
 import type { Combatant, CombatPlayerAction, GameActiveState, GameCheckpoint, GameMap, GameNpc, GameSetupConfig, HudWidget, SessionSummary } from "../../../engine/contracts/types/game";
 import type { RPGAttributes } from "../../../engine/contracts/types/game-state";
 import { api, ApiError, type JsonRepairRequest } from "../../../shared/api/api-client";
+import { gameAssetsApi } from "../../../shared/api/assets-api";
+import { spotifyApi } from "../../../shared/api/integration-utility-api";
 import { llmApi } from "../../../shared/api/llm-api";
 import { resolveCombatRound } from "../../../engine/modes/game/mechanics/combat.service";
 import { rollDice as rollGameDice } from "../../../engine/modes/game/mechanics/dice.service";
@@ -646,11 +648,11 @@ async function uploadGeneratedAsset(
   base64: string,
   mimeType: string,
 ): Promise<string> {
-  const form = new FormData();
-  form.set("category", category);
-  form.set("subcategory", subcategory);
-  form.set("file", base64File(base64, `${slug}.${imageExt(mimeType)}`, mimeType));
-  const uploaded = await api.upload<{ item?: { path?: string } }>("/game-assets/upload", form);
+  const uploaded = await gameAssetsApi.upload({
+    category,
+    subcategory,
+    file: base64File(base64, `${slug}.${imageExt(mimeType)}`, mimeType),
+  }) as { item?: { path?: string } };
   const path = uploaded.item?.path;
   if (!path) throw new Error("Generated asset path missing.");
   return assetTagFromPath(path);
@@ -1468,7 +1470,7 @@ export const gameApi = {
 
   async spotifyCandidates(payload: Record<string, unknown>) {
     try {
-      return await api.post("/spotify/search-tracks", {
+      return await spotifyApi.searchTracks({
         query: spotifyQuery(payload),
         limit: Math.max(1, Math.min(50, Number(payload.limit ?? 50))),
         recentTrackUris: recentSpotifyTracks(payload),
@@ -1479,7 +1481,7 @@ export const gameApi = {
   },
 
   async spotifyPlay(payload: { track: unknown; deviceId?: string | null }) {
-    return api.post("/spotify/play-track", payload);
+    return spotifyApi.playTrack(payload as Record<string, unknown>);
   },
 
   async previewGeneratedAssets(payload: GameAssetGenerationPayload): Promise<{ items: GameImagePromptReviewItem[] }> {

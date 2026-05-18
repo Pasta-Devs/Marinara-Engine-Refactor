@@ -2,7 +2,8 @@
 // Hooks: Agent Configs (React Query)
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../../../shared/api/api-client";
+import { storageApi } from "../../../shared/api/storage-api";
+import { invokeTauri } from "../../../shared/api/tauri-client";
 
 export const agentKeys = {
   all: ["agents"] as const,
@@ -43,7 +44,7 @@ export interface AgentRunRow {
 export function useAgentConfigs(enabled = true) {
   return useQuery({
     queryKey: agentKeys.all,
-    queryFn: () => api.get<AgentConfigRow[]>("/agents"),
+    queryFn: () => storageApi.list<AgentConfigRow>("agents"),
     enabled,
     staleTime: 5 * 60_000,
   });
@@ -52,7 +53,7 @@ export function useAgentConfigs(enabled = true) {
 export function useAgentConfig(id: string | null) {
   return useQuery({
     queryKey: agentKeys.detail(id ?? ""),
-    queryFn: () => api.get<AgentConfigRow>(`/agents/${id}`),
+    queryFn: () => storageApi.get<AgentConfigRow>("agents", id!),
     enabled: !!id,
     staleTime: 5 * 60_000,
   });
@@ -61,7 +62,8 @@ export function useAgentConfig(id: string | null) {
 export function useCustomAgentRuns(chatId: string | null, enabled = true) {
   return useQuery({
     queryKey: agentKeys.customRuns(chatId ?? ""),
-    queryFn: () => api.get<AgentRunRow[]>(`/agents/runs/${chatId}/custom`),
+    queryFn: async () =>
+      (await storageApi.list<AgentRunRow>("agent-runs", { filters: { chatId } })).filter((run) => !!run.agentType),
     enabled: !!chatId && enabled,
     staleTime: 15_000,
   });
@@ -70,7 +72,7 @@ export function useCustomAgentRuns(chatId: string | null, enabled = true) {
 export function useUpdateAgent() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) => api.patch(`/agents/${id}`, data),
+    mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) => storageApi.update("agents", id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: agentKeys.all });
     },
@@ -81,7 +83,7 @@ export function useUpdateAgentByType() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ agentType, ...data }: { agentType: string } & Record<string, unknown>) =>
-      api.patch(`/agents/type/${agentType}`, data),
+      invokeTauri("agent_patch_by_type", { agentType, patch: data }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: agentKeys.all });
     },
@@ -91,7 +93,7 @@ export function useUpdateAgentByType() {
 export function useCreateAgent() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Record<string, unknown>) => api.post("/agents", data),
+    mutationFn: (data: Record<string, unknown>) => storageApi.create("agents", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: agentKeys.all });
     },
@@ -102,7 +104,7 @@ export function useUpdateAgentRunData() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, resultData }: { id: string; chatId: string; resultData: unknown }) =>
-      api.patch(`/agents/runs/${id}`, { resultData }),
+      storageApi.update("agent-runs", id, { resultData }),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: agentKeys.customRuns(variables.chatId) });
     },
@@ -112,7 +114,7 @@ export function useUpdateAgentRunData() {
 export function useToggleAgent() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (agentType: string) => api.put(`/agents/toggle/${agentType}`),
+    mutationFn: (agentType: string) => invokeTauri("agent_toggle_by_type", { agentType }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: agentKeys.all });
     },
@@ -122,7 +124,7 @@ export function useToggleAgent() {
 export function useDeleteAgent() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/agents/${id}`),
+    mutationFn: (id: string) => storageApi.delete("agents", id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: agentKeys.all });
     },

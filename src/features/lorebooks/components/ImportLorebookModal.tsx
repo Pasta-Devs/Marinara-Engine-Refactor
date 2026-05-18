@@ -5,7 +5,7 @@ import { useState, useRef } from "react";
 import { Modal } from "../../../shared/components/ui/Modal";
 import { Download, FileJson, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api } from "../../../shared/api/api-client";
+import { importApi } from "../../../shared/api/import-api";
 
 interface Props {
   open: boolean;
@@ -31,7 +31,6 @@ export function ImportLorebookModal({ open, onClose }: Props) {
         const json = JSON.parse(text) as Record<string, unknown>;
 
         const isMarinaraLorebook = json.type === "marinara_lorebook" && json.version === 1;
-        const endpoint = isMarinaraLorebook ? "/import/marinara" : "/import/st-lorebook";
         const payload = isMarinaraLorebook
           ? {
               ...json,
@@ -49,7 +48,9 @@ export function ImportLorebookModal({ open, onClose }: Props) {
               },
             };
 
-        const data = await api.post<{ success: boolean; error?: string }>(endpoint, payload);
+        const data = isMarinaraLorebook
+          ? await importApi.marinara<{ success: boolean; error?: string }>(payload)
+          : await importApi.stLorebook<{ success: boolean; error?: string }>(payload);
         nextResults.push({
           filename: file.name,
           success: data.success,

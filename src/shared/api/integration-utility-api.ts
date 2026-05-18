@@ -1,4 +1,5 @@
-import { api } from "./api-client";
+import { fileToUploadPayload } from "./file-payload";
+import { invokeTauri } from "./tauri-client";
 
 export interface GifSearchResult {
   id: string;
@@ -59,10 +60,11 @@ function base64ToBlob(base64: string, contentType: string): Blob {
 
 export const gifsApi = {
   search: (input: { q?: string; limit?: number; pos?: string }) => {
-    const params = new URLSearchParams({ limit: String(input.limit ?? 20) });
-    if (input.q?.trim()) params.set("q", input.q.trim());
-    if (input.pos) params.set("pos", input.pos);
-    return api.get<GifSearchResponse>(`/gifs/search?${params}`);
+    return invokeTauri<GifSearchResponse>("gif_search", {
+      q: input.q?.trim() || null,
+      limit: input.limit ?? 20,
+      pos: input.pos ?? null,
+    });
   },
 };
 
@@ -71,7 +73,8 @@ export const ttsApi = {
     input: { text: string; speaker?: string; tone?: string; voice?: string },
     signal?: AbortSignal,
   ): Promise<Blob> => {
-    const response = await api.post<TtsSpeakResponse>("/tts/speak", input, { signal });
+    if (signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
+    const response = await invokeTauri<TtsSpeakResponse>("tts_speak", { input });
     const audio = response.audioBase64 ?? response.base64 ?? response.audio;
     if (!audio) {
       throw new Error(response.error ?? response.message ?? "TTS request did not return audio.");
@@ -81,21 +84,44 @@ export const ttsApi = {
 };
 
 export const spotifyApi = {
-  status: (agentId: string) => api.post<SpotifyStatus>("/spotify/status", { agentId }),
+  status: (agentId: string) => invokeTauri<SpotifyStatus>("spotify_status", { body: { agentId } }),
   authorize: (input: { clientId: string; agentId: string }) =>
-    api.post<SpotifyAuthorizeResponse>("/spotify/authorize", input),
-  exchange: (callbackUrl: string) => api.post<SpotifyExchangeResponse>("/spotify/exchange", { callbackUrl }),
-  disconnect: (agentId: string) => api.post("/spotify/disconnect", { agentId }),
+    invokeTauri<SpotifyAuthorizeResponse>("spotify_authorize", { input }),
+  exchange: (callbackUrl: string) => invokeTauri<SpotifyExchangeResponse>("spotify_exchange", { callbackUrl }),
+  disconnect: (agentId: string) => invokeTauri("spotify_disconnect", { body: { agentId } }),
+  accessToken: <T = unknown>() => invokeTauri<T>("spotify_access_token", { body: null }),
+  player: <T = unknown>(body?: Record<string, unknown> | null) =>
+    invokeTauri<T>("spotify_player", { body: body ?? null }),
+  devices: <T = unknown>(body?: Record<string, unknown> | null) =>
+    invokeTauri<T>("spotify_devices", { body: body ?? null }),
+  playlists: <T = unknown>(input?: { agentId?: string | null; limit?: number }) =>
+    invokeTauri<T>("spotify_playlists", { agentId: input?.agentId ?? null, limit: input?.limit ?? null }),
+  playlistTracks: <T = unknown>(input: Record<string, unknown>) =>
+    invokeTauri<T>("spotify_playlist_tracks", { input }),
+  play: (body: Record<string, unknown>) => invokeTauri("spotify_player_play", { body }),
+  pause: (body: Record<string, unknown>) => invokeTauri("spotify_player_pause", { body }),
+  next: (body: Record<string, unknown>) => invokeTauri("spotify_player_next", { body }),
+  previous: (body: Record<string, unknown>) => invokeTauri("spotify_player_previous", { body }),
+  transfer: (body: Record<string, unknown>) => invokeTauri("spotify_player_transfer", { body }),
+  shuffle: (body: Record<string, unknown>) => invokeTauri("spotify_player_shuffle", { body }),
+  repeat: (body: Record<string, unknown>) => invokeTauri("spotify_player_repeat", { body }),
+  volume: (body: Record<string, unknown>) => invokeTauri("spotify_player_volume", { body }),
+  searchTracks: <T = unknown>(input: Record<string, unknown>) => invokeTauri<T>("spotify_search_tracks", { input }),
+  playTrack: <T = unknown>(input: Record<string, unknown>) => invokeTauri<T>("spotify_play_track", { input }),
+  djMariPlaylist: <T = unknown>(input: Record<string, unknown>) =>
+    invokeTauri<T>("spotify_dj_mari_playlist", { input }),
 };
 
 export const knowledgeSourcesApi = {
   upload: (file: File) => {
-    const form = new FormData();
-    form.append("file", file);
-    return api.upload("/knowledge-sources/upload", form);
+    return fileToUploadPayload(file).then((payload) =>
+      invokeTauri("knowledge_source_upload", {
+        body: { file: payload },
+      }),
+    );
   },
 };
 
 export const connectionsUtilityApi = {
-  list: <T = unknown>() => api.get<T>("/connections"),
+  list: <T = unknown>() => invokeTauri<T>("storage_list", { entity: "connections", options: null }),
 };

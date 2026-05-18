@@ -2,7 +2,7 @@
 // Hooks: Regex Scripts (React Query)
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../../../shared/api/api-client";
+import { storageApi } from "../../../shared/api/storage-api";
 
 const regexKeys = {
   all: ["regex-scripts"] as const,
@@ -29,14 +29,14 @@ export interface RegexScriptRow {
 export function useRegexScripts() {
   return useQuery({
     queryKey: regexKeys.all,
-    queryFn: () => api.get<RegexScriptRow[]>("/regex-scripts"),
+    queryFn: () => storageApi.list<RegexScriptRow>("regex-scripts"),
   });
 }
 
 export function useRegexScript(id: string | null) {
   return useQuery({
     queryKey: regexKeys.detail(id ?? ""),
-    queryFn: () => api.get<RegexScriptRow>(`/regex-scripts/${id}`),
+    queryFn: () => storageApi.get<RegexScriptRow>("regex-scripts", id!),
     enabled: !!id,
   });
 }
@@ -44,7 +44,7 @@ export function useRegexScript(id: string | null) {
 export function useCreateRegexScript() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Record<string, unknown>) => api.post<RegexScriptRow>("/regex-scripts", data),
+    mutationFn: (data: Record<string, unknown>) => storageApi.create<RegexScriptRow>("regex-scripts", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: regexKeys.all });
     },
@@ -55,7 +55,7 @@ export function useUpdateRegexScript() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) =>
-      api.patch<RegexScriptRow>(`/regex-scripts/${id}`, data),
+      storageApi.update<RegexScriptRow>("regex-scripts", id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: regexKeys.all });
     },
@@ -65,7 +65,12 @@ export function useUpdateRegexScript() {
 export function useReorderRegexScripts() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (scriptIds: string[]) => api.put<RegexScriptRow[]>("/regex-scripts/reorder", { scriptIds }),
+    mutationFn: async (scriptIds: string[]) => {
+      await Promise.all(
+        scriptIds.map((id, index) => storageApi.update("regex-scripts", id, { sortOrder: index, order: index })),
+      );
+      return storageApi.list<RegexScriptRow>("regex-scripts");
+    },
     onSuccess: (scripts) => {
       qc.setQueryData(regexKeys.all, scripts);
       qc.invalidateQueries({ queryKey: regexKeys.all });
@@ -76,7 +81,7 @@ export function useReorderRegexScripts() {
 export function useDeleteRegexScript() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/regex-scripts/${id}`),
+    mutationFn: (id: string) => storageApi.delete("regex-scripts", id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: regexKeys.all });
     },

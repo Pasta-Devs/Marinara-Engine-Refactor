@@ -1,6 +1,23 @@
 import { useCallback } from "react";
-import { api } from "../api/api-client";
+import { invokeTauri } from "../api/tauri-client";
+import { storageApi } from "../api/storage-api";
 import { useTranslationStore } from "../stores/translation.store";
+
+async function patchMessageExtra(messageId: string, patch: Record<string, unknown>) {
+  const message = await storageApi.get<{ extra?: unknown }>("messages", messageId);
+  const extra =
+    message?.extra && typeof message.extra === "object" && !Array.isArray(message.extra)
+      ? { ...(message.extra as Record<string, unknown>) }
+      : {};
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === null) {
+      delete extra[key];
+    } else {
+      extra[key] = value;
+    }
+  }
+  await storageApi.update("messages", messageId, { extra });
+}
 
 export function useTranslate() {
   const config = useTranslationStore((s) => s.config);
@@ -16,30 +33,26 @@ export function useTranslate() {
       if (translations[messageId]) {
         removeTranslation(messageId);
         if (chatId) {
-          api
-            .patch(`/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(messageId)}/extra`, {
-              translation: null,
-            })
+          patchMessageExtra(messageId, { translation: null })
             .catch((error) => console.warn("[translation] Failed to clear persisted translation", error));
         }
         return;
       }
       setTranslating(messageId, true);
       try {
-        const result = await api.post<{ translatedText: string }>("/translate", {
+        const result = await invokeTauri<{ translatedText: string }>("translate_text_command", {
+          input: {
           text: content,
           provider: config.provider,
           targetLanguage: config.targetLanguage,
           connectionId: config.connectionId,
           deeplApiKey: config.deeplApiKey,
           deeplxUrl: config.deeplxUrl,
+          },
         });
         setTranslation(messageId, result.translatedText);
         if (chatId) {
-          await api
-            .patch(`/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(messageId)}/extra`, {
-              translation: result.translatedText,
-            })
+          await patchMessageExtra(messageId, { translation: result.translatedText })
             .catch((error) => console.warn("[translation] Failed to persist translation", error));
         }
       } finally {

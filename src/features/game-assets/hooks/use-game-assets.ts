@@ -2,8 +2,7 @@
 // Hook: Game Assets Browser
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../../../shared/api/api-client";
-import { encodeAssetPath } from "../components/encode-asset-path";
+import { gameAssetsApi } from "../../../shared/api/assets-api";
 
 /**
  * Single node in the game-assets folder tree.
@@ -46,7 +45,7 @@ export const gameAssetKeys = {
 export function useGameAssetTree() {
   return useQuery({
     queryKey: gameAssetKeys.tree(),
-    queryFn: () => api.get<TreeNode>("/game-assets/tree"),
+    queryFn: () => gameAssetsApi.tree<TreeNode>(),
     staleTime: 0,
   });
 }
@@ -58,7 +57,7 @@ export function useGameAssetTree() {
 export function useCreateGameAssetFolder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (path: string) => api.post("/game-assets/folders", { path }),
+    mutationFn: (path: string) => gameAssetsApi.createFolder(path),
     onSuccess: () => qc.invalidateQueries({ queryKey: gameAssetKeys.tree() }),
   });
 }
@@ -71,7 +70,7 @@ export function useDeleteGameAssetFolder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ path, recursive }: { path: string; recursive?: boolean }) =>
-      api.delete(`/game-assets/folders/${encodeAssetPath(path)}${recursive ? "?recursive=true" : ""}`),
+      gameAssetsApi.deleteFolder(path, recursive),
     onSuccess: () => qc.invalidateQueries({ queryKey: gameAssetKeys.tree() }),
   });
 }
@@ -84,7 +83,7 @@ export function useRenameGameAsset() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ path, newName }: { path: string; newName: string }) =>
-      api.post("/game-assets/rename", { path, newName }),
+      gameAssetsApi.rename(path, newName),
     onSuccess: () => qc.invalidateQueries({ queryKey: gameAssetKeys.tree() }),
   });
 }
@@ -97,7 +96,7 @@ export function useMoveGameAsset() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ path, targetFolder }: { path: string; targetFolder: string }) =>
-      api.post("/game-assets/move", { path, targetFolder }),
+      gameAssetsApi.move(path, targetFolder),
     onSuccess: () => qc.invalidateQueries({ queryKey: gameAssetKeys.tree() }),
   });
 }
@@ -110,7 +109,7 @@ export function useCopyGameAsset() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ path, targetFolder }: { path: string; targetFolder: string }) =>
-      api.post("/game-assets/copy", { path, targetFolder }),
+      gameAssetsApi.copy(path, targetFolder),
     onSuccess: () => qc.invalidateQueries({ queryKey: gameAssetKeys.tree() }),
   });
 }
@@ -122,7 +121,7 @@ export function useCopyGameAsset() {
 export function useDeleteGameAsset() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (path: string) => api.delete(`/game-assets/file/${encodeAssetPath(path)}`),
+    mutationFn: (path: string) => gameAssetsApi.deleteFile(path),
     onSuccess: () => qc.invalidateQueries({ queryKey: gameAssetKeys.tree() }),
   });
 }
@@ -132,7 +131,7 @@ export function useDeleteGameAsset() {
  */
 export function useOpenGameAssetsFolder() {
   return useMutation({
-    mutationFn: (subfolder?: string) => api.post("/game-assets/open-folder", { subfolder }),
+    mutationFn: (subfolder?: string) => gameAssetsApi.openFolder(subfolder),
   });
 }
 
@@ -143,7 +142,7 @@ export function useOpenGameAssetsFolder() {
 export function useRescanGameAssets() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => api.post("/game-assets/rescan"),
+    mutationFn: () => gameAssetsApi.rescan(),
     onSuccess: () => qc.invalidateQueries({ queryKey: gameAssetKeys.tree() }),
   });
 }
@@ -161,11 +160,7 @@ export function useUploadGameAsset() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ file, category, subcategory }: { file: File; category: string; subcategory: string }) => {
-      const formData = new FormData();
-      formData.append("category", category);
-      formData.append("subcategory", subcategory);
-      formData.append("file", file);
-      return api.upload("/game-assets/upload", formData);
+      return gameAssetsApi.upload({ file, category, subcategory });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: gameAssetKeys.tree() }),
   });
@@ -179,7 +174,7 @@ export function useUpdateFolderDescription() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ path, description }: { path: string; description: string }) =>
-      api.patch("/game-assets/folders/description", { path, description }),
+      gameAssetsApi.updateFolderDescription(path, description),
     onSuccess: () => qc.invalidateQueries({ queryKey: gameAssetKeys.tree() }),
   });
 }
@@ -192,7 +187,7 @@ export function useUpdateFolderDescription() {
 export function useGameAssetFileContent(path: string) {
   return useQuery({
     queryKey: gameAssetKeys.content(path),
-    queryFn: () => api.get<{ content: string }>(`/game-assets/file-content/${encodeAssetPath(path)}`),
+    queryFn: () => gameAssetsApi.readText<{ content: string }>(path),
     enabled: !!path,
   });
 }
@@ -205,7 +200,7 @@ export function useSaveGameAssetFile() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ path, content }: { path: string; content: string }) =>
-      api.put(`/game-assets/file-content/${encodeAssetPath(path)}`, { content }),
+      gameAssetsApi.writeText(path, content),
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: gameAssetKeys.content(vars.path) });
       qc.invalidateQueries({ queryKey: gameAssetKeys.tree() });
@@ -221,16 +216,7 @@ export function useSaveGameAssetFile() {
 export function useGameAssetFileInfo(path: string) {
   return useQuery({
     queryKey: gameAssetKeys.info(path),
-    queryFn: () =>
-      api.get<{
-        name: string;
-        size: number;
-        width?: number;
-        height?: number;
-        format?: string;
-        modified: string;
-        created: string;
-      }>(`/game-assets/file-info/${encodeAssetPath(path)}`),
+    queryFn: () => gameAssetsApi.fileInfo(path),
     enabled: !!path,
     staleTime: 30000,
   });
@@ -248,10 +234,7 @@ export function useMoveGameAssetsBulk() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ paths, targetFolder }: { paths: string[]; targetFolder: string }) =>
-      api.post<{ succeeded: string[]; failed: { path: string; error: string }[]; targetFolder: string }>(
-        "/game-assets/move-bulk",
-        { paths, targetFolder },
-      ),
+      gameAssetsApi.moveBulk(paths, targetFolder),
     onSuccess: () => qc.invalidateQueries({ queryKey: gameAssetKeys.tree() }),
   });
 }
@@ -265,10 +248,7 @@ export function useCopyGameAssetsBulk() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ paths, targetFolder }: { paths: string[]; targetFolder: string }) =>
-      api.post<{ succeeded: string[]; failed: { path: string; error: string }[]; targetFolder: string }>(
-        "/game-assets/copy-bulk",
-        { paths, targetFolder },
-      ),
+      gameAssetsApi.copyBulk(paths, targetFolder),
     onSuccess: () => qc.invalidateQueries({ queryKey: gameAssetKeys.tree() }),
   });
 }
@@ -281,10 +261,7 @@ export function useCopyGameAssetsBulk() {
 export function useDeleteGameAssetsBulk() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (paths: string[]) =>
-      api.post<{ succeeded: string[]; failed: { path: string; error: string }[] }>("/game-assets/delete-bulk", {
-        paths,
-      }),
+    mutationFn: (paths: string[]) => gameAssetsApi.deleteBulk(paths),
     onSuccess: () => qc.invalidateQueries({ queryKey: gameAssetKeys.tree() }),
   });
 }

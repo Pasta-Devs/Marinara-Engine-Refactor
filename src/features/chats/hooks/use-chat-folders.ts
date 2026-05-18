@@ -2,7 +2,7 @@
 // React Query: Chat Folder hooks
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../../../shared/api/api-client";
+import { storageApi } from "../../../shared/api/storage-api";
 import type { ChatFolder } from "../../../engine/contracts/types/chat";
 import { chatKeys } from "./use-chats";
 
@@ -14,7 +14,7 @@ export const folderKeys = {
 export function useChatFolders() {
   return useQuery({
     queryKey: folderKeys.list(),
-    queryFn: () => api.get<ChatFolder[]>("/chat-folders"),
+    queryFn: () => storageApi.list<ChatFolder>("chat-folders"),
     staleTime: 2 * 60_000,
   });
 }
@@ -22,7 +22,8 @@ export function useChatFolders() {
 export function useCreateFolder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; mode: string; color?: string }) => api.post<ChatFolder>("/chat-folders", data),
+    mutationFn: (data: { name: string; mode: string; color?: string }) =>
+      storageApi.create<ChatFolder>("chat-folders", data),
     onSuccess: () => qc.invalidateQueries({ queryKey: folderKeys.list() }),
   });
 }
@@ -39,7 +40,7 @@ export function useUpdateFolder() {
       color?: string;
       sortOrder?: number;
       collapsed?: boolean;
-    }) => api.patch<ChatFolder>(`/chat-folders/${id}`, data),
+    }) => storageApi.update<ChatFolder>("chat-folders", id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: folderKeys.list() }),
   });
 }
@@ -47,7 +48,7 @@ export function useUpdateFolder() {
 export function useDeleteFolder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/chat-folders/${id}`),
+    mutationFn: (id: string) => storageApi.delete("chat-folders", id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: folderKeys.list() });
       qc.invalidateQueries({ queryKey: chatKeys.list() });
@@ -58,7 +59,11 @@ export function useDeleteFolder() {
 export function useReorderFolders() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (orderedIds: string[]) => api.post("/chat-folders/reorder", { orderedIds }),
+    mutationFn: async (orderedIds: string[]) => {
+      await Promise.all(
+        orderedIds.map((id, index) => storageApi.update("chat-folders", id, { sortOrder: index, order: index })),
+      );
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: folderKeys.list() }),
   });
 }
@@ -66,7 +71,8 @@ export function useReorderFolders() {
 export function useMoveChat() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { chatId: string; folderId: string | null }) => api.post("/chat-folders/move-chat", data),
+    mutationFn: (data: { chatId: string; folderId: string | null }) =>
+      storageApi.update("chats", data.chatId, { folderId: data.folderId }),
     onSuccess: () => qc.invalidateQueries({ queryKey: chatKeys.list() }),
   });
 }
@@ -74,8 +80,13 @@ export function useMoveChat() {
 export function useReorderChats() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { orderedChatIds: string[]; folderId: string | null }) =>
-      api.post("/chat-folders/reorder-chats", data),
+    mutationFn: async (data: { orderedChatIds: string[]; folderId: string | null }) => {
+      await Promise.all(
+        data.orderedChatIds.map((id, index) =>
+          storageApi.update("chats", id, { sortOrder: index, order: index, folderId: data.folderId }),
+        ),
+      );
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: chatKeys.list() }),
   });
 }

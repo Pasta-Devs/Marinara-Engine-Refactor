@@ -5,6 +5,7 @@ import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/rea
 import { scanActiveLorebookEntries } from "../../../engine/generation/active-lorebooks";
 import { storageApi } from "../../../shared/api/storage-api";
 import { api, ApiError } from "../../../shared/api/api-client";
+import { invokeTauri } from "../../../shared/api/tauri-client";
 import type { Lorebook, LorebookEntry, LorebookFolder } from "../../../engine/contracts/types/lorebook";
 import { characterKeys } from "../../characters/hooks/use-characters";
 
@@ -27,7 +28,7 @@ export function useLorebooks(category?: string) {
   return useQuery({
     queryKey: category ? lorebookKeys.byCategory(category) : lorebookKeys.list(),
     queryFn: async () => {
-      const lorebooks = await api.get<Lorebook[]>("/lorebooks");
+      const lorebooks = await storageApi.list<Lorebook>("lorebooks");
       if (!category) return lorebooks;
       return lorebooks.filter((lorebook) => (lorebook.category ?? "uncategorized") === category);
     },
@@ -38,7 +39,10 @@ export function useLorebooks(category?: string) {
 export function useLorebook(id: string | null) {
   return useQuery({
     queryKey: lorebookKeys.detail(id ?? ""),
-    queryFn: () => api.get<Lorebook>(`/lorebooks/${id}`),
+    queryFn: () => storageApi.get<Lorebook>("lorebooks", id!).then((item) => {
+      if (!item) throw new ApiError("Lorebook not found", 404);
+      return item;
+    }),
     enabled: !!id,
     staleTime: 5 * 60_000,
     retry: (failureCount, error) => !(error instanceof ApiError && error.status === 404) && failureCount < 3,
@@ -48,7 +52,7 @@ export function useLorebook(id: string | null) {
 export function useCreateLorebook() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Record<string, unknown>) => api.post<Lorebook>("/lorebooks", data),
+    mutationFn: (data: Record<string, unknown>) => storageApi.create<Lorebook>("lorebooks", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: lorebookKeys.all });
     },
@@ -59,7 +63,7 @@ export function useUpdateLorebook() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) =>
-      api.patch<Lorebook>(`/lorebooks/${id}`, data),
+      storageApi.update<Lorebook>("lorebooks", id, data),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.all });
       qc.invalidateQueries({ queryKey: lorebookKeys.list() });
@@ -73,7 +77,7 @@ export function useUploadLorebookImage() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, image, filename }: { id: string; image: string; filename?: string }) =>
-      api.post<Lorebook>(`/lorebooks/${id}/image`, { image, filename }),
+      invokeTauri<Lorebook>("lorebook_image_upload", { id, body: { image, filename } }),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.all });
       qc.invalidateQueries({ queryKey: lorebookKeys.list() });
@@ -85,7 +89,7 @@ export function useUploadLorebookImage() {
 export function useDeleteLorebook() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/lorebooks/${id}`),
+    mutationFn: (id: string) => storageApi.delete("lorebooks", id),
     onSuccess: (_data, id) => {
       // Evict the deleted lorebook's detail + entries instead of just
       // marking them stale. `useLorebook`/`useLorebookEntries` set
@@ -114,7 +118,7 @@ export function useDeleteLorebook() {
 export function useLorebookEntries(lorebookId: string | null) {
   return useQuery({
     queryKey: lorebookKeys.entries(lorebookId ?? ""),
-    queryFn: () => api.get<LorebookEntry[]>(`/lorebooks/${lorebookId}/entries`),
+    queryFn: () => storageApi.list<LorebookEntry>("lorebook-entries", { filters: { lorebookId } }),
     enabled: !!lorebookId,
   });
 }
@@ -144,7 +148,7 @@ export function useEntriesAcrossLorebooks(lorebookIds: string[]): {
   const queries = useQueries({
     queries: uniqueIds.map((id) => ({
       queryKey: lorebookKeys.entries(id),
-      queryFn: () => api.get<LorebookEntry[]>(`/lorebooks/${id}/entries`),
+      queryFn: () => storageApi.list<LorebookEntry>("lorebook-entries", { filters: { lorebookId: id } }),
     })),
   });
   const isLoading = queries.some((q) => q.isLoading);
@@ -160,7 +164,10 @@ export function useEntriesAcrossLorebooks(lorebookIds: string[]): {
 export function useLorebookEntry(lorebookId: string | null, entryId: string | null) {
   return useQuery({
     queryKey: lorebookKeys.entry(entryId ?? ""),
-    queryFn: () => api.get<LorebookEntry>(`/lorebooks/${lorebookId}/entries/${entryId}`),
+    queryFn: () => storageApi.get<LorebookEntry>("lorebook-entries", entryId!).then((item) => {
+      if (!item) throw new ApiError("Lorebook entry not found", 404);
+      return item;
+    }),
     enabled: !!lorebookId && !!entryId,
   });
 }
@@ -169,7 +176,7 @@ export function useCreateLorebookEntry() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ lorebookId, ...data }: { lorebookId: string } & Record<string, unknown>) =>
-      api.post<LorebookEntry>(`/lorebooks/${lorebookId}/entries`, data),
+      storageApi.create<LorebookEntry>("lorebook-entries", { ...data, lorebookId }),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.lorebookId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.active() });
@@ -181,7 +188,7 @@ export function useUpdateLorebookEntry() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ lorebookId, entryId, ...data }: { lorebookId: string; entryId: string } & Record<string, unknown>) =>
-      api.patch<LorebookEntry>(`/lorebooks/${lorebookId}/entries/${entryId}`, data),
+      storageApi.update<LorebookEntry>("lorebook-entries", entryId, data),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.lorebookId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.entry(variables.entryId) });
@@ -193,8 +200,8 @@ export function useUpdateLorebookEntry() {
 export function useDeleteLorebookEntry() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ lorebookId, entryId }: { lorebookId: string; entryId: string }) =>
-      api.delete(`/lorebooks/${lorebookId}/entries/${entryId}`),
+    mutationFn: ({ entryId }: { lorebookId: string; entryId: string }) =>
+      storageApi.delete("lorebook-entries", entryId),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.lorebookId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.active() });
@@ -282,7 +289,7 @@ export function useReorderLorebookEntries() {
 export function useLorebookFolders(lorebookId: string | null) {
   return useQuery({
     queryKey: lorebookKeys.folders(lorebookId ?? ""),
-    queryFn: () => api.get<LorebookFolder[]>(`/lorebooks/${lorebookId}/folders`),
+    queryFn: () => storageApi.list<LorebookFolder>("lorebook-folders", { filters: { lorebookId } }),
     enabled: !!lorebookId,
   });
 }
@@ -291,7 +298,7 @@ export function useCreateLorebookFolder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ lorebookId, ...data }: { lorebookId: string } & Record<string, unknown>) =>
-      api.post<LorebookFolder>(`/lorebooks/${lorebookId}/folders`, data),
+      storageApi.create<LorebookFolder>("lorebook-folders", { ...data, lorebookId }),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.folders(variables.lorebookId) });
     },
@@ -308,7 +315,7 @@ export function useUpdateLorebookFolder() {
     }: {
       lorebookId: string;
       folderId: string;
-    } & Record<string, unknown>) => api.patch<LorebookFolder>(`/lorebooks/${lorebookId}/folders/${folderId}`, data),
+    } & Record<string, unknown>) => storageApi.update<LorebookFolder>("lorebook-folders", folderId, data),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.folders(variables.lorebookId) });
       // Toggling folder.enabled changes which entries activate during scan
@@ -320,8 +327,8 @@ export function useUpdateLorebookFolder() {
 export function useDeleteLorebookFolder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ lorebookId, folderId }: { lorebookId: string; folderId: string }) =>
-      api.delete(`/lorebooks/${lorebookId}/folders/${folderId}`),
+    mutationFn: ({ folderId }: { lorebookId: string; folderId: string }) =>
+      storageApi.delete("lorebook-folders", folderId),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.folders(variables.lorebookId) });
       // Removing a folder reparents its entries to root, so the entry list shape changes.

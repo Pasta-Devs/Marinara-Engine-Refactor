@@ -29,7 +29,8 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { toast } from "sonner";
-import { api, ApiError } from "../../../shared/api/api-client";
+import { ApiError } from "../../../shared/api/api-client";
+import { spotifyApi } from "../../../shared/api/integration-utility-api";
 import {
   SPOTIFY_SCENE_TRACK_CHANGE_EVENT,
   SPOTIFY_SCENE_TRACK_CHANGE_SUPPRESS_MS,
@@ -301,7 +302,7 @@ export function SpotifyMiniPlayer({ mobile = false }: { mobile?: boolean }) {
 
   const playerQuery = useQuery({
     queryKey: spotifyKeys.player,
-    queryFn: () => api.get<SpotifyPlaybackState>("/spotify/player"),
+    queryFn: () => spotifyApi.player<SpotifyPlaybackState>(),
     enabled,
     staleTime: 2_000,
     refetchInterval: 5_000,
@@ -310,7 +311,7 @@ export function SpotifyMiniPlayer({ mobile = false }: { mobile?: boolean }) {
 
   const devicesQuery = useQuery({
     queryKey: spotifyKeys.devices,
-    queryFn: () => api.get<SpotifyDevicesState>("/spotify/devices"),
+    queryFn: () => spotifyApi.devices<SpotifyDevicesState>(),
     enabled: enabled && mobile,
     staleTime: 2_000,
     refetchInterval: 5_000,
@@ -376,8 +377,8 @@ export function SpotifyMiniPlayer({ mobile = false }: { mobile?: boolean }) {
           name: "Marinara Engine",
           volume: 0.5,
           getOAuthToken: (callback) => {
-            void api
-              .get<SpotifyAccessTokenResponse>("/spotify/access-token")
+            void spotifyApi
+              .accessToken<SpotifyAccessTokenResponse>()
               .then((token) => {
                 if (!token.hasStreamingScope) {
                   setSdkError("Reconnect Spotify to enable in-app playback.");
@@ -429,27 +430,27 @@ export function SpotifyMiniPlayer({ mobile = false }: { mobile?: boolean }) {
 
   const runControl = useMutation({
     mutationFn: async (action: SpotifyControlAction) => {
-      if (action.type === "pause") return api.put("/spotify/player/pause", { deviceId: action.deviceId ?? undefined });
+      if (action.type === "pause") return spotifyApi.pause({ deviceId: action.deviceId ?? undefined });
       if (action.type === "play") {
         if (action.shouldTransfer && action.deviceId) {
-          await api.put("/spotify/player/transfer", { deviceId: action.deviceId, play: true }).catch(() => undefined);
+          await spotifyApi.transfer({ deviceId: action.deviceId, play: true }).catch(() => undefined);
         }
-        return api.put("/spotify/player/play", {
+        return spotifyApi.play({
           deviceId: action.deviceId ?? undefined,
           uri: action.uri ?? undefined,
         });
       }
-      if (action.type === "next") return api.post("/spotify/player/next", { deviceId: action.deviceId ?? undefined });
+      if (action.type === "next") return spotifyApi.next({ deviceId: action.deviceId ?? undefined });
       if (action.type === "previous") {
-        return api.post("/spotify/player/previous", { deviceId: action.deviceId ?? undefined });
+        return spotifyApi.previous({ deviceId: action.deviceId ?? undefined });
       }
       if (action.type === "transfer") {
-        return api.put("/spotify/player/transfer", { deviceId: action.deviceId, play: action.play === true });
+        return spotifyApi.transfer({ deviceId: action.deviceId, play: action.play === true });
       }
       if (action.type === "shuffle") {
-        return api.put("/spotify/player/shuffle", { enabled: action.enabled, deviceId: action.deviceId ?? undefined });
+        return spotifyApi.shuffle({ enabled: action.enabled, deviceId: action.deviceId ?? undefined });
       }
-      return api.put("/spotify/player/repeat", { state: action.state, deviceId: action.deviceId ?? undefined });
+      return spotifyApi.repeat({ state: action.state, deviceId: action.deviceId ?? undefined });
     },
     onMutate: async (action) => {
       if (
@@ -492,7 +493,7 @@ export function SpotifyMiniPlayer({ mobile = false }: { mobile?: boolean }) {
 
   const setVolume = useMutation({
     mutationFn: (action: SpotifyVolumeAction) =>
-      api.put("/spotify/player/volume", { volume: action.volume, deviceId: action.deviceId ?? undefined }),
+      spotifyApi.volume({ volume: action.volume, deviceId: action.deviceId ?? undefined }),
     onMutate: async (action) => {
       await qc.cancelQueries({ queryKey: spotifyKeys.player });
       const previous = qc.getQueryData<SpotifyPlaybackState>(spotifyKeys.player);
@@ -564,7 +565,7 @@ export function SpotifyMiniPlayer({ mobile = false }: { mobile?: boolean }) {
 
   const createDjMariPlaylist = useMutation({
     mutationFn: () =>
-      api.post<DjMariPlaylistResponse>("/spotify/dj-mari-playlist", {
+      spotifyApi.djMariPlaylist<DjMariPlaylistResponse>({
         deviceId: mobile ? controlDeviceId : (sdkDeviceId ?? player?.device?.id ?? undefined),
       }),
     onMutate: showDjMariToast,

@@ -140,7 +140,7 @@ async function resetClientAfterExpunge(qc: ReturnType<typeof useQueryClient>) {
 export function useChats() {
   return useQuery({
     queryKey: chatKeys.list(),
-    queryFn: () => api.get<Chat[]>("/chats"),
+    queryFn: () => storageApi.list<Chat>("chats"),
     staleTime: 10_000,
     refetchOnMount: "always",
     refetchOnReconnect: true,
@@ -156,7 +156,10 @@ export function useChats() {
 export function useChat(id: string | null) {
   return useQuery({
     queryKey: chatKeys.detail(id ?? ""),
-    queryFn: () => api.get<Chat>(`/chats/${id}`),
+    queryFn: () => storageApi.get<Chat>("chats", id!).then((chat) => {
+      if (!chat) throw new ApiError("Chat not found", 404);
+      return chat;
+    }),
     enabled: !!id,
     staleTime: 60_000,
   });
@@ -170,8 +173,9 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0, ena
       if (pageSize > 0) params.set("limit", String(pageSize));
       if (pageParam) params.set("before", pageParam);
       const qs = params.toString();
-      return api
-        .get<Message[]>(`/chats/${chatId}/messages${qs ? `?${qs}` : ""}`, { signal })
+      if (signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
+      return storageApi
+        .request<Message[]>("GET", `/chats/${chatId}/messages${qs ? `?${qs}` : ""}`)
         .then((messages) =>
           chatId ? messages.map((message) => preserveRecentMessageContentEdit(chatId, message)) : messages,
         );
@@ -192,7 +196,9 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0, ena
 export function useChatMessageCount(chatId: string | null) {
   return useQuery({
     queryKey: chatKeys.messageCount(chatId ?? ""),
-    queryFn: () => api.get<{ count: number }>(`/chats/${chatId}/message-count`),
+    queryFn: async () => ({
+      count: (await storageApi.list<Message>("messages", { filters: { chatId } })).length,
+    }),
     enabled: !!chatId,
     staleTime: 30_000,
   });
@@ -298,7 +304,7 @@ export function useClearChatNotes(chatId: string | null) {
 export function useChatGroup(groupId: string | null) {
   return useQuery({
     queryKey: chatKeys.group(groupId ?? ""),
-    queryFn: () => api.get<Chat[]>(`/chats/group/${groupId}`),
+    queryFn: () => storageApi.list<Chat>("chats", { filters: { groupId } }),
     enabled: !!groupId,
   });
 }
@@ -324,7 +330,7 @@ export function useCreateChat() {
       connectionId?: string | null;
       personaId?: string | null;
       promptPresetId?: string | null;
-    }) => api.post<Chat>("/chats", data),
+    }) => storageApi.create<Chat>("chats", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: chatKeys.list() });
     },
@@ -334,7 +340,7 @@ export function useCreateChat() {
 export function useDeleteChat() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: DeleteChatInput) => api.delete(`/chats/${getDeleteChatId(input)}`),
+    mutationFn: (input: DeleteChatInput) => storageApi.delete("chats", getDeleteChatId(input)),
     onMutate: async (input) => {
       const id = getDeleteChatId(input);
       const providedGroupId = getDeleteChatGroupId(input);
@@ -421,7 +427,7 @@ export function useUpdateChat() {
       promptPresetId?: string | null;
       personaId?: string | null;
       characterIds?: string[];
-    }) => api.patch<Chat>(`/chats/${id}`, data),
+    }) => storageApi.update<Chat>("chats", id, data),
     onSuccess: (updatedChat, vars) => {
       qc.invalidateQueries({ queryKey: chatKeys.detail(vars.id) });
       qc.invalidateQueries({ queryKey: chatKeys.list() });
@@ -442,7 +448,7 @@ export function useUpdateChatMetadata() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...metadata }: { id: string; [key: string]: unknown }) =>
-      api.patch<Chat>(`/chats/${id}/metadata`, metadata),
+      storageApi.request<Chat>("PATCH", `/chats/${id}/metadata`, metadata),
     onSuccess: (data, vars) => {
       // Write the saved response straight into the detail cache. Plain
       // invalidation alone leaves stale data in place when no observer is
@@ -499,7 +505,7 @@ export function useUpdateChatSummaries() {
       id: string;
       daySummaries?: Record<string, DaySummaryEntry>;
       weekSummaries?: Record<string, WeekSummaryEntry>;
-    }) => api.patch<Chat>(`/chats/${id}/summaries`, body),
+    }) => storageApi.request<Chat>("PATCH", `/chats/${id}/summaries`, body),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: chatKeys.detail(vars.id) });
     },
@@ -522,7 +528,7 @@ export function useCreateMessage(chatId: string | null) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { role: string; content: string; characterId?: string | null }) =>
-      api.post<Message>(`/chats/${chatId}/messages`, data),
+      storageApi.request<Message>("POST", `/chats/${chatId}/messages`, data),
     onSuccess: () => {
       if (chatId) {
         qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
@@ -537,7 +543,7 @@ export function useCreateMessage(chatId: string | null) {
 export function useDeleteMessage(chatId: string | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (messageId: string) => api.delete(`/chats/${chatId}/messages/${messageId}`),
+    mutationFn: (messageId: string) => storageApi.request("DELETE", `/chats/${chatId}/messages/${messageId}`),
     onSuccess: () => {
       if (chatId) {
         qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
@@ -567,7 +573,7 @@ export function useUpdateMessage(chatId: string | null) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ messageId, content }: { messageId: string; content: string }) =>
-      api.patch<Message>(`/chats/${chatId}/messages/${messageId}`, { content }),
+      storageApi.request<Message>("PATCH", `/chats/${chatId}/messages/${messageId}`, { content }),
     onMutate: async ({ messageId, content }) => {
       if (!chatId) return;
       // Cancel in-flight refetches (e.g. from generation events) so they
@@ -618,7 +624,7 @@ export function useUpdateMessageExtra(chatId: string | null) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ messageId, extra }: { messageId: string; extra: Record<string, unknown> }) =>
-      api.patch<Message>(`/chats/${chatId}/messages/${messageId}/extra`, extra),
+      storageApi.request<Message>("PATCH", `/chats/${chatId}/messages/${messageId}/extra`, extra),
     onMutate: async ({ messageId, extra }) => {
       if (!chatId) return;
       await qc.cancelQueries({ queryKey: chatKeys.messages(chatId) });
@@ -840,8 +846,11 @@ export function useExportChat() {
   return useMutation({
     mutationFn: async ({ chatId, format = "jsonl" }: { chatId: string; format?: "jsonl" | "text" }) => {
       const [chat, messages] = await Promise.all([
-        api.get<Chat>(`/chats/${chatId}`),
-        api.get<Message[]>(`/chats/${chatId}/messages`),
+        storageApi.get<Chat>("chats", chatId).then((chat) => {
+          if (!chat) throw new Error("Chat was not found.");
+          return chat;
+        }),
+        storageApi.request<Message[]>("GET", `/chats/${chatId}/messages`),
       ]);
       const filename = chatExportFilename(chat, format);
       if (format === "text") {
@@ -863,8 +872,11 @@ export function useBulkExportChats() {
       const chats = await Promise.all(
         ids.map(async (chatId) => {
           const [chat, messages] = await Promise.all([
-            api.get<Chat>(`/chats/${chatId}`),
-            api.get<Message[]>(`/chats/${chatId}/messages`),
+            storageApi.get<Chat>("chats", chatId).then((chat) => {
+              if (!chat) throw new Error("Chat was not found.");
+              return chat;
+            }),
+            storageApi.request<Message[]>("GET", `/chats/${chatId}/messages`),
           ]);
           return { chat, messages };
         }),

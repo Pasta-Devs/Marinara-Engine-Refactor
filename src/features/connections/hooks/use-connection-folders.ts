@@ -2,7 +2,7 @@
 // React Query: Connection Folder hooks
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../../../shared/api/api-client";
+import { storageApi } from "../../../shared/api/storage-api";
 import type { ConnectionFolder } from "../../../engine/contracts/types/connection";
 import { connectionKeys } from "./use-connections";
 
@@ -14,7 +14,7 @@ export const connectionFolderKeys = {
 export function useConnectionFolders() {
   return useQuery({
     queryKey: connectionFolderKeys.list(),
-    queryFn: () => api.get<ConnectionFolder[]>("/connection-folders"),
+    queryFn: () => storageApi.list<ConnectionFolder>("connection-folders"),
     staleTime: 2 * 60_000,
   });
 }
@@ -23,7 +23,7 @@ export function useCreateConnectionFolder() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { name: string; color?: string }) =>
-      api.post<ConnectionFolder>("/connection-folders", data),
+      storageApi.create<ConnectionFolder>("connection-folders", data),
     onSuccess: () => qc.invalidateQueries({ queryKey: connectionFolderKeys.list() }),
   });
 }
@@ -40,7 +40,7 @@ export function useUpdateConnectionFolder() {
       color?: string;
       sortOrder?: number;
       collapsed?: boolean;
-    }) => api.patch<ConnectionFolder>(`/connection-folders/${id}`, data),
+    }) => storageApi.update<ConnectionFolder>("connection-folders", id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: connectionFolderKeys.list() }),
   });
 }
@@ -48,7 +48,7 @@ export function useUpdateConnectionFolder() {
 export function useDeleteConnectionFolder() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/connection-folders/${id}`),
+    mutationFn: (id: string) => storageApi.delete("connection-folders", id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: connectionFolderKeys.list() });
       qc.invalidateQueries({ queryKey: connectionKeys.list() });
@@ -59,8 +59,11 @@ export function useDeleteConnectionFolder() {
 export function useReorderConnectionFolders() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (orderedIds: string[]) =>
-      api.post("/connection-folders/reorder", { orderedIds }),
+    mutationFn: async (orderedIds: string[]) => {
+      await Promise.all(
+        orderedIds.map((id, index) => storageApi.update("connection-folders", id, { sortOrder: index, order: index })),
+      );
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: connectionFolderKeys.list() }),
   });
 }
@@ -69,7 +72,7 @@ export function useMoveConnection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: { connectionId: string; folderId: string | null }) =>
-      api.post("/connection-folders/move-connection", data),
+      storageApi.update("connections", data.connectionId, { folderId: data.folderId }),
     onSuccess: () => qc.invalidateQueries({ queryKey: connectionKeys.list() }),
   });
 }

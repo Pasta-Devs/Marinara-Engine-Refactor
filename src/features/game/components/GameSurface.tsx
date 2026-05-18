@@ -49,6 +49,7 @@ import { useGenerate } from "../../generation/hooks/use-generate";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { spriteKeys, type SpriteInfo } from "../../characters/hooks/use-characters";
 import { api, getJsonRepairRequest, type JsonRepairRequest } from "../../../shared/api/api-client";
+import { spotifyApi } from "../../../shared/api/integration-utility-api";
 import { gameAssetFileUrlFromPath, userBackgroundUrl } from "../../../shared/api/local-file-api";
 import { showConfirmDialog } from "../../../shared/lib/app-dialogs";
 import { cn, type AvatarCrop, type AvatarCropValue } from "../../../shared/lib/utils";
@@ -2786,7 +2787,7 @@ export function GameSurface({
         const cachedPlayer = queryClient.getQueryData<SpotifyPlayerSnapshot>(["spotify", "player"]) ?? null;
         let spotifyPlayer = cachedPlayer;
         if (!spotifyPlayer?.device?.id) {
-          spotifyPlayer = await api.get<SpotifyPlayerSnapshot>("/spotify/player").catch(() => cachedPlayer);
+          spotifyPlayer = await spotifyApi.player<SpotifyPlayerSnapshot>().catch(() => cachedPlayer);
         }
 
         const mobileViewport = isMobileGameViewport();
@@ -2798,7 +2799,7 @@ export function GameSurface({
           (!spotifyDeviceId || !currentDeviceIsMobile || isBrowserSpotifyDeviceName(currentDevice?.name));
 
         if (shouldPreferMobileDevice) {
-          const devices = await api.get<SpotifyDevicesSnapshot>("/spotify/devices").catch(() => null);
+          const devices = await spotifyApi.devices<SpotifyDevicesSnapshot>().catch(() => null);
           const mobileDevices = (devices?.devices ?? []).filter(
             (device) =>
               !!device.id && !isBrowserSpotifyDeviceName(device.name) && isPersonalMobileSpotifyDeviceType(device.type),

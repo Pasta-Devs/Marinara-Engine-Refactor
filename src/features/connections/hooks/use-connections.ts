@@ -2,7 +2,8 @@
 // React Query: Connection hooks
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../../../shared/api/api-client";
+import { storageApi } from "../../../shared/api/storage-api";
+import { invokeTauri } from "../../../shared/api/tauri-client";
 import type { ConnectionRow, ConnectionTestResult } from "../types";
 
 export const connectionKeys = {
@@ -14,7 +15,7 @@ export const connectionKeys = {
 export function useConnections() {
   return useQuery({
     queryKey: connectionKeys.list(),
-    queryFn: () => api.get<ConnectionRow[]>("/connections"),
+    queryFn: () => storageApi.list<ConnectionRow>("connections"),
     staleTime: 5 * 60_000,
   });
 }
@@ -22,7 +23,7 @@ export function useConnections() {
 export function useConnection(id: string | null) {
   return useQuery({
     queryKey: connectionKeys.detail(id ?? ""),
-    queryFn: () => api.get<Record<string, unknown>>(`/connections/${id}`),
+    queryFn: () => storageApi.get<Record<string, unknown>>("connections", id!),
     enabled: !!id,
     staleTime: 5 * 60_000,
   });
@@ -38,7 +39,7 @@ export function useCreateConnection() {
       baseUrl?: string;
       model?: string;
       maxContext?: number;
-    }) => api.post("/connections", data),
+    }) => storageApi.create("connections", data),
     onSuccess: () => qc.invalidateQueries({ queryKey: connectionKeys.list() }),
   });
 }
@@ -46,7 +47,8 @@ export function useCreateConnection() {
 export function useUpdateConnection() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) => api.patch(`/connections/${id}`, data),
+    mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) =>
+      storageApi.update("connections", id, data),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: connectionKeys.list() });
       qc.invalidateQueries({ queryKey: connectionKeys.detail(variables.id) });
@@ -57,7 +59,7 @@ export function useUpdateConnection() {
 export function useDuplicateConnection() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.post<ConnectionRow>(`/connections/${id}/duplicate`),
+    mutationFn: (id: string) => invokeTauri<ConnectionRow>("storage_duplicate", { entity: "connections", id }),
     onSuccess: () => qc.invalidateQueries({ queryKey: connectionKeys.list() }),
   });
 }
@@ -65,41 +67,41 @@ export function useDuplicateConnection() {
 export function useDeleteConnection() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/connections/${id}`),
+    mutationFn: (id: string) => storageApi.delete("connections", id),
     onSuccess: () => qc.invalidateQueries({ queryKey: connectionKeys.list() }),
   });
 }
 
 export function useTestConnection() {
   return useMutation({
-    mutationFn: (id: string) => api.post<ConnectionTestResult>(`/connections/${id}/test`),
+    mutationFn: (id: string) => invokeTauri<ConnectionTestResult>("connection_test", { id }),
   });
 }
 
 export function useTestMessage() {
   return useMutation({
     mutationFn: (id: string) =>
-      api.post<{ success: boolean; response: string; latencyMs: number }>(`/connections/${id}/test-message`),
+      invokeTauri<{ success: boolean; response: string; latencyMs: number }>("connection_test_message", { id }),
   });
 }
 
 export function useTestImageGeneration() {
   return useMutation({
     mutationFn: (id: string) =>
-      api.post<{
+      invokeTauri<{
         success: boolean;
         base64: string | null;
         mimeType: string | null;
         latencyMs: number;
         prompt: string;
         error?: string;
-      }>(`/connections/${id}/test-image`),
+      }>("connection_test_image", { id }),
   });
 }
 
 export function useFetchModels() {
   return useMutation({
-    mutationFn: (id: string) => api.get<{ models: Array<{ id: string; name: string }> }>(`/connections/${id}/models`),
+    mutationFn: (id: string) => invokeTauri<{ models: Array<{ id: string; name: string }> }>("connection_models", { id }),
   });
 }
 
@@ -107,7 +109,7 @@ export function useSaveConnectionDefaults() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, params }: { id: string; params: Record<string, unknown> | null }) =>
-      api.put(`/connections/${id}/default-parameters`, params),
+      invokeTauri("connection_save_default_parameters", { id, params }),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: connectionKeys.list() });
       qc.invalidateQueries({ queryKey: connectionKeys.detail(variables.id) });
