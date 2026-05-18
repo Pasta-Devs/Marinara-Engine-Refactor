@@ -2,7 +2,7 @@
 // Store: Game Mode
 // ──────────────────────────────────────────────
 import { create } from "zustand";
-import { api } from "../../../shared/api/api-client";
+import { gameApi } from "../api/game-api";
 import type {
   GameActiveState,
   GameMap,
@@ -89,8 +89,8 @@ function debouncedPersistWidgets(chatId: string, widgets: HudWidget[]) {
   pendingWidgetPersistence = { chatId, signature };
   if (widgetPersistTimer) clearTimeout(widgetPersistTimer);
   widgetPersistTimer = setTimeout(() => {
-    api
-      .put(`/game/${chatId}/widgets`, { widgets })
+    gameApi
+      .updateWidgets({ chatId, widgets })
       .catch(() => {
         /* best-effort persistence */
       })

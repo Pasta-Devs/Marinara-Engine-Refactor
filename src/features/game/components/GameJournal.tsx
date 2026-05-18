@@ -8,7 +8,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { X, MapPin, Swords, ScrollText, Package, Users, PenLine, BookOpen, Trash2, Loader2, Wand2 } from "lucide-react";
 import { cn } from "../../../shared/lib/utils";
-import { api } from "../../../shared/api/api-client";
+import { gameApi } from "../api/game-api";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../../shared/lib/markdown";
 import { AnimatedText } from "./AnimatedText";
 
@@ -181,10 +181,10 @@ export function GameJournal({
   const latestNotesRef = useRef("");
 
   useEffect(() => {
-    api
-      .get<{ journal: Journal; playerNotes?: string }>(`/game/${chatId}/journal`)
+    gameApi
+      .getJournal(chatId)
       .then((res) => {
-        setJournal(res.journal);
+        setJournal(res.journal as Journal);
         if (res.playerNotes) setPlayerNotes(res.playerNotes);
       })
       .catch(() => {});
@@ -192,8 +192,8 @@ export function GameJournal({
 
   const saveNotes = useCallback(
     (text: string) => {
-      api
-        .put(`/game/${chatId}/notes`, { notes: text })
+      gameApi
+        .updateNotes(chatId, text)
         .then(() => setNotesSaved(true))
         .catch(() => {});
     },

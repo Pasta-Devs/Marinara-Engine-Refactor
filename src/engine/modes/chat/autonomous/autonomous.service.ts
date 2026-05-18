@@ -5,7 +5,8 @@
 // should send autonomous messages. Also handles character-to-character
 // exchanges in group chats.
 
-import { getCurrentStatus, type WeekSchedule } from "../schedules/schedule.service.js";
+import type { StorageGateway } from "../../../capabilities";
+import { getBusyDelay, getCurrentStatus, type WeekSchedule } from "../schedules/schedule.service.js";
 
 // ── Types ──
 
@@ -15,9 +16,136 @@ export interface AutonomousCheckResult {
   /** Which character(s) should send a message */
   characterIds: string[];
   /** Why this was triggered */
-  reason: "user_inactivity" | "character_exchange" | "none";
+  reason: "user_inactivity" | "character_exchange" | "none" | "disabled" | "user_dnd" | "scene_active" | "waiting";
   /** How long the user has been inactive (ms) */
   inactivityMs: number;
+}
+
+export interface ConversationStatusResult {
+  statuses: Record<string, { status: string; activity: string; schedule?: unknown }>;
+  needsRefresh: boolean;
+}
+
+export interface BusyDelayResult {
+  delayMs: number;
+  status: string;
+  activity: string;
+}
+
+type StoredChat = {
+  id?: unknown;
+  characterIds?: unknown;
+  metadata?: unknown;
+};
+
+type StoredMessage = {
+  role?: unknown;
+  createdAt?: unknown;
+  characterId?: unknown;
+};
+
+function metadataRecord(value: unknown): Record<string, unknown> {
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+    } catch {
+      return {};
+    }
+  }
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function chatCharacterIds(chat: StoredChat): string[] {
+  return Array.isArray(chat.characterIds)
+    ? chat.characterIds.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    : [];
+}
+
+async function requireChat(storage: StorageGateway, chatId: string): Promise<StoredChat> {
+  const chat = await storage.get<StoredChat>("chats", chatId);
+  if (!chat) throw new Error("Chat was not found");
+  return chat;
+}
+
+async function chatMessages(storage: StorageGateway, chatId: string): Promise<StoredMessage[]> {
+  const rows = await storage.request<unknown>("GET", `/chats/${encodeURIComponent(chatId)}/messages`);
+  return Array.isArray(rows) ? (rows as StoredMessage[]) : [];
+}
+
+function characterSchedules(meta: Record<string, unknown>): Record<string, WeekSchedule> {
+  const raw = metadataRecord(meta.characterSchedules);
+  return raw as Record<string, WeekSchedule>;
+}
+
+export async function getConversationStatus(
+  storage: StorageGateway,
+  chatId: string,
+): Promise<ConversationStatusResult> {
+  const chat = await requireChat(storage, chatId);
+  const schedules = characterSchedules(metadataRecord(chat.metadata));
+  const statuses: ConversationStatusResult["statuses"] = {};
+  for (const characterId of chatCharacterIds(chat)) {
+    const schedule = schedules[characterId];
+    const status = schedule ? getCurrentStatus(schedule) : null;
+    statuses[characterId] = {
+      status: status?.status ?? "online",
+      activity: status?.activity ?? (schedule ? "scheduled" : "unknown (no schedule)"),
+      schedule,
+    };
+  }
+  return { statuses, needsRefresh: false };
+}
+
+export async function checkConversationAutonomous(
+  storage: StorageGateway,
+  input: { chatId: string; userStatus?: string },
+): Promise<AutonomousCheckResult> {
+  const chat = await requireChat(storage, input.chatId);
+  const meta = metadataRecord(chat.metadata);
+  const disabled = meta.autonomousMessages !== true;
+  if (disabled) return { shouldTrigger: false, characterIds: [], reason: "disabled", inactivityMs: 0 };
+  if (input.userStatus === "dnd") return { shouldTrigger: false, characterIds: [], reason: "user_dnd", inactivityMs: 0 };
+  if (meta.sceneStatus === "active") return { shouldTrigger: false, characterIds: [], reason: "scene_active", inactivityMs: 0 };
+
+  const messages = await chatMessages(storage, input.chatId);
+  initializeActivityFromMessages(
+    input.chatId,
+    messages.map((message) => ({
+      role: typeof message.role === "string" ? message.role : "message",
+      createdAt: typeof message.createdAt === "string" ? message.createdAt : undefined,
+      characterId: typeof message.characterId === "string" ? message.characterId : null,
+    })),
+  );
+
+  const ids = chatCharacterIds(chat);
+  const schedules = characterSchedules(meta);
+  const hasSchedules = Object.keys(schedules).length > 0;
+  if (hasSchedules) {
+    const scheduled = checkAutonomousMessaging(input.chatId, schedules, ids.length > 1);
+    if (scheduled.shouldTrigger) return scheduled;
+  }
+
+  const last = messages[messages.length - 1];
+  if (last?.role === "user" && ids.length > 0) {
+    return { shouldTrigger: true, characterIds: [ids[0]!], reason: "user_inactivity", inactivityMs: 0 };
+  }
+  return { shouldTrigger: false, characterIds: [], reason: "waiting", inactivityMs: 0 };
+}
+
+export async function getConversationBusyDelay(
+  storage: StorageGateway,
+  input: { chatId: string; characterId: string },
+): Promise<BusyDelayResult> {
+  const chat = await requireChat(storage, input.chatId);
+  const schedule = characterSchedules(metadataRecord(chat.metadata))[input.characterId];
+  const current = schedule ? getCurrentStatus(schedule) : null;
+  const status = current?.status ?? "online";
+  return {
+    delayMs: getBusyDelay(status, schedule),
+    status,
+    activity: current?.activity ?? (schedule ? "scheduled" : "unknown"),
+  };
 }
 
 export type AutonomousClientPresenceStatus = "active" | "idle" | "dnd";

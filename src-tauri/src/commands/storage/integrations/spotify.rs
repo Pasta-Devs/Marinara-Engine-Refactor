@@ -28,6 +28,8 @@ pub(crate) async fn spotify_call(
         ("GET", ["player"]) => player(state, route, &body).await,
         ("GET", ["devices"]) => devices(state, route, &body).await,
         ("GET", ["playlists"]) => playlists(state, route, &body).await,
+        ("POST", ["search-tracks"]) => search_tracks(state, body).await,
+        ("POST", ["play-track"]) => play_track(state, body).await,
         ("POST", ["dj-mari-playlist"]) => dj_mari_playlist(state, body).await,
         ("PUT", ["player", "play"]) => {
             player_control(state, route, body, "/me/player/play", "PUT").await
@@ -51,6 +53,47 @@ pub(crate) async fn spotify_call(
             format!("Unknown spotify route: {method} /{}", rest.join("/")),
         )),
     }
+}
+
+async fn search_tracks(state: &AppState, body: Value) -> AppResult<Value> {
+    let query = body
+        .get("query")
+        .and_then(Value::as_str)
+        .unwrap_or("cinematic adventure soundtrack");
+    let limit = body
+        .get("limit")
+        .and_then(Value::as_u64)
+        .unwrap_or(50)
+        .clamp(1, 50) as u32;
+    let recent = body
+        .get("recentTrackUris")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .filter(|uri| uri.starts_with("spotify:track:"))
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    match game_spotify_candidates(state, query, limit, &recent).await {
+        Ok(value) => Ok(value),
+        Err(error) if error.code == "not_found" || error.code == "invalid_input" => Ok(json!({
+            "enabled": false,
+            "tracks": [],
+            "error": error.message
+        })),
+        Err(error) => Err(error),
+    }
+}
+
+async fn play_track(state: &AppState, body: Value) -> AppResult<Value> {
+    let track = body
+        .get("track")
+        .ok_or_else(|| AppError::invalid_input("track is required"))?;
+    let device_id = body.get("deviceId").and_then(Value::as_str);
+    game_spotify_play(state, track, device_id).await
 }
 
 pub(crate) async fn game_spotify_candidates(

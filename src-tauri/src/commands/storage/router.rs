@@ -69,7 +69,6 @@ pub(crate) async fn route_request(
             llm_models(state, route.query.get("connectionId").map(String::as_str)).await
         }
         ["fonts", rest @ ..] => fonts_call(state, method, rest, body).await,
-        ["sidecar", rest @ ..] => sidecar_call(method, rest, body),
         ["tts", rest @ ..] => tts_call(state, method, rest, body).await,
         ["translate"] if method == "POST" => translate_text(state, body).await,
         ["backgrounds", rest @ ..] => backgrounds_call(state, method, rest, body),
@@ -88,6 +87,7 @@ pub(crate) async fn route_request(
         ["characters", "avatar-generation"] if method == "POST" => {
             avatar_generation(state, body).await
         }
+        ["images", "generate"] if method == "POST" => generate_image(state, body).await,
         ["characters", "personas", "list"] if method == "GET" => {
             list_collection(state, "personas", None)
         }
@@ -559,13 +559,6 @@ pub(crate) async fn route_request(
         ["agents", "retry"] if method == "POST" => retry_agents(state, body),
         ["agents"] => collection_root(state, method, "agents", body),
         ["agents", id] => collection_item_or_action(state, method, "agents", id, None, body),
-        ["conversation", "status", chat_id] if method == "GET" => {
-            conversation_status(state, chat_id)
-        }
-        ["conversation", "autonomous", "check"] if method == "POST" => {
-            autonomous_check(state, body)
-        }
-        ["conversation", "busy-delay"] if method == "POST" => busy_delay(state, body),
         ["custom-tools", "capabilities"] if method == "GET" => {
             Ok(json!({ "scriptExecutionEnabled": false }))
         }
@@ -579,8 +572,6 @@ pub(crate) async fn route_request(
             handle_singleton(state, "GET", "app-settings", "active-theme", Value::Null)
         }
         ["chat-presets", rest @ ..] => chat_presets_call(state, method, rest, body),
-        ["encounter", rest @ ..] => encounter_call(state, rest, body),
-        ["game", rest @ ..] => game_call(state, method, rest, body).await,
         ["haptic", rest @ ..] => haptic_call(rest, body).await,
         ["spotify", rest @ ..] => spotify_call(state, method, rest, &route, body).await,
         [collection] => collection_root(state, method, collection, body),

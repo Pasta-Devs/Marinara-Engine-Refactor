@@ -11,7 +11,11 @@ import type { AvatarCropValue } from "../../../shared/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { startGeneration } from "../../../engine/generation";
-import { recordAssistantActivity } from "../../../engine/modes/chat";
+import {
+  checkConversationAutonomous,
+  getConversationBusyDelay,
+  recordAssistantActivity,
+} from "../../../engine/modes/chat";
 import { llmApi } from "../../../shared/api/llm-api";
 import { storageApi } from "../../../shared/api/storage-api";
 import { api } from "../../../shared/lib/api-client";
@@ -20,19 +24,6 @@ import { useUIStore } from "../../../shared/stores/ui.store";
 import { playNotificationPing } from "../../../shared/lib/notification-sound";
 import { chatKeys } from "../../chats/hooks/use-chats";
 import { characterKeys } from "../../characters/hooks/use-characters";
-
-interface AutonomousCheckResult {
-  shouldTrigger: boolean;
-  characterIds: string[];
-  reason: string;
-  inactivityMs: number;
-}
-
-interface BusyDelayResult {
-  delayMs: number;
-  status: string;
-  activity: string;
-}
 
 interface RawChat {
   id: string;
@@ -120,13 +111,16 @@ export function useBackgroundAutonomousPolling() {
         if (useChatStore.getState().abortControllers.has(chat.id)) continue;
 
         try {
-          const result = await api.post<AutonomousCheckResult>("/conversation/autonomous/check", { chatId: chat.id });
+          const result = await checkConversationAutonomous(storageApi, {
+            chatId: chat.id,
+            userStatus: useUIStore.getState().userStatus,
+          });
 
           if (result.shouldTrigger && result.characterIds.length > 0) {
             const characterId = result.characterIds[0]!;
 
             // Check busy delay
-            const delay = await api.post<BusyDelayResult>("/conversation/busy-delay", { chatId: chat.id, characterId });
+            const delay = await getConversationBusyDelay(storageApi, { chatId: chat.id, characterId });
 
             // Generate in background (after optional delay)
             generatingForRef.current.add(chat.id);

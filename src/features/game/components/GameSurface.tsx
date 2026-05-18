@@ -6,6 +6,7 @@ import { useShallow } from "zustand/react/shallow";
 import { toast } from "sonner";
 import { useGameModeStore } from "../stores/game-mode.store";
 import { useGameAssetStore } from "../stores/game-asset.store";
+import { gameApi } from "../api/game-api";
 import { useChatStore } from "../../../shared/stores/chat.store";
 import { useUIStore } from "../../../shared/stores/ui.store";
 import { useGameStateStore } from "../../world-state/stores/world-state.store";
@@ -91,7 +92,6 @@ import type {
   CombatItemEffect,
   CombatMechanic,
   DiceRollResult,
-  EncounterInitResponse,
   EncounterSettings,
   HudWidget,
   SceneSpotifyTrackCandidate,
@@ -175,13 +175,6 @@ type GameSpotifyCandidatesResponse = {
   enabled: boolean;
   tracks: SceneSpotifyTrackCandidate[];
   reason?: string;
-};
-
-type GameSpotifyPlayResponse = {
-  success: true;
-  track: SceneSpotifyTrackSelection;
-  repeatState: "off" | "track" | "context" | null;
-  device: string | null;
 };
 
 type SpotifyPlayerSnapshot = {
@@ -1757,9 +1750,8 @@ export function GameSurface({
     const loc = gameSnapshot?.location;
     if (!loc || loc === lastJournaledLocationRef.current) return;
     lastJournaledLocationRef.current = loc;
-    // Fire-and-forget: addLocationEntry on the server dedupes, so this is safe to call redundantly
-    api
-      .post("/game/journal/entry", {
+    gameApi
+      .addJournalEntry({
         chatId: activeChatId,
         type: "location",
         data: { location: loc, description: `The party is at ${loc}.` },
@@ -1979,8 +1971,8 @@ export function GameSurface({
     (readable: JournalReadable) => {
       if (!activeChatId) return;
 
-      api
-        .post("/game/journal/entry", {
+      gameApi
+        .addJournalEntry({
           chatId: activeChatId,
           type: "note",
           data: {
@@ -2236,8 +2228,8 @@ export function GameSurface({
       }
 
       for (const entry of journalEntries) {
-        api
-          .post("/game/journal/entry", {
+        gameApi
+          .addJournalEntry({
             chatId: activeChatId,
             type: "item",
             data: {
@@ -2785,17 +2777,13 @@ export function GameSurface({
       if (!useSpotifyGameMusic || !activeChatId) return [];
       setSpotifyRetryPending(true);
       try {
-        const result = await api.post<GameSpotifyCandidatesResponse>(
-          "/game/spotify/candidates",
-          {
+        const result = (await gameApi.spotifyCandidates({
             chatId: activeChatId,
             narration,
             playerAction: playerAction ?? undefined,
             context,
             limit: 50,
-          },
-          { signal: AbortSignal.timeout(25_000) },
-        );
+          })) as GameSpotifyCandidatesResponse;
         return result.enabled ? (result.tracks ?? []) : [];
       } catch (error) {
         console.warn("[spotify/game] Failed to prepare scene music candidates:", error);
@@ -2841,11 +2829,12 @@ export function GameSurface({
         }
 
         dispatchSpotifySceneTrackChange(track.uri);
-        await api.post<GameSpotifyPlayResponse>(
-          "/game/spotify/play",
-          { chatId: activeChatId, track, deviceId: spotifyDeviceId ?? undefined, mobileDeviceOnly: mobileViewport },
-          { signal: AbortSignal.timeout(20_000) },
-        );
+        await gameApi.spotifyPlay({
+          chatId: activeChatId,
+          track,
+          deviceId: spotifyDeviceId ?? undefined,
+          mobileDeviceOnly: mobileViewport,
+        } as { track: SceneSpotifyTrackSelection; deviceId?: string | null });
         recentSpotifyTrackHistoryRef.current = appendRecentSpotifyTrack(
           recentSpotifyTrackHistoryRef.current,
           track.uri,
@@ -3818,8 +3807,7 @@ export function GameSurface({
         let preview: { items: GameImagePromptReviewItem[] } | undefined;
         try {
           preview = await withTimeout(
-            (signal) =>
-              api.post<{ items: GameImagePromptReviewItem[] }>("/game/generate-assets/preview", payload, { signal }),
+            () => gameApi.previewGeneratedAssets(payload) as Promise<{ items: GameImagePromptReviewItem[] }>,
             GAME_ASSET_PREVIEW_TIMEOUT_MS,
             () => {
               toast.error("Image prompt preview timed out. Continuing with the default prompts.");
@@ -3861,7 +3849,7 @@ export function GameSurface({
       }
 
       return await withTimeout(
-        (signal) => api.post<GameAssetGenerationResult>("/game/generate-assets", payload, { signal }),
+        (signal) => gameApi.generateAssets(payload, signal),
         GAME_ASSET_GENERATION_TIMEOUT_MS,
         () => {
           toast.error("Image generation timed out. The scene will continue without generated assets.");
@@ -4944,8 +4932,8 @@ export function GameSurface({
           });
         }
 
-        api
-          .post("/game/journal/entry", {
+        gameApi
+          .addJournalEntry({
             chatId: activeChatId,
             type: "item",
             data: { item: itemName, action: "removed", quantity: 1 },
@@ -5013,8 +5001,8 @@ export function GameSurface({
           });
         }
 
-        api
-          .post("/game/journal/entry", {
+        gameApi
+          .addJournalEntry({
             chatId: activeChatId,
             type: "item",
             data: { item: normalizedItemName, action: "used", quantity: 1 },
@@ -5599,8 +5587,8 @@ export function GameSurface({
     if (latestNarrationText && !narrationDone) return;
 
     setCombatGenerationPending(true);
-    api
-      .post<EncounterInitResponse>("/encounter/init", {
+    gameApi
+      .initCombatEncounter({
         chatId: activeChatId,
         connectionId: null,
         settings: GAME_COMBAT_GENERATION_SETTINGS,
@@ -6853,8 +6841,8 @@ export function GameSurface({
       journalDescLines.push(`Party status: ${partyStatus.join("; ")}`);
       if (lootText) journalDescLines.push(`Loot: ${lootText}`);
 
-      api
-        .post("/game/journal/entry", {
+      gameApi
+        .addJournalEntry({
           chatId: activeChatId,
           type: "combat",
           data: {

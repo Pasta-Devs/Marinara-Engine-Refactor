@@ -34,7 +34,8 @@ import { useUIStore } from "../../../shared/stores/ui.store";
 import { playNotificationPing } from "../../../shared/lib/notification-sound";
 import { getAvatarCropStyle, type AvatarCropValue } from "../../../shared/lib/utils";
 import { characterKeys } from "../../characters/hooks/use-characters";
-import { api } from "../../../shared/lib/api-client";
+import { getConversationStatus } from "../../../engine/modes/chat";
+import { storageApi } from "../../../shared/api/storage-api";
 import type { CharacterMap, MessageSelectionToggle, PersonaInfo } from "./chat-area.types";
 import type { Message } from "@marinara-engine/shared";
 
@@ -357,7 +358,7 @@ export function ConversationView({
       // Skip while tab is hidden to avoid a burst of requests on return
       if (document.hidden) return;
       try {
-        await api.get(`/conversation/status/${chatId}`);
+        await getConversationStatus(storageApi, chatId);
         qc.invalidateQueries({ queryKey: characterKeys.list() });
       } catch {
         /* non-critical */

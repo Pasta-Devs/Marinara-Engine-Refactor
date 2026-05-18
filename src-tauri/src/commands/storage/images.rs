@@ -173,6 +173,21 @@ pub(crate) async fn avatar_generation(state: &AppState, body: Value) -> AppResul
     }))
 }
 
+pub(crate) async fn generate_image(state: &AppState, body: Value) -> AppResult<Value> {
+    let connection_id = required_string(&body, "connectionId")?;
+    let prompt = required_string(&body, "prompt")?;
+    let width = image_dimension(&body, "width", 1024);
+    let height = image_dimension(&body, "height", 1024);
+    let connection = get_required(state, "connections", &connection_id)?;
+    let (base64, mime_type) =
+        generate_image_with_connection(&connection, &prompt, width, height).await?;
+    Ok(json!({
+        "base64": base64,
+        "mimeType": mime_type,
+        "image": format!("data:{mime_type};base64,{base64}")
+    }))
+}
+
 pub(crate) async fn test_image_generation(state: &AppState, id: &str) -> AppResult<Value> {
     let connection = get_required(state, "connections", id)?;
     if connection.get("provider").and_then(Value::as_str) != Some("image_generation") {
