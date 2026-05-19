@@ -78,6 +78,15 @@
 - Last updated: 2026-05-19
 - Notes: `useTranslate.translate` now owns visible error reporting for rejected translation calls; message action callers explicitly consume the async request while keeping hide/show behavior unchanged. `pnpm typecheck` passes.
 
+## Love Toys Control agent results never reach the haptic integration
+
+- Status: Resolved
+- Owner: Promansis
+- Impact area: UI | engine | shared/api | Rust capability
+- Reported: 2026-05-19
+- Last updated: 2026-05-19
+- Notes: Agent-emitted haptic commands now bridge through `integrationGateway.haptic.command`; generation keeps the haptic bridge ordered with a small send interval to avoid overwhelming the native device path.
+
 ## Suggested Fix Order
 
 1. **Filesystem safety and data loss risks**: symlink escapes, profile import stale assets, tracker edits lost on reload.
@@ -275,10 +284,11 @@
 ### Love Toys Control agent results never reach the haptic integration
 
 - Status: Resolved
+- Owner: Promansis
 - Impact area: UI | engine | shared/api | Rust capability
-- Risk: Medium-high, a built-in agent can report success without controlling connected devices.
-- Likely owner: `src/features/generation/hooks/use-generate.ts`, `src/engine/generation/agent-runner.ts`, `src/shared/api/integration-gateway.ts`
-- Summary: The haptic agent can produce `haptic_command` results, but `applyAgentResultEffects` does not execute them through `integrationGateway.haptic.command`. Native haptic commands are only reached through connected-command syntax, not the dedicated agent result.
+- Reported: 2026-05-19
+- Last updated: 2026-05-19
+- Notes: Agent-emitted haptic commands now bridge through `integrationGateway.haptic.command`; generation keeps the haptic bridge ordered with a small send interval to avoid overwhelming the native device path.
 
 ### Haptic inflate actions are advertised but execute as vibrate or fail
 
@@ -319,3 +329,4 @@
 - Bug 15 keeps the fix in the shell UI layer; no engine, shared API, storage, or Rust capability behavior is expected to change.
 - Bug 16 keeps the fix in onboarding UI; no engine, shared API, storage, or Rust capability behavior is expected to change.
 - Bug 19 keeps the fix in message translation UI/error surfacing; no engine, storage, or broader capability behavior is expected to change.
+- Haptic agent work is resolved in the generation hook and prompt/type contract; the bridge is intentionally small and ordered to respect device pacing.
