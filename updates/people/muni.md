@@ -2,6 +2,35 @@
 
 ## Current Work
 
+## /continue runs trackers but produces no reply
+
+- Status: Done
+- Owner: Muni
+- Impact area: Shared generation lifecycle, conversation and roleplay continuation
+- Reported: 2026-05-19
+- Last updated: 2026-05-19
+
+### Steps
+
+1. Open a roleplay chat after an assistant response.
+2. Send `/continue`.
+3. Try the same command in a conversation chat after an assistant response.
+
+### Expected
+
+The app should generate another assistant reply that continues the latest response.
+
+### Actual
+
+Pre/post generation side effects such as trackers can run, but no assistant content is returned.
+
+### Notes
+
+- Owner is `src/engine/generation/start-generation.ts`.
+- Root cause is an empty generation request after an assistant message reaching the model without a fresh user-side continuation instruction.
+- Fixed in `src/engine/generation/start-generation.ts` by adding an explicit continuation directive only for passive empty requests whose latest visible message is assistant-authored.
+- Verified with `pnpm typecheck`.
+
 ## Conversation schedule generation produces no visible schedules
 
 - Status: Done

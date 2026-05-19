@@ -62,6 +62,9 @@ interface PreparedUserInput {
   mentionedCharacterNames: string[];
 }
 
+const CONTINUE_ASSISTANT_RESPONSE_INSTRUCTION =
+  "[Generation instruction: continue from the latest assistant message. Do not repeat or summarize the previous response; pick up naturally from where it stopped.]";
+
 function inputUserMessage(input: StartGenerationInput): string {
   return readString(input.message) || readString(input.userMessage);
 }
@@ -156,6 +159,7 @@ function directiveMessages(
   input: StartGenerationInput,
   characters: GenerationCharacterContext[],
   prepared: PreparedUserInput,
+  options: { continueAssistantResponse?: boolean } = {},
 ): LlmMessage[] {
   const messages: LlmMessage[] = [];
   if (input.impersonate === true) {
@@ -188,6 +192,12 @@ function directiveMessages(
       content: `[Generation instruction: the user's latest message explicitly mentioned ${prepared.mentionedCharacterNames.join(", ")}. Prioritize those character voices when selecting who responds.]`,
     });
   }
+  if (options.continueAssistantResponse === true) {
+    messages.push({
+      role: "user",
+      content: CONTINUE_ASSISTANT_RESPONSE_INSTRUCTION,
+    });
+  }
   return messages;
 }
 
@@ -197,6 +207,36 @@ function visibleTranscript(messages: JsonRecord[]): string {
     .slice(-24)
     .map((message) => `${readString(message.role, "message")}: ${readString(message.content)}`)
     .join("\n");
+}
+
+function isPassiveGenerationRequest(input: StartGenerationInput, prepared: PreparedUserInput): boolean {
+  return (
+    input.impersonate !== true &&
+    !readString(input.regenerateMessageId).trim() &&
+    !readString(input.generationGuide).trim() &&
+    !inputUserMessage(input).trim() &&
+    !prepared.content.trim() &&
+    prepared.attachments.length === 0
+  );
+}
+
+function latestVisibleMessage(messages: JsonRecord[]): JsonRecord | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]!;
+    if (hiddenFromAi(message)) continue;
+    if (!readString(message.content).trim()) continue;
+    return message;
+  }
+  return null;
+}
+
+function shouldContinueAssistantResponse(
+  input: StartGenerationInput,
+  prepared: PreparedUserInput,
+  storedMessages: JsonRecord[],
+): boolean {
+  if (!isPassiveGenerationRequest(input, prepared)) return false;
+  return readString(latestVisibleMessage(storedMessages)?.role) === "assistant";
 }
 
 function resultKey(result: AgentResult): string {
@@ -352,6 +392,7 @@ export async function* startGeneration(
   const storedMessages = await loadChatMessages(deps.storage, chatId);
   const directMessages = requestMessages(input);
   const agentEvents: AgentResult[] = [];
+  const continueAssistantResponse = shouldContinueAssistantResponse(input, preparedUserInput, storedMessages);
 
   yield { type: "phase", data: "Assembling prompt..." };
   let prompt = directMessages;
@@ -396,7 +437,10 @@ export async function* startGeneration(
       agentData: runtime?.agentData,
     });
     prompt = withImageAttachments(
-      [...assembly.messages, ...directiveMessages(input, assembly.characters, preparedUserInput)],
+      [
+        ...assembly.messages,
+        ...directiveMessages(input, assembly.characters, preparedUserInput, { continueAssistantResponse }),
+      ],
       preparedUserInput.images,
     );
 
@@ -459,7 +503,7 @@ export async function* startGeneration(
   }
 
   prompt = withImageAttachments(
-    [...(prompt ?? []), ...directiveMessages(input, assembly.characters, preparedUserInput)],
+    [...(prompt ?? []), ...directiveMessages(input, assembly.characters, preparedUserInput, { continueAssistantResponse })],
     preparedUserInput.images,
   );
   yield { type: "phase", data: "Calling model..." };
