@@ -46,6 +46,16 @@ For docs-only edits, run `pnpm check:docs`. If the run/build commands, scripts, 
 
 Do not tell users to run `pnpm docs`; that collides with pnpm/npm's package documentation command in this environment.
 
+## Bug And Work Updates
+
+Use `updates/` to track bug reports, active bug ownership, current work, and status updates.
+
+- Report new bugs in `updates/unowned-bugs.md` when they do not have an owner.
+- Move a bug from `updates/unowned-bugs.md` into the correct `updates/people/*.md` file when someone starts fixing it.
+- Use the user's GitHub name to determine who is working on a bug.
+- Map GitHub user `Coda` to Chai; this is the known confusing name.
+- Keep owner files updated with the bug status, next step, blockers, and resolution.
+
 ## Getting Started Requests
 
 When a user asks "how do I get started?", "onboard me", "teach me this repo", or anything similar:
