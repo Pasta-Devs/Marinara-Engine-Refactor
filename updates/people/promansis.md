@@ -33,6 +33,7 @@ The agent result is recorded, but nothing reaches `integrationGateway.haptic.com
 - Likely owner: `src/features/generation/hooks/use-generate.ts`.
 - Keep the fix at the agent-result bridge, not the agent executor.
 - Fixed by dispatching successful `haptic_command` agent results to `integrationGateway.haptic.command`.
+- Follow-up fixed multi-command patterns by serializing agent haptic commands above the native 200ms rate limit.
 - Verification: `pnpm typecheck`; `cargo check --manifest-path src-tauri/Cargo.toml`.
 
 ## Haptic inflate actions are advertised but execute as vibrate or fail
