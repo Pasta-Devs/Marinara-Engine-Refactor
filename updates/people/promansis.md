@@ -15,6 +15,13 @@
   - Worktree: `../Marinara-Engine-Refactor-bug15`
   - Next step: verify typecheck and mobile keyboard focus behavior.
 
+- Bug 16: First-launch tutorial does not trap keyboard focus.
+  - Status: In progress
+  - Last updated: 2026-05-19
+  - Branch: `fix/bug-16-onboarding-focus-trap`
+  - Worktree: `../Marinara-Engine-Refactor-bug16`
+  - Next step: verify typecheck and tutorial keyboard focus behavior.
+
 ## Owned Bugs
 
 ## Connection random-pool toggle can invert stored boolean state
@@ -36,6 +43,17 @@
 - Branch: `fix/bug-15-mobile-panel-focus`
 - Worktree: `../Marinara-Engine-Refactor-bug15`
 - Next step: verify typecheck and mobile keyboard focus behavior.
+
+## First-launch tutorial does not trap keyboard focus
+
+- Status: In progress
+- Owner: Promansis
+- Impact area: UI
+- Reported: 2026-05-19
+- Last updated: 2026-05-19
+- Branch: `fix/bug-16-onboarding-focus-trap`
+- Worktree: `../Marinara-Engine-Refactor-bug16`
+- Next step: verify typecheck and tutorial keyboard focus behavior.
 
 ## Suggested Fix Order
 
@@ -275,3 +293,4 @@
 ## Status Notes
 
 - Bug 15 keeps the fix in the shell UI layer; no engine, shared API, storage, or Rust capability behavior is expected to change.
+- Bug 16 keeps the fix in onboarding UI; no engine, shared API, storage, or Rust capability behavior is expected to change.
