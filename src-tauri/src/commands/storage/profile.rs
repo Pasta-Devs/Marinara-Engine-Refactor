@@ -169,10 +169,28 @@ fn collect_profile_assets(root: &Path, relative: &Path, assets: &mut Vec<Value>)
 }
 
 fn restore_profile_assets(state: &AppState, raw_assets: Option<&Value>) -> AppResult<usize> {
+    restore_profile_assets_in_root(&state.data_dir, raw_assets)
+}
+
+fn restore_profile_assets_in_root(data_dir: &Path, raw_assets: Option<&Value>) -> AppResult<usize> {
+    let assets = decoded_profile_assets(raw_assets)?;
+    clear_profile_asset_dirs(data_dir)?;
+    let restored = assets.len();
+    for (relative, bytes) in assets {
+        let target = data_dir.join(relative);
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(target, bytes)?;
+    }
+    Ok(restored)
+}
+
+fn decoded_profile_assets(raw_assets: Option<&Value>) -> AppResult<Vec<(PathBuf, Vec<u8>)>> {
     let Some(assets) = raw_assets.and_then(Value::as_array) else {
-        return Ok(0);
+        return Ok(Vec::new());
     };
-    let mut restored = 0usize;
+    let mut decoded = Vec::new();
     for asset in assets {
         let Some(path) = asset.get("path").and_then(Value::as_str) else {
             continue;
@@ -186,14 +204,25 @@ fn restore_profile_assets(state: &AppState, raw_assets: Option<&Value>) -> AppRe
             .map_err(|error| {
                 AppError::invalid_input(format!("Invalid profile asset data: {error}"))
             })?;
-        let target = state.data_dir.join(relative);
-        if let Some(parent) = target.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        fs::write(target, bytes)?;
-        restored += 1;
+        decoded.push((relative, bytes));
     }
-    Ok(restored)
+    Ok(decoded)
+}
+
+fn clear_profile_asset_dirs(data_dir: &Path) -> AppResult<()> {
+    for dir in PROFILE_ASSET_DIRS {
+        let path = data_dir.join(dir);
+        if !path.exists() {
+            continue;
+        }
+        let metadata = fs::symlink_metadata(&path)?;
+        if metadata.is_dir() {
+            fs::remove_dir_all(path)?;
+        } else {
+            fs::remove_file(path)?;
+        }
+    }
+    Ok(())
 }
 
 fn safe_profile_asset_path(value: &str) -> AppResult<PathBuf> {
@@ -235,4 +264,96 @@ fn profile_relative_path(path: &Path) -> String {
         })
         .collect::<Vec<_>>()
         .join("/")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_data_dir(test_name: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "marinara-profile-{test_name}-{}-{nonce}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&path).expect("temporary profile data dir should be created");
+        path
+    }
+
+    #[test]
+    fn profile_asset_restore_replaces_managed_asset_dirs() {
+        let data_dir = temp_data_dir("replace-assets");
+        fs::create_dir_all(data_dir.join("avatars")).unwrap();
+        fs::create_dir_all(data_dir.join("backgrounds/nested")).unwrap();
+        fs::create_dir_all(data_dir.join("lorebooks/images/old")).unwrap();
+        fs::create_dir_all(data_dir.join("unrelated")).unwrap();
+        fs::write(data_dir.join("avatars/stale.png"), b"stale").unwrap();
+        fs::write(data_dir.join("backgrounds/nested/stale.jpg"), b"stale").unwrap();
+        fs::write(data_dir.join("lorebooks/images/old/stale.webp"), b"stale").unwrap();
+        fs::write(data_dir.join("lorebooks/notes.txt"), b"keep").unwrap();
+        fs::write(data_dir.join("unrelated/keep.txt"), b"keep").unwrap();
+
+        let assets = json!([
+            {
+                "path": "avatars/new.png",
+                "base64": general_purpose::STANDARD.encode(b"new avatar"),
+            },
+            {
+                "path": "lorebooks/images/book/new.webp",
+                "base64": general_purpose::STANDARD.encode(b"new lorebook image"),
+            }
+        ]);
+
+        let restored = restore_profile_assets_in_root(&data_dir, Some(&assets)).unwrap();
+
+        assert_eq!(restored, 2);
+        assert_eq!(
+            fs::read(data_dir.join("avatars/new.png")).unwrap(),
+            b"new avatar"
+        );
+        assert_eq!(
+            fs::read(data_dir.join("lorebooks/images/book/new.webp")).unwrap(),
+            b"new lorebook image"
+        );
+        assert!(!data_dir.join("avatars/stale.png").exists());
+        assert!(!data_dir.join("backgrounds/nested/stale.jpg").exists());
+        assert!(!data_dir.join("lorebooks/images/old/stale.webp").exists());
+        assert_eq!(
+            fs::read(data_dir.join("lorebooks/notes.txt")).unwrap(),
+            b"keep"
+        );
+        assert_eq!(
+            fs::read(data_dir.join("unrelated/keep.txt")).unwrap(),
+            b"keep"
+        );
+
+        fs::remove_dir_all(data_dir).unwrap();
+    }
+
+    #[test]
+    fn invalid_profile_asset_payload_does_not_clear_existing_assets() {
+        let data_dir = temp_data_dir("invalid-keeps-assets");
+        fs::create_dir_all(data_dir.join("avatars")).unwrap();
+        fs::write(data_dir.join("avatars/stale.png"), b"stale").unwrap();
+        let assets = json!([
+            {
+                "path": "../escape.png",
+                "base64": general_purpose::STANDARD.encode(b"escape"),
+            }
+        ]);
+
+        let result = restore_profile_assets_in_root(&data_dir, Some(&assets));
+
+        assert!(result.is_err());
+        assert_eq!(
+            fs::read(data_dir.join("avatars/stale.png")).unwrap(),
+            b"stale"
+        );
+
+        fs::remove_dir_all(data_dir).unwrap();
+    }
 }
