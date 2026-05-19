@@ -1834,19 +1834,6 @@ export function GameSurface({
   const [queuedQte, setQueuedQte] = useState<{ qte: { actions: string[]; timer: number }; messageId: string } | null>(
     null,
   );
-  const handleCheckpointLoaded = useCallback(
-    (result: { gameState?: unknown; metadata?: Record<string, unknown> }) => {
-      setCheckpointsOpen(false);
-      if (result.gameState && typeof result.gameState === "object" && !Array.isArray(result.gameState)) {
-        useGameStateStore.getState().setGameState(result.gameState as GameState);
-      }
-      queryClient.invalidateQueries({ queryKey: chatKeys.detail(activeChatId) });
-      queryClient.invalidateQueries({ queryKey: chatKeys.messages(activeChatId) });
-      queryClient.invalidateQueries({ queryKey: chatKeys.messageCount(activeChatId) });
-      queryClient.invalidateQueries({ queryKey: [...gameKeys.all, "checkpoints", activeChatId] });
-    },
-    [activeChatId, queryClient],
-  );
   const [combatParty, setCombatParty] = useState<Combatant[] | null>(null);
   const [combatEnemies, setCombatEnemies] = useState<Combatant[] | null>(null);
   const [pendingEncounter, setPendingEncounter] = useState<CombatEncounterTag | null>(null);
@@ -1904,6 +1891,28 @@ export function GameSurface({
     return (chatMeta.gameInventory as Array<{ name: string; quantity: number }>) ?? [];
   });
   const inventoryItemsRef = useRef(inventoryItems);
+  const handleCheckpointLoaded = useCallback(
+    (result: { gameState?: unknown; metadata?: Record<string, unknown> }) => {
+      setCheckpointsOpen(false);
+      if (result.gameState && typeof result.gameState === "object" && !Array.isArray(result.gameState)) {
+        useGameStateStore.getState().setGameState(result.gameState as GameState);
+      }
+      if (result.metadata) {
+        const nextInventory = Array.isArray(result.metadata.gameInventory)
+          ? (result.metadata.gameInventory as Array<{ name: string; quantity: number }>)
+          : [];
+        setInventoryItems(nextInventory);
+        inventoryItemsRef.current = nextInventory;
+        recentMusicHistoryRef.current = normalizeRecentMusicHistory(result.metadata.gameRecentMusic);
+        recentSpotifyTrackHistoryRef.current = normalizeRecentSpotifyTrackHistory(result.metadata.gameRecentSpotifyTracks);
+      }
+      queryClient.invalidateQueries({ queryKey: chatKeys.detail(activeChatId) });
+      queryClient.invalidateQueries({ queryKey: chatKeys.messages(activeChatId) });
+      queryClient.invalidateQueries({ queryKey: chatKeys.messageCount(activeChatId) });
+      queryClient.invalidateQueries({ queryKey: [...gameKeys.all, "checkpoints", activeChatId] });
+    },
+    [activeChatId, queryClient],
+  );
   const [inventoryNotifications, setInventoryNotifications] = useState<string[]>([]);
   const [removingPartyMemberId, setRemovingPartyMemberId] = useState<string | null>(null);
   const [pendingMapMove, setPendingMapMove] = useState<{
