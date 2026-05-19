@@ -33,6 +33,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+autoagents = "0.3.7"
 base64 = "0.22"
 buttplug = "10.0.2"
 buttplug_core = "10.0.2"

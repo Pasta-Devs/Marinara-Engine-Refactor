@@ -923,6 +923,13 @@ fn apply_openai_parameters(body: &mut Value, request: &LlmRequest) {
             body["provider"] = openrouter.clone();
         }
     }
+    if let Some(tool_choice) = parameters
+        .get("toolChoice")
+        .or_else(|| parameters.get("tool_choice"))
+        .filter(|value| !value.is_null())
+    {
+        body["tool_choice"] = tool_choice.clone();
+    }
 }
 
 fn render_claude_subscription_transcript(messages: &[LlmMessage]) -> (Option<String>, String) {

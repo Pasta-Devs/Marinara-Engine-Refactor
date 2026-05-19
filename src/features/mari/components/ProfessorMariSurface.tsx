@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronUp, CircleUser, FileText, Link, Plus, Send, X } from "lucide-react";
 import { runProfessorMariEntry, type MariMessage } from "../../../engine/mari/mari-entry";
+import { mariApi } from "../../../shared/api/mari-api";
 import { useConnections } from "../../connections/hooks/use-connections";
 import { usePersonas } from "../../characters/hooks/use-characters";
 import { ConversationMessage } from "../../chats/components/ConversationMessage";
@@ -34,6 +35,10 @@ type MariPersona = {
   avatarCrop?: string;
   comment?: string | null;
   description?: string | null;
+  personality?: string | null;
+  scenario?: string | null;
+  backstory?: string | null;
+  appearance?: string | null;
 };
 
 function newId(prefix: string) {
@@ -88,10 +93,12 @@ export function ProfessorMariSurface() {
   const [connectionMenuOpen, setConnectionMenuOpen] = useState(false);
   const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const canSend = draft.trim().length > 0 || attachments.length > 0;
+  const canSend = (draft.trim().length > 0 || attachments.length > 0) && !sending;
   const connections = useMemo(
     () =>
       filterLanguageGenerationConnections((rawConnections ?? []) as MariConnection[]).sort((a, b) =>
@@ -179,55 +186,66 @@ export function ProfessorMariSurface() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const send = () => {
+  const send = async () => {
     const userMessage = draft.trim() || (attachments.length > 0 ? "[attachments]" : "");
-    if (!userMessage) return;
+    if (!userMessage || sending) return;
     const createdAt = new Date().toISOString();
-    const context = {
-      surface: "professor-mari",
-      source: "titlebar",
-      connection: selectedConnection
-        ? {
-            id: selectedConnection.id,
-            name: selectedConnection.name ?? selectedConnection.id,
-            provider: selectedConnection.provider ?? null,
-          }
-        : null,
-      persona: selectedPersona
-        ? {
-            id: selectedPersona.id,
-            name: selectedPersona.name,
-            comment: selectedPersona.comment ?? null,
-            description: selectedPersona.description ?? null,
-          }
-        : null,
-      attachments: attachments.map((attachment) => ({
-        name: attachment.name,
-        type: attachment.type,
-        size: attachment.size,
-        content: attachment.content,
-      })),
-    };
     const user: MariMessage = {
       id: newId("mari-user"),
       role: "user",
       content: userMessage,
       createdAt,
     };
-    const response = runProfessorMariEntry({
-      userMessage,
-      messages,
-      context,
-    });
+    const currentMessages = messages;
+    const currentAttachments = attachments;
+    setMessages((current) => [...current, user]);
+    setDraft("");
+    setAttachments([]);
+    setSendError(null);
+    setSending(true);
+    requestAnimationFrame(() => inputRef.current?.focus());
+    let response;
+    try {
+      response = await runProfessorMariEntry(
+        {
+          userMessage,
+          messages: currentMessages,
+          connectionId: selectedConnection?.id ?? null,
+          persona: selectedPersona
+            ? {
+                id: selectedPersona.id,
+                name: selectedPersona.name,
+                comment: selectedPersona.comment ?? null,
+                description: selectedPersona.description ?? null,
+                personality: selectedPersona.personality ?? null,
+                scenario: selectedPersona.scenario ?? null,
+                backstory: selectedPersona.backstory ?? null,
+                appearance: selectedPersona.appearance ?? null,
+              }
+            : null,
+          attachments: currentAttachments.map((attachment) => ({
+            id: attachment.id,
+            name: attachment.name,
+            type: attachment.type,
+            size: attachment.size,
+            content: attachment.content,
+          })),
+        },
+        mariApi,
+      );
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : "Professor Mari failed to respond.");
+      setSending(false);
+      return;
+    }
     const assistant: MariMessage = {
       id: newId("mari-assistant"),
       role: "assistant",
       content: response.content,
-      createdAt: response.received.createdAt,
+      createdAt: response.createdAt,
     };
-    setMessages((current) => [...current, user, assistant]);
-    setDraft("");
-    setAttachments([]);
+    setMessages((current) => [...current, assistant]);
+    setSending(false);
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
@@ -291,6 +309,10 @@ export function ProfessorMariSurface() {
               );
             })
           )}
+          {sending && (
+            <div className="px-4 py-2 text-xs text-[var(--muted-foreground)]">Professor Mari is thinking...</div>
+          )}
+          {sendError && <div className="px-4 py-2 text-xs text-red-500">{sendError}</div>}
           <div ref={messagesEndRef} className="h-1" />
         </div>
       </div>
@@ -431,7 +453,7 @@ export function ProfessorMariSurface() {
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
-                send();
+                void send();
               }
             }}
             rows={1}
@@ -443,7 +465,7 @@ export function ProfessorMariSurface() {
 
           <button
             type="button"
-            onClick={send}
+            onClick={() => void send()}
             disabled={!canSend}
             className={cn(
               "mari-chat-send-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-200",
