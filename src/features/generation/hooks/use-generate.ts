@@ -642,10 +642,12 @@ export async function runGenerationWithUi(
   options: { beforeStart?: (args: GenerateArgs) => Promise<void> } = {},
 ): Promise<boolean> {
   const chatId = args.chatId;
+  const regenerateMessageId = readString(args.regenerateMessageId).trim() || null;
   const controller = new AbortController();
   const chatStore = useChatStore.getState();
   chatStore.setAbortController(chatId, controller);
   chatStore.setStreaming(true, chatId);
+  chatStore.setRegenerateMessageId(regenerateMessageId);
   chatStore.setGenerationPhase("Starting generation...");
   chatStore.setStreamBuffer("", chatId);
   chatStore.setThinkingBuffer("", chatId);
@@ -734,12 +736,14 @@ export async function runGenerationWithUi(
     }
     throw error;
   } finally {
-    useChatStore.getState().setAbortController(chatId, null);
-    useChatStore.getState().setStreaming(false, chatId);
-    useChatStore.getState().setMariPhase(chatId, "idle");
-    useChatStore.getState().setGenerationPhase(null);
-    useChatStore.getState().setTypingCharacterName(null);
-    useChatStore.getState().setStreamingCharacterId(null);
+    const finalChatStore = useChatStore.getState();
+    finalChatStore.setAbortController(chatId, null);
+    finalChatStore.setStreaming(false, chatId);
+    finalChatStore.setMariPhase(chatId, "idle");
+    finalChatStore.setRegenerateMessageId(null);
+    finalChatStore.setGenerationPhase(null);
+    finalChatStore.setTypingCharacterName(null);
+    finalChatStore.setStreamingCharacterId(null);
     useAgentStore.getState().setProcessing(false);
     await queryClient.invalidateQueries({ queryKey: ["chats"] });
   }
