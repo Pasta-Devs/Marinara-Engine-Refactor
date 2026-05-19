@@ -772,6 +772,7 @@ export function useGenerate() {
         const cachedMessages = queryClient.getQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId));
         const cachedMessage = cachedMessages?.pages.flat().find((message) => readString(message.id) === regenerateMessageId);
         const storedMessage = cachedMessage ?? (await storageApi.get<Message>("messages", regenerateMessageId).catch(() => null));
+        if (!storedMessage || readString(storedMessage.chatId).trim() !== chatId) return args;
         const replay = readGenerationReplay(storedMessage?.extra);
         if (!replay) return args;
 
