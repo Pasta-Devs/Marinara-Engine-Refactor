@@ -2,6 +2,7 @@
 // Hooks: Agent Configs (React Query)
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { BUILT_IN_AGENTS } from "../../../engine/contracts/types/agent";
 import { storageApi } from "../../../shared/api/storage-api";
 import { invokeTauri } from "../../../shared/api/tauri-client";
 
@@ -41,6 +42,8 @@ export interface AgentRunRow {
   createdAt: string;
 }
 
+const builtInAgentTypes = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
+
 export function useAgentConfigs(enabled = true) {
   return useQuery({
     queryKey: agentKeys.all,
@@ -63,7 +66,9 @@ export function useCustomAgentRuns(chatId: string | null, enabled = true) {
   return useQuery({
     queryKey: agentKeys.customRuns(chatId ?? ""),
     queryFn: async () =>
-      (await storageApi.list<AgentRunRow>("agent-runs", { filters: { chatId } })).filter((run) => !!run.agentType),
+      (await storageApi.list<AgentRunRow>("agent-runs", { filters: { chatId } })).filter(
+        (run) => !!run.agentType && !builtInAgentTypes.has(run.agentType),
+      ),
     enabled: !!chatId && enabled,
     staleTime: 15_000,
   });

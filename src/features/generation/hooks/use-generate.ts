@@ -10,6 +10,14 @@ import {
   type EditableCharacterCardField,
 } from "../../../engine/contracts/types/agent";
 import type { Chat, Message } from "../../../engine/contracts/types/chat";
+import type {
+  CharacterStat,
+  CustomTrackerField,
+  GameState,
+  InventoryItem,
+  PlayerStats,
+  PresentCharacter,
+} from "../../../engine/contracts/types/game-state";
 import { chatBackgroundMetadataToUrl } from "../../../shared/lib/backgrounds";
 import { llmApi } from "../../../shared/api/llm-api";
 import { storageApi } from "../../../shared/api/storage-api";
@@ -19,6 +27,7 @@ import { useAgentStore, type PendingCardUpdate } from "../../../shared/stores/ag
 import { useChatStore } from "../../../shared/stores/chat.store";
 import { useUIStore } from "../../../shared/stores/ui.store";
 import { useGameStateStore } from "../../world-state/stores/world-state.store";
+import { worldStateApi } from "../../world-state/api/world-state-api";
 import { chatKeys } from "../../chats/hooks/use-chats";
 import { characterKeys } from "../../characters/hooks/use-characters";
 
@@ -379,6 +388,181 @@ function applyQuestUpdates(rawData: unknown) {
   } as never);
 }
 
+function createEmptyPlayerStats(): PlayerStats {
+  return {
+    stats: [],
+    attributes: null,
+    skills: {},
+    inventory: [],
+    activeQuests: [],
+    status: "",
+  };
+}
+
+function createEmptyGameState(chatId: string): GameState {
+  return {
+    id: "",
+    chatId,
+    messageId: "",
+    swipeIndex: 0,
+    date: null,
+    time: null,
+    location: null,
+    weather: null,
+    temperature: null,
+    presentCharacters: [],
+    recentEvents: [],
+    playerStats: null,
+    personaStats: null,
+    createdAt: "",
+  };
+}
+
+function readNullableString(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string") {
+    const text = value.trim();
+    return text.length ? text : null;
+  }
+  if (typeof value === "number" || typeof value === "bigint") return String(value);
+  return null;
+}
+
+function readNumber(value: unknown, fallback: number): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+function parseStat(value: unknown): CharacterStat | null {
+  const record = parseMaybeRecord(value);
+  const name = readString(record.name).trim();
+  if (!name) return null;
+  const max = Math.max(1, readNumber(record.max, 100));
+  const valueNumber = Math.min(max, Math.max(0, readNumber(record.value, max)));
+  const color = readString(record.color).trim() || "#8b5cf6";
+  return { name, value: valueNumber, max, color };
+}
+
+function parseInventoryItem(value: unknown): InventoryItem | null {
+  const record = parseMaybeRecord(value);
+  const name = readString(record.name).trim();
+  if (!name) return null;
+  return {
+    name,
+    description: readString(record.description).trim(),
+    quantity: Math.max(0, readNumber(record.quantity, 1)),
+    location: readString(record.location).trim() || "on_person",
+  };
+}
+
+function parsePresentCharacter(value: unknown): PresentCharacter | null {
+  const record = parseMaybeRecord(value);
+  const name = readString(record.name).trim();
+  const characterId = readString(record.characterId).trim() || name;
+  if (!name || !characterId) return null;
+  const customFields = isRecord(record.customFields)
+    ? Object.fromEntries(
+        Object.entries(record.customFields)
+          .map(([key, fieldValue]) => [key, readString(fieldValue).trim()])
+          .filter(([key]) => key.length > 0),
+      )
+    : {};
+  return {
+    characterId,
+    name,
+    emoji: readString(record.emoji).trim() || "*",
+    mood: readString(record.mood).trim() || "neutral",
+    appearance: readNullableString(record.appearance),
+    outfit: readNullableString(record.outfit),
+    avatarPath: readNullableString(record.avatarPath),
+    customFields,
+    stats: Array.isArray(record.stats) ? record.stats.map(parseStat).filter((stat): stat is CharacterStat => !!stat) : [],
+    thoughts: readNullableString(record.thoughts),
+  };
+}
+
+function parseCustomTrackerField(value: unknown): CustomTrackerField | null {
+  const record = parseMaybeRecord(value);
+  const name = readString(record.name).trim();
+  if (!name) return null;
+  return { name, value: readString(record.value).trim() };
+}
+
+function gameStatePatchFromAgentResult(result: AgentResult, chatId: string): Record<string, unknown> | null {
+  const data = parseMaybeRecord(result.data);
+  if (!Object.keys(data).length) return null;
+
+  if (result.agentType === "world-state" || result.type === "game_state_update") {
+    const patch: Record<string, unknown> = {};
+    for (const field of ["date", "time", "location", "weather", "temperature"] as const) {
+      if (Object.prototype.hasOwnProperty.call(data, field)) patch[field] = readNullableString(data[field]);
+    }
+    return Object.keys(patch).length ? patch : null;
+  }
+
+  if (result.agentType === "character-tracker" || result.type === "character_tracker_update") {
+    const presentCharacters = Array.isArray(data.presentCharacters)
+      ? data.presentCharacters
+          .map(parsePresentCharacter)
+          .filter((character): character is PresentCharacter => !!character)
+      : [];
+    return { presentCharacters };
+  }
+
+  if (result.agentType === "persona-stats" || result.type === "persona_stats_update") {
+    const current = useGameStateStore.getState().current;
+    const existingPlayerStats = current?.chatId === chatId ? current.playerStats : null;
+    const playerStats: PlayerStats = { ...(existingPlayerStats ?? createEmptyPlayerStats()) };
+    if (Object.prototype.hasOwnProperty.call(data, "status")) playerStats.status = readString(data.status).trim();
+    if (Array.isArray(data.inventory)) {
+      playerStats.inventory = data.inventory
+        .map(parseInventoryItem)
+        .filter((item): item is InventoryItem => !!item);
+    }
+    const patch: Record<string, unknown> = { playerStats };
+    if (Array.isArray(data.stats)) {
+      patch.personaStats = data.stats.map(parseStat).filter((stat): stat is CharacterStat => !!stat);
+    }
+    return patch;
+  }
+
+  if (result.agentType === "custom-tracker" || result.type === "custom_tracker_update") {
+    const current = useGameStateStore.getState().current;
+    const existingPlayerStats = current?.chatId === chatId ? current.playerStats : null;
+    const playerStats: PlayerStats = { ...(existingPlayerStats ?? createEmptyPlayerStats()) };
+    if (Array.isArray(data.fields)) {
+      playerStats.customTrackerFields = data.fields
+        .map(parseCustomTrackerField)
+        .filter((field): field is CustomTrackerField => !!field);
+      return { playerStats };
+    }
+  }
+
+  return null;
+}
+
+async function applyTrackerResultToGameState(chatId: string, result: AgentResult) {
+  const patch = gameStatePatchFromAgentResult(result, chatId);
+  if (!patch) return;
+
+  const store = useGameStateStore.getState();
+  const previous = store.current?.chatId === chatId ? store.current : createEmptyGameState(chatId);
+  store.setGameState({ ...previous, ...patch } as GameState);
+
+  try {
+    const saved = await worldStateApi.patch(chatId, patch);
+    if (useGameStateStore.getState().current?.chatId === chatId) {
+      useGameStateStore.getState().setGameState(saved);
+    }
+  } catch (error) {
+    console.warn("Failed to sync tracker result to game state", error);
+  }
+}
+
 function applyAssistantAction(rawData: unknown) {
   const data = parseMaybeRecord(rawData);
   const action = readString(data.action);
@@ -448,6 +632,7 @@ async function applyAgentResultEffects(
 
   if (result.type === "background_change") applyBackgroundChoice(data.chosen);
   if (result.agentType === "quest") applyQuestUpdates(result.data);
+  await applyTrackerResultToGameState(chatId, result);
 }
 
 export async function runGenerationWithUi(
