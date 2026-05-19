@@ -36,7 +36,7 @@ import { ChatMessage } from "../../chats/components/ChatMessage";
 import { ChatInput } from "../../chats/components/ChatInput";
 import { CyoaChoices } from "./CyoaChoices";
 import { ChatBranchSelector } from "../../chats/components/ChatBranchSelector";
-import { EndSceneBar } from "./SceneBanner";
+import { EndSceneBar, SceneBanner } from "./SceneBanner";
 import { ChatCommonOverlays } from "../../chats/components/ChatCommonOverlays";
 import { ActiveWorldInfoButton } from "../../visuals/components/ActiveWorldInfoButton";
 import type { SpriteDisplayMode } from "../../visuals/components/sprite-display-modes";
@@ -673,6 +673,7 @@ export function ChatRoleplaySurface({
     : undefined;
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
+  const isConcludedScene = chatMeta.sceneStatus === "concluded";
   const hideEchoChamberOnMobile =
     sidebarOpen || rightPanelOpen || settingsOpen || filesOpen || galleryOpen || wizardOpen;
 
@@ -1057,6 +1058,13 @@ export function ChatRoleplaySurface({
                     isForking={isForkingScene}
                   />
                 )}
+                {isConcludedScene && (
+                  <SceneBanner
+                    variant="scene"
+                    originChatId={chatMeta.sceneOriginChatId}
+                    description={chatMeta.sceneDescription}
+                  />
+                )}
                 {combatAgentEnabled && (
                   <div className="flex justify-center py-1">
                     <button
@@ -1069,29 +1077,31 @@ export function ChatRoleplaySurface({
                     </button>
                   </div>
                 )}
-                <ChatInput
-                  key={activeChatId}
-                  mode={isRoleplay ? "roleplay" : "conversation"}
-                  characterNames={characterNames}
-                  groupResponseOrder={
-                    chatCharIds.length > 1 && groupChatMode === "individual"
-                      ? (chatMeta.groupResponseOrder ?? "sequential")
-                      : undefined
-                  }
-                  chatCharacters={chatCharIds
-                    .filter((id) => characterMap.has(id))
-                    .map((id) => {
-                      const info = characterMap.get(id)!;
-                      return {
-                        id,
-                        name: info.name,
-                        avatarUrl: info.avatarUrl ?? null,
-                        avatarCrop: info.avatarCrop ?? null,
-                      };
-                    })}
-                  onExpressionChange={onExpressionChange}
-                  onPeekPrompt={onPeekPrompt}
-                />
+                {!isConcludedScene && (
+                  <ChatInput
+                    key={activeChatId}
+                    mode={isRoleplay ? "roleplay" : "conversation"}
+                    characterNames={characterNames}
+                    groupResponseOrder={
+                      chatCharIds.length > 1 && groupChatMode === "individual"
+                        ? (chatMeta.groupResponseOrder ?? "sequential")
+                        : undefined
+                    }
+                    chatCharacters={chatCharIds
+                      .filter((id) => characterMap.has(id))
+                      .map((id) => {
+                        const info = characterMap.get(id)!;
+                        return {
+                          id,
+                          name: info.name,
+                          avatarUrl: info.avatarUrl ?? null,
+                          avatarCrop: info.avatarCrop ?? null,
+                        };
+                      })}
+                    onExpressionChange={onExpressionChange}
+                    onPeekPrompt={onPeekPrompt}
+                  />
+                )}
               </div>
             </div>
           </div>
