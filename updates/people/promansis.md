@@ -28,6 +28,14 @@
   - Next step: Manual smoke in the desktop app with an invalid translation provider/API setup to confirm the toast copy and loading reset.
   - Blockers: None.
 
+- Stored generation replay metadata is not applied on replay/regenerate.
+  - Status: In progress
+  - Owner: Promansis
+  - Impact area: Generation | prompts | agents | provider boundary
+  - Likely root cause: Regenerate requests never reapply stored `message.extra.generationReplay` before `startGeneration` assembles prompt and request state.
+  - Files likely to change: `src/features/generation/hooks/use-generate.ts`, possibly `src/engine/generation/generation-replay.ts` if request shaping needs a helper adjustment.
+  - Checks planned: `pnpm typecheck`
+
 ## Owned Bugs
 
 ## Connection random-pool toggle can invert stored boolean state
@@ -203,11 +211,12 @@
 
 ### Stored generation replay metadata is not applied on replay/regenerate
 
-- Status: Resolved
+- Status: In progress
+- Owner: Promansis
 - Impact area: Generation | prompts | agents | provider boundary
-- Risk: Medium-high, replay can silently use different guidance, agents, connection, or preset from the stored metadata.
-- Likely owner: `src/engine/generation/start-generation.ts`, with caller context from `src/features/modes/components/ModeSurface.tsx`
-- Summary: User-message regenerate is enabled when `extra.generationReplay` exists, and `applyGenerationReplayToRegenerateInput` exists, but no generation path calls it. Regenerate sends only basic request fields unless new typed guidance is present.
+- Likely root cause: Regenerate requests never reapply stored `message.extra.generationReplay` before `startGeneration` assembles prompt and request state.
+- Files likely to change: `src/features/generation/hooks/use-generate.ts`, possibly `src/engine/generation/generation-replay.ts` if request shaping needs a helper adjustment.
+- Checks planned: `pnpm typecheck`
 
 ### Stop generation does not cancel the provider stream command
 
