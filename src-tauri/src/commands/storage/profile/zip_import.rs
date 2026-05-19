@@ -89,15 +89,16 @@ fn read_profile_zip_json<R: Read + std::io::Seek>(
     archive: &mut zip::ZipArchive<R>,
     entry_name: &str,
 ) -> AppResult<Value> {
-    let mut entry = archive.by_name(entry_name).map_err(|error| {
+    let entry = archive.by_name(entry_name).map_err(|error| {
         AppError::invalid_input(format!("Could not read marinara-profile.json: {error}"))
     })?;
-    if entry.size() as usize > MAX_PROFILE_JSON_BYTES {
+    let mut raw = Vec::new();
+    let mut limited = entry.take(MAX_PROFILE_JSON_BYTES as u64);
+    limited.read_to_end(&mut raw)?;
+    if raw.len() == MAX_PROFILE_JSON_BYTES {
         return Err(AppError::invalid_input(
             "marinara-profile.json in profile ZIP is too large",
         ));
     }
-    let mut raw = Vec::new();
-    entry.read_to_end(&mut raw)?;
     Ok(serde_json::from_slice(&raw)?)
 }
