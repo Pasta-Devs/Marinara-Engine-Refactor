@@ -52,6 +52,9 @@ pub fn storage_list(
 
     if entity == "messages" {
         apply_message_pagination(&mut rows, options.as_ref());
+        for row in &mut rows {
+            shared::materialize_message_swipe_fields(row);
+        }
         return Ok(Value::Array(rows));
     }
 
@@ -73,7 +76,11 @@ pub fn storage_get(
     entity: String,
     id: String,
 ) -> Result<Value, AppError> {
-    Ok(state.storage.get(&entity, &id)?.unwrap_or(Value::Null))
+    let mut value = state.storage.get(&entity, &id)?.unwrap_or(Value::Null);
+    if entity == "messages" {
+        shared::materialize_message_swipe_fields(&mut value);
+    }
+    Ok(value)
 }
 
 #[tauri::command]

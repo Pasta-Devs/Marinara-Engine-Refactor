@@ -209,6 +209,13 @@ function visibleTranscript(messages: JsonRecord[]): string {
     .join("\n");
 }
 
+function messagesBeforeRegenerationTarget(storedMessages: JsonRecord[], regenerateMessageId: string | null | undefined): JsonRecord[] {
+  const targetId = readString(regenerateMessageId).trim();
+  if (!targetId) return storedMessages;
+  const targetIndex = storedMessages.findIndex((message) => readString(message.id) === targetId);
+  return targetIndex >= 0 ? storedMessages.slice(0, targetIndex) : storedMessages;
+}
+
 function isPassiveGenerationRequest(input: StartGenerationInput, prepared: PreparedUserInput): boolean {
   return (
     input.impersonate !== true &&
@@ -390,15 +397,16 @@ export async function* startGeneration(
   const chat = requireRecord(await deps.storage.get("chats", chatId), "Chat");
   const connection = await resolveGenerationConnection(deps.storage, chat, input);
   const storedMessages = await loadChatMessages(deps.storage, chatId);
+  const generationMessages = messagesBeforeRegenerationTarget(storedMessages, input.regenerateMessageId);
   const directMessages = requestMessages(input);
   const agentEvents: AgentResult[] = [];
-  const continueAssistantResponse = shouldContinueAssistantResponse(input, preparedUserInput, storedMessages);
+  const continueAssistantResponse = shouldContinueAssistantResponse(input, preparedUserInput, generationMessages);
 
   yield { type: "phase", data: "Assembling prompt..." };
   let prompt = directMessages;
   let assembly = await assembleGenerationPrompt(deps.storage, {
     chat,
-    storedMessages,
+    storedMessages: generationMessages,
     connection,
     request: input,
     latestUserInput: preparedUserInput.content || inputUserMessage(input),
@@ -413,7 +421,7 @@ export async function* startGeneration(
           {
             chat,
             connection,
-            storedMessages,
+            storedMessages: generationMessages,
             characters: assembly.characters,
             persona: assembly.persona,
             activatedLorebookEntries: assembly.activatedLorebookEntries,
@@ -430,7 +438,7 @@ export async function* startGeneration(
 
     assembly = await assembleGenerationPrompt(deps.storage, {
       chat,
-      storedMessages,
+      storedMessages: generationMessages,
       connection,
       request: input,
       latestUserInput: preparedUserInput.content || inputUserMessage(input),
@@ -498,7 +506,7 @@ export async function* startGeneration(
         });
     await persistAgentResults(deps.storage, chatId, messageId(saved), allAgentResults);
     if (saved) yield { type: "assistant_message", data: saved };
-    yield { type: "done", data: { transcript: visibleTranscript(storedMessages) } };
+    yield { type: "done", data: { transcript: visibleTranscript(generationMessages) } };
     return;
   }
 

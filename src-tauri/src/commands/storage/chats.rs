@@ -14,6 +14,9 @@ pub(crate) fn messages_for_chat(state: &AppState, chat_id: &str) -> AppResult<Ve
         let b_time = b.get("createdAt").and_then(Value::as_str).unwrap_or("");
         a_time.cmp(b_time)
     });
+    for row in &mut rows {
+        materialize_message_swipe_fields(row);
+    }
     Ok(rows)
 }
 
@@ -98,14 +101,23 @@ pub(crate) fn message_swipes(
     let object = message
         .as_object_mut()
         .ok_or_else(|| AppError::invalid_input("Message is not an object"))?;
-    let swipes = object
-        .entry("swipes".to_string())
-        .or_insert_with(|| json!([]))
-        .as_array_mut()
-        .ok_or_else(|| AppError::invalid_input("Message swipes is not an array"))?;
-    swipes.push(json!({ "content": content, "createdAt": now_iso() }));
-    let active_index = swipes.len().saturating_sub(1);
+    let (active_index, swipe_count, active_content) = {
+        let swipes = object
+            .entry("swipes".to_string())
+            .or_insert_with(|| json!([]))
+            .as_array_mut()
+            .ok_or_else(|| AppError::invalid_input("Message swipes is not an array"))?;
+        swipes.push(json!({ "content": content, "createdAt": now_iso() }));
+        let active_index = swipes.len().saturating_sub(1);
+        (
+            active_index,
+            swipes.len(),
+            swipes[active_index]["content"].clone(),
+        )
+    };
     object.insert("activeSwipeIndex".to_string(), json!(active_index));
+    object.insert("swipeCount".to_string(), json!(swipe_count));
+    object.insert("content".to_string(), active_content);
     let updated = state.storage.patch("messages", message_id, message)?;
     Ok(updated)
 }
@@ -116,10 +128,43 @@ pub(crate) fn set_active_swipe(
     message_id: &str,
     body: Value,
 ) -> AppResult<Value> {
-    let index = body.get("index").and_then(Value::as_i64).unwrap_or(0);
-    state
-        .storage
-        .patch("messages", message_id, json!({ "activeSwipeIndex": index }))
+    let requested_index = body
+        .get("index")
+        .and_then(Value::as_u64)
+        .map(|value| value as usize)
+        .unwrap_or(0);
+    let mut message = get_required(state, "messages", message_id)?;
+    let object = message
+        .as_object_mut()
+        .ok_or_else(|| AppError::invalid_input("Message is not an object"))?;
+    let Some((active_index, swipe_count, active_content)) = object
+        .get("swipes")
+        .and_then(Value::as_array)
+        .map(|swipes| {
+            if swipes.is_empty() {
+                (0, 0, None)
+            } else {
+                let active_index = requested_index.min(swipes.len().saturating_sub(1));
+                (
+                    active_index,
+                    swipes.len(),
+                    Some(swipes[active_index]["content"].clone()),
+                )
+            }
+        })
+    else {
+        return state.storage.patch(
+            "messages",
+            message_id,
+            json!({ "activeSwipeIndex": requested_index }),
+        );
+    };
+    object.insert("activeSwipeIndex".to_string(), json!(active_index));
+    object.insert("swipeCount".to_string(), json!(swipe_count));
+    if let Some(content) = active_content {
+        object.insert("content".to_string(), content);
+    }
+    state.storage.patch("messages", message_id, message)
 }
 
 pub(crate) fn delete_swipe(
@@ -132,15 +177,17 @@ pub(crate) fn delete_swipe(
         .parse::<usize>()
         .map_err(|_| AppError::invalid_input("Invalid swipe index"))?;
     let mut message = get_required(state, "messages", message_id)?;
-    let object = message
-        .as_object_mut()
-        .ok_or_else(|| AppError::invalid_input("Message is not an object"))?;
-    if let Some(swipes) = object.get_mut("swipes").and_then(Value::as_array_mut) {
-        if index < swipes.len() {
-            swipes.remove(index);
+    {
+        let object = message
+            .as_object_mut()
+            .ok_or_else(|| AppError::invalid_input("Message is not an object"))?;
+        if let Some(swipes) = object.get_mut("swipes").and_then(Value::as_array_mut) {
+            if index < swipes.len() {
+                swipes.remove(index);
+            }
         }
     }
-    object.insert("activeSwipeIndex".to_string(), json!(0));
+    materialize_message_swipe_fields(&mut message);
     state.storage.patch("messages", message_id, message)
 }
 
