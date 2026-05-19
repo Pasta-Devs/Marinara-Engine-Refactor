@@ -80,7 +80,7 @@ export function CreateConnectionModal({ open, onClose }: Props) {
 
         <div className="flex flex-col gap-1">
           <span className="text-xs font-medium text-[var(--muted-foreground)]">Provider</span>
-          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4">
             {(Object.entries(PROVIDERS) as [APIProvider, (typeof PROVIDERS)[APIProvider]][])
               .filter(([key]) => isTauriRuntimeProvider(key))
               .map(([key, info]) => (

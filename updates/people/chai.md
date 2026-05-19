@@ -38,7 +38,7 @@ The dialog content is taller than the visible modal area at the default desktop 
 ### Notes
 
 - Screenshot: `docs/pr-evidence/create-connection-modal-layout/before.png`
-- Fix: widened the Create Connection modal and switched the provider grid to three columns on desktop so the action row is visible at 800x600.
+- Fix: widened the Create Connection modal and switched the provider grid to a progressive 2/3/4-column layout so the action row is visible at 800x600.
 - Fixed-state screenshot: `docs/pr-evidence/create-connection-modal-layout/after.png`
 - Verification: created `Chai Smoke Connection`; the connection appeared in the Connections panel and opened its detail editor.
 - Baseline: `pnpm check` passed.
