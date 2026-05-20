@@ -11,22 +11,15 @@ import {
   Minimize2,
   Shirt,
   X,
-  ZoomIn,
-  ZoomOut,
 } from "lucide-react";
 import type { CharacterStat, PresentCharacter } from "../../../engine/contracts/types/game-state";
-import { useUIStore, type TrackerPanelSide } from "../../../shared/stores/ui.store";
+import type { TrackerPanelSide } from "../../../shared/stores/ui.store";
 import { useCharacterSprites, type SpriteInfo } from "../../characters/hooks/use-characters";
 import { cn } from "../../../shared/lib/utils";
 import {
   addPresentCharacterStat,
   updatePresentCharacterCustomField,
 } from "../../world-state/lib/tracker-state-edits";
-import {
-  TRACKER_CARD_PORTRAIT_ZOOM_DEFAULT,
-  TRACKER_CARD_PORTRAIT_ZOOM_MAX,
-  TRACKER_CARD_PORTRAIT_ZOOM_MIN,
-} from "../../../shared/lib/tracker-card-colors";
 import {
   FEATURED_CHARACTER_PORTRAIT_ROOMY_STAGE_REM,
   FEATURED_CHARACTER_PORTRAIT_STAGE_REM,
@@ -85,7 +78,7 @@ function FeaturedCharacterPortrait({
   onSaveMood?: (value: string) => void;
   onToggleThoughts?: () => void;
   onUploadAvatar?: () => void;
-  onPortraitFocusChange?: (focusX: number, focusY: number, zoom: number) => void;
+  onPortraitFocusChange?: (focusX: number, focusY: number) => void;
 }) {
   const resolvedSpriteCharacterId =
     expressionSpritesEnabled && isSpriteLookupCharacterId(spriteCharacterId) ? (spriteCharacterId ?? null) : null;
@@ -104,18 +97,9 @@ function FeaturedCharacterPortrait({
     0,
     100,
   );
-  const portraitZoom = clampNumber(
-    typeof character.portraitZoom === "number" ? character.portraitZoom : TRACKER_CARD_PORTRAIT_ZOOM_DEFAULT,
-    TRACKER_CARD_PORTRAIT_ZOOM_MIN,
-    TRACKER_CARD_PORTRAIT_ZOOM_MAX,
-  );
   const setPortraitFocus = onPortraitFocusChange
-    ? (nextFocusX: number, nextFocusY: number, nextZoom = portraitZoom) =>
-        onPortraitFocusChange(
-          clampNumber(Math.round(nextFocusX), 0, 100),
-          clampNumber(Math.round(nextFocusY), 0, 100),
-          clampNumber(nextZoom, TRACKER_CARD_PORTRAIT_ZOOM_MIN, TRACKER_CARD_PORTRAIT_ZOOM_MAX),
-        )
+    ? (nextFocusX: number, nextFocusY: number) =>
+        onPortraitFocusChange(clampNumber(Math.round(nextFocusX), 0, 100), clampNumber(Math.round(nextFocusY), 0, 100))
     : undefined;
   const thoughtButtonLabel = thoughtsOpen ? "Stop reading thoughts" : "Read thoughts";
   const brainButton = onToggleThoughts ? (
@@ -197,17 +181,9 @@ function FeaturedCharacterPortrait({
               "z-[1]",
               spriteUrl &&
                 "relative h-full w-full object-contain object-bottom drop-shadow-[0_8px_14px_rgba(0,0,0,0.38)]",
-              usingAdjustablePortrait && "absolute inset-0 h-full w-full max-h-none object-cover transition-transform",
+              usingAdjustablePortrait && "absolute inset-0 h-full w-full max-h-none object-cover",
             )}
-            style={
-              usingAdjustablePortrait
-                ? {
-                    objectPosition: `${portraitFocusX}% ${portraitFocusY}%`,
-                    transform: `scale(${portraitZoom})`,
-                    transformOrigin: `${portraitFocusX}% ${portraitFocusY}%`,
-                  }
-                : undefined
-            }
+            style={usingAdjustablePortrait ? { objectPosition: `${portraitFocusX}% ${portraitFocusY}%` } : undefined}
             draggable={false}
           />
         ) : (
@@ -272,30 +248,6 @@ function FeaturedCharacterPortrait({
               className="col-span-2 mx-auto flex h-5 w-5 items-center justify-center rounded-sm border border-[color-mix(in_srgb,var(--tracker-profile-rule)_70%,transparent)] bg-[color-mix(in_srgb,var(--background)_62%,transparent)] text-[var(--tracker-profile-icon)] backdrop-blur-sm transition-colors hover:bg-[var(--primary)]/14 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] active:scale-90"
             >
               <ChevronDown size="0.75rem" />
-            </button>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setPortraitFocus(portraitFocusX, portraitFocusY, portraitZoom - 0.1);
-              }}
-              title="Zoom portrait out"
-              aria-label="Zoom portrait out"
-              className="flex h-5 w-5 items-center justify-center rounded-sm border border-[color-mix(in_srgb,var(--tracker-profile-rule)_70%,transparent)] bg-[color-mix(in_srgb,var(--background)_62%,transparent)] text-[var(--tracker-profile-icon)] backdrop-blur-sm transition-colors hover:bg-[var(--primary)]/14 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] active:scale-90"
-            >
-              <ZoomOut size="0.75rem" />
-            </button>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setPortraitFocus(portraitFocusX, portraitFocusY, portraitZoom + 0.1);
-              }}
-              title="Zoom portrait in"
-              aria-label="Zoom portrait in"
-              className="flex h-5 w-5 items-center justify-center rounded-sm border border-[color-mix(in_srgb,var(--tracker-profile-rule)_70%,transparent)] bg-[color-mix(in_srgb,var(--background)_62%,transparent)] text-[var(--tracker-profile-icon)] backdrop-blur-sm transition-colors hover:bg-[var(--primary)]/14 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] active:scale-90"
-            >
-              <ZoomIn size="0.75rem" />
             </button>
           </div>
         )}
@@ -557,8 +509,6 @@ export function FeaturedCharacterTrackerCard({
   const [fieldsInStatColumn, setFieldsInStatColumn] = useState(false);
   const [isNarrowCard, setIsNarrowCard] = useState(false);
   const [isRoomyCard, setIsRoomyCard] = useState(false);
-  const trackerPanelThoughtBubbleDisplay = useUIStore((s) => s.trackerPanelThoughtBubbleDisplay);
-  const trackerPanelDockedThoughtsAlwaysVisible = useUIStore((s) => s.trackerPanelDockedThoughtsAlwaysVisible);
   const customFields = Object.entries(character.customFields ?? {});
   const characterStats = character.stats ?? [];
   const hasEditableStatAdd = !!onUpdate && addMode;
@@ -612,9 +562,7 @@ export function FeaturedCharacterTrackerCard({
     return () => resizeObserver.disconnect();
   }, []);
 
-  const useInlineThoughtBubble = trackerPanelThoughtBubbleDisplay === "inline";
-  const thoughtsVisible =
-    hasThoughtsControl && (thoughtsOpen || (useInlineThoughtBubble && trackerPanelDockedThoughtsAlwaysVisible));
+  const useInlineThoughtBubble = isNarrowCard;
 
   useEffect(() => {
     if (!hasThoughtsControl) setThoughtsOpen(false);
@@ -719,14 +667,13 @@ export function FeaturedCharacterTrackerCard({
             characterPicture={characterPicture}
             thoughtControlSide={trackerPanelSide === "left" ? "right" : "left"}
             headerAttachmentSide={trackerPanelSide === "left" ? "left" : "right"}
-            thoughtsOpen={thoughtsVisible}
+            thoughtsOpen={thoughtsOpen}
             onSaveMood={onUpdate ? (mood) => onUpdate({ ...character, mood }) : undefined}
             onToggleThoughts={hasThoughtsControl ? () => setThoughtsOpen((open) => !open) : undefined}
             onUploadAvatar={onUploadAvatar}
             onPortraitFocusChange={
               onUpdate
-                ? (portraitFocusX, portraitFocusY, portraitZoom) =>
-                    onUpdate({ ...character, portraitFocusX, portraitFocusY, portraitZoom })
+                ? (portraitFocusX, portraitFocusY) => onUpdate({ ...character, portraitFocusX, portraitFocusY })
                 : undefined
             }
           />
@@ -830,14 +777,14 @@ export function FeaturedCharacterTrackerCard({
         </div>
       </div>
 
-      {thoughtsVisible && useInlineThoughtBubble && (
+      {hasThoughtsControl && thoughtsOpen && useInlineThoughtBubble && (
         <InlineThoughtBubble
           value={character.thoughts}
           onSave={onUpdate ? (thoughts) => onUpdate({ ...character, thoughts: thoughts || null }) : undefined}
         />
       )}
 
-      {thoughtsVisible && !useInlineThoughtBubble && (
+      {hasThoughtsControl && thoughtsOpen && !useInlineThoughtBubble && (
         <ExternalThoughtBubble
           anchorRef={thoughtAnchorRef}
           value={character.thoughts}

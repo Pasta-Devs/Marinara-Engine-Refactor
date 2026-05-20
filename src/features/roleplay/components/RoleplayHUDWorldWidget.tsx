@@ -1,7 +1,6 @@
 import { Suspense, lazy } from "react";
 import { MapPin } from "lucide-react";
 import { cn } from "../../../shared/lib/utils";
-import { useUIStore } from "../../../shared/stores/ui.store";
 import {
   getLocationPinColor,
   getTemperatureColor,
@@ -48,13 +47,12 @@ export function CombinedWorldWidget({
   isTrackerRetryBusy?: boolean;
 }) {
   const { buttonRef, close, open, placement, toggle } = useWidgetPopoverController(layout);
-  const trackerTemperatureUnit = useUIStore((s) => s.trackerTemperatureUnit);
   const weatherEmoji = getWeatherEmoji(weather);
   const pinColor = getLocationPinColor(location);
   const tempNumeric = parseTemperatureValue(temperature);
   const temp = tempNumeric ?? getTemperatureKeywordHint(temperature);
   const tempColor = getTemperatureColor(temperature);
-  const temperatureDisplay = getTemperatureGaugeDisplay(temperature, trackerTemperatureUnit);
+  const temperatureDisplay = getTemperatureGaugeDisplay(temperature);
   const dateDisplay = getWorldDateDisplay(date);
   const dateParts = dateDisplay.raw ? { day: dateDisplay.day, month: dateDisplay.month } : { day: null, month: null };
   const timeDisplay = getWorldTimeDisplay(time);

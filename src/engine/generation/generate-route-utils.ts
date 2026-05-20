@@ -399,7 +399,6 @@ export function preserveTrackerCharacterUiFields(
     const previous = key ? previousByKey.get(key) : null;
     const previousPortraitFocusX = previous?.portraitFocusX;
     const previousPortraitFocusY = previous?.portraitFocusY;
-    const previousPortraitZoom = previous?.portraitZoom;
     if (
       typeof character.portraitFocusX !== "number" &&
       typeof previousPortraitFocusX === "number" &&
@@ -413,13 +412,6 @@ export function preserveTrackerCharacterUiFields(
       Number.isFinite(previousPortraitFocusY)
     ) {
       character.portraitFocusY = previousPortraitFocusY;
-    }
-    if (
-      typeof character.portraitZoom !== "number" &&
-      typeof previousPortraitZoom === "number" &&
-      Number.isFinite(previousPortraitZoom)
-    ) {
-      character.portraitZoom = previousPortraitZoom;
     }
   }
 }

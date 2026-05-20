@@ -53,10 +53,8 @@ export interface PresentCharacter {
   avatarPath?: string | null;
   /** Featured tracker portrait focus, 0 = left, 100 = right. */
   portraitFocusX?: number;
-  /** Featured tracker portrait focus, 0 = top, 100 = bottom; expression sprites may carry values beyond this range. */
+  /** Featured tracker portrait focus, 0 = top, 100 = bottom. */
   portraitFocusY?: number;
-  /** Featured tracker portrait zoom multiplier. */
-  portraitZoom?: number;
   /** Per-character custom fields */
   customFields: Record<string, string>;
   /** Per-character stats (HP, etc.) */

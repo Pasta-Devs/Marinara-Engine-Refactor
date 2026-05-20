@@ -30,7 +30,6 @@ export function createManualPresentCharacter(options: Partial<PresentCharacter> 
     avatarPath: options.avatarPath,
     portraitFocusX: options.portraitFocusX,
     portraitFocusY: options.portraitFocusY,
-    portraitZoom: options.portraitZoom,
     customFields: options.customFields ?? {},
     stats: options.stats ?? [],
     thoughts: options.thoughts ?? null,
