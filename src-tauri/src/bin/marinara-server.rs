@@ -1,4 +1,4 @@
-use marinara_engine_lib::http_server::{self, ServerSecurityConfig};
+use marinara_engine_lib::http_server;
 use marinara_engine_lib::state::AppState;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -22,16 +22,8 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .join("target")
                 .join("marinara-server-data")
         });
-    let security = ServerSecurityConfig::from_env()?;
     let state = AppState::from_data_dir(data_dir, AppState::server_default_roots())?;
     println!("marinara-server listening on http://{addr}");
-    if security.is_auth_enabled() {
-        println!("marinara-server auth enabled");
-    } else {
-        eprintln!(
-            "WARNING: marinara-server auth is disabled. Only use this on localhost, a trusted network, or behind an authenticating reverse proxy."
-        );
-    }
-    http_server::serve(state, addr, security).await?;
+    http_server::serve(state, addr).await?;
     Ok(())
 }

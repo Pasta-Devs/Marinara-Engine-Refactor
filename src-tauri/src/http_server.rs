@@ -2,13 +2,11 @@ use crate::http_dispatch::{dispatch, InvokeRequest};
 use crate::state::AppState;
 use crate::storage_commands::llm;
 use axum::extract::{Path, State};
-use axum::http::{header, HeaderMap, HeaderValue, Method, Request, StatusCode};
-use axum::middleware::{self, Next};
+use axum::http::StatusCode;
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use base64::{engine::general_purpose, Engine as _};
 use marinara_core::AppError;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -17,40 +15,11 @@ use std::net::SocketAddr;
 use std::time::Instant;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use tower_http::cors::CorsLayer;
+use tower_http::cors::{Any, CorsLayer};
 
 #[derive(Clone)]
 pub struct HttpState {
     app: AppState,
-}
-
-#[derive(Clone, Debug)]
-pub struct ServerSecurityConfig {
-    auth: ServerAuthConfig,
-    allowed_origins: Vec<HeaderValue>,
-}
-
-#[derive(Clone, Debug)]
-enum ServerAuthConfig {
-    None,
-    Basic { username: String, password: String },
-    Bearer { token: String },
-}
-
-impl ServerSecurityConfig {
-    pub fn from_env() -> Result<Self, String> {
-        let auth = auth_from_env()?;
-        let allowed_origins = std::env::var("MARINARA_SERVER_ALLOWED_ORIGINS")
-            .ok()
-            .map(|raw| parse_allowed_origins(&raw))
-            .transpose()?
-            .unwrap_or_else(default_allowed_origins);
-        Ok(Self { auth, allowed_origins })
-    }
-
-    pub fn is_auth_enabled(&self) -> bool {
-        !matches!(self.auth, ServerAuthConfig::None)
-    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -60,131 +29,28 @@ pub struct LlmStreamRequest {
     request: Value,
 }
 
-pub async fn serve(
-    state: AppState,
-    addr: SocketAddr,
-    security: ServerSecurityConfig,
-) -> Result<(), std::io::Error> {
+pub async fn serve(state: AppState, addr: SocketAddr) -> Result<(), std::io::Error> {
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, router(state, security)).await
+    axum::serve(listener, router(state)).await
 }
 
-pub fn router(state: AppState, security: ServerSecurityConfig) -> Router {
-    let protected_state = HttpState { app: state };
-    let protected_routes = Router::new()
+pub fn router(state: AppState) -> Router {
+    Router::new()
+        .route("/health", get(health))
         .route("/api/invoke", post(invoke))
         .route("/api/llm/stream", post(llm_stream))
         .route("/api/llm/stream/:stream_id/cancel", post(llm_stream_cancel))
-        .route_layer(middleware::from_fn_with_state(
-            security.clone(),
-            require_auth,
-        ))
-        .with_state(protected_state);
-
-    Router::new()
-        .route("/health", get(health))
-        .merge(protected_routes)
         .layer(
             CorsLayer::new()
-                .allow_origin(security.allowed_origins)
-                .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-                .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE, header::ACCEPT]),
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any),
         )
+        .with_state(HttpState { app: state })
 }
 
 async fn health() -> Json<Value> {
     Json(json!({ "ok": true, "runtime": "marinara-server" }))
-}
-
-async fn require_auth(
-    State(security): State<ServerSecurityConfig>,
-    request: Request<axum::body::Body>,
-    next: Next,
-) -> Result<Response, StatusCode> {
-    if is_authorized(request.headers(), &security.auth) {
-        Ok(next.run(request).await)
-    } else {
-        Err(StatusCode::UNAUTHORIZED)
-    }
-}
-
-fn is_authorized(headers: &HeaderMap, auth: &ServerAuthConfig) -> bool {
-    let ServerAuthConfig::Basic { username, password } = auth else {
-        if let ServerAuthConfig::Bearer { token } = auth {
-            return headers
-                .get(header::AUTHORIZATION)
-                .and_then(|value| value.to_str().ok())
-                .and_then(|value| value.strip_prefix("Bearer "))
-                .is_some_and(|value| value == token);
-        }
-        return true;
-    };
-    let Some(value) = headers.get(header::AUTHORIZATION).and_then(|value| value.to_str().ok())
-    else {
-        return false;
-    };
-    let Some(encoded) = value.strip_prefix("Basic ") else {
-        return false;
-    };
-    let Ok(decoded) = general_purpose::STANDARD.decode(encoded.trim()) else {
-        return false;
-    };
-    let Ok(credentials) = String::from_utf8(decoded) else {
-        return false;
-    };
-    credentials
-        .split_once(':')
-        .is_some_and(|(actual_username, actual_password)| {
-            actual_username == username && actual_password == password
-        })
-}
-
-fn auth_from_env() -> Result<ServerAuthConfig, String> {
-    let basic = std::env::var("MARINARA_SERVER_BASIC_AUTH")
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty());
-    let api_key = std::env::var("MARINARA_SERVER_API_KEY")
-        .ok()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty());
-    if let Some(raw) = basic {
-        let (username, password) = raw
-            .split_once(':')
-            .ok_or_else(|| "MARINARA_SERVER_BASIC_AUTH must be formatted as username:password".to_string())?;
-        let username = username.trim().to_string();
-        let password = password.trim().to_string();
-        if username.is_empty() || password.is_empty() {
-            return Err("MARINARA_SERVER_BASIC_AUTH username and password are required".to_string());
-        }
-        return Ok(ServerAuthConfig::Basic { username, password });
-    }
-    if let Some(token) = api_key {
-        return Ok(ServerAuthConfig::Bearer { token });
-    }
-    Ok(ServerAuthConfig::None)
-}
-
-fn parse_allowed_origins(raw: &str) -> Result<Vec<HeaderValue>, String> {
-    raw.split(',')
-        .map(str::trim)
-        .filter(|origin| !origin.is_empty())
-        .map(|origin| {
-            HeaderValue::from_str(origin)
-                .map_err(|error| format!("Invalid MARINARA_SERVER_ALLOWED_ORIGINS entry {origin}: {error}"))
-        })
-        .collect()
-}
-
-fn default_allowed_origins() -> Vec<HeaderValue> {
-    [
-        "http://localhost:1420",
-        "http://127.0.0.1:1420",
-        "tauri://localhost",
-    ]
-    .into_iter()
-    .filter_map(|origin| HeaderValue::from_str(origin).ok())
-    .collect()
 }
 
 async fn invoke(
