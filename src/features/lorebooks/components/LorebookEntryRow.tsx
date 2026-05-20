@@ -61,9 +61,7 @@ interface Props {
   // Drag-and-drop wiring (lifted in the parent because cross-row state).
   draggable: boolean;
   isDragging: boolean;
-  isDragReady: boolean;
   onDragHandleMouseDown: () => void;
-  onDragHandleMouseUp: () => void;
   onDragStart: (e: ReactDragEvent<HTMLDivElement>) => void;
   onDragOver: (e: ReactDragEvent<HTMLDivElement>) => void;
   onDrop: (e: ReactDragEvent<HTMLDivElement>) => void;
@@ -174,9 +172,7 @@ export function LorebookEntryRow({
   folders,
   draggable,
   isDragging,
-  isDragReady,
   onDragHandleMouseDown,
-  onDragHandleMouseUp,
   onDragStart,
   onDragOver,
   onDrop,
@@ -331,7 +327,7 @@ export function LorebookEntryRow({
         selectionMode && isSelected && "bg-amber-400/10 ring-amber-400/40",
         isDragging && "opacity-40",
       )}
-      draggable={draggable && isDragReady}
+      draggable={draggable}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}
@@ -368,10 +364,6 @@ export function LorebookEntryRow({
           onMouseDown={(e) => {
             e.stopPropagation();
             if (draggable) onDragHandleMouseDown();
-          }}
-          onMouseUp={(e) => {
-            e.stopPropagation();
-            onDragHandleMouseUp();
           }}
         >
           <GripVertical size="0.875rem" />

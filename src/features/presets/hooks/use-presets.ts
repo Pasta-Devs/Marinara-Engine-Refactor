@@ -45,7 +45,27 @@ async function createPromptNested<T>(
   kind: PromptNestedKind,
   data: Record<string, unknown>,
 ): Promise<T> {
-  return storageApi.create<T>(promptNestedEntity[kind], { ...data, presetId });
+  const created = await storageApi.create<T>(promptNestedEntity[kind], { ...data, presetId });
+  const newId = (created as Record<string, unknown>).id as string | undefined;
+  if (newId) {
+    const preset = await storageApi.get<Record<string, unknown>>("prompts", presetId);
+    if (preset) {
+      const orderField = promptOrderField[kind];
+      let currentOrder: string[] = [];
+      try {
+        const raw = preset[orderField];
+        currentOrder = typeof raw === "string" ? JSON.parse(raw) : Array.isArray(raw) ? raw : [];
+      } catch {
+        currentOrder = [];
+      }
+      if (!currentOrder.includes(newId)) {
+        await storageApi.update("prompts", presetId, {
+          [orderField]: [...currentOrder, newId],
+        });
+      }
+    }
+  }
+  return created;
 }
 
 async function updatePromptNested<T>(
