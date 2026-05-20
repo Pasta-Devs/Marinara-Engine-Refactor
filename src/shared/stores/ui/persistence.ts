@@ -92,6 +92,7 @@ export function partializeUiState(state: UIState) {
     trimIncompleteModelOutput: state.trimIncompleteModelOutput,
     speechToTextEnabled: state.speechToTextEnabled,
     spotifyPlayerEnabled: state.spotifyPlayerEnabled,
+    remoteRuntimeUrl: state.remoteRuntimeUrl,
     spotifyMobileWidgetCollapsed: state.spotifyMobileWidgetCollapsed,
     spotifyMobileWidgetPosition: state.spotifyMobileWidgetPosition,
     intuitiveSwipeNavigation: state.intuitiveSwipeNavigation,

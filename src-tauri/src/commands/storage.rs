@@ -11,7 +11,7 @@ mod admin;
 #[path = "storage/agents.rs"]
 mod agents;
 #[path = "storage/avatars.rs"]
-mod avatars;
+pub(crate) mod avatars;
 #[path = "storage/backgrounds.rs"]
 mod backgrounds;
 #[path = "storage/bot_browser.rs"]
@@ -19,7 +19,7 @@ mod bot_browser;
 #[path = "storage/characters.rs"]
 mod characters;
 #[path = "storage/chats.rs"]
-mod chats;
+pub(crate) mod chats;
 #[path = "storage/custom_tools.rs"]
 mod custom_tools;
 #[path = "storage/exports.rs"]
@@ -41,11 +41,11 @@ mod integrations;
 #[path = "storage/knowledge.rs"]
 mod knowledge;
 #[path = "storage/llm.rs"]
-mod llm;
+pub(crate) mod llm;
 #[path = "storage/mari.rs"]
 mod mari;
 #[path = "storage/lorebook_images.rs"]
-mod lorebook_images;
+pub(crate) mod lorebook_images;
 #[path = "storage/media_uploads.rs"]
 mod media_uploads;
 #[path = "storage/profile.rs"]
@@ -53,7 +53,7 @@ mod profile;
 #[path = "storage/prompts.rs"]
 mod prompts;
 #[path = "storage/shared.rs"]
-mod shared;
+pub(crate) mod shared;
 #[path = "storage/sprites.rs"]
 mod sprites;
 #[path = "storage/translation.rs"]
@@ -73,9 +73,9 @@ pub mod entity_commands;
 pub mod import_commands;
 #[path = "storage/commands/integrations.rs"]
 pub mod integration_commands;
-#[path = "storage/commands/media.rs"]
-pub mod media_commands;
 #[path = "storage/commands/mari.rs"]
 pub mod mari_commands;
+#[path = "storage/commands/media.rs"]
+pub mod media_commands;
 #[path = "storage/commands/profile.rs"]
 pub mod profile_commands;

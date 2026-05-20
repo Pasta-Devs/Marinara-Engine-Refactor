@@ -2800,6 +2800,8 @@ function AdvancedSettings() {
   const setShowQuickReplyImpersonate = useUIStore((s) => s.setShowQuickReplyImpersonate);
   const debugMode = useUIStore((s) => s.debugMode);
   const setDebugMode = useUIStore((s) => s.setDebugMode);
+  const remoteRuntimeUrl = useUIStore((s) => s.remoteRuntimeUrl);
+  const setRemoteRuntimeUrl = useUIStore((s) => s.setRemoteRuntimeUrl);
   const clearAllData = useClearAllData();
   const expungeData = useExpungeData();
   const [selectedScopes, setSelectedScopes] = useState<ExpungeScope[]>(["chats"]);
@@ -2941,6 +2943,23 @@ function AdvancedSettings() {
             side="bottom"
             text="Manual refresh unregisters the active service worker and clears browser caches before reloading. Marinara's stored chats, settings, and other local app data stay intact."
           />
+        </div>
+
+        <div className="flex flex-col gap-1.5 rounded-lg bg-[var(--secondary)]/35 p-2.5 ring-1 ring-[var(--border)]">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium">Remote Runtime URL</span>
+            <HelpTooltip text="Blank uses the embedded Tauri backend. Set this to a Marinara Rust server URL to route supported storage and generation calls through the remote runtime." />
+          </div>
+          <input
+            type="url"
+            value={remoteRuntimeUrl}
+            onChange={(event) => setRemoteRuntimeUrl(event.target.value)}
+            placeholder="http://127.0.0.1:8787"
+            className="rounded-lg bg-[var(--background)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/50 focus:ring-[var(--primary)]"
+          />
+          <div className="text-[0.625rem] text-[var(--muted-foreground)]">
+            Supports reverse-proxy Basic Auth with https://user:password@example.com.
+          </div>
         </div>
       </div>
 

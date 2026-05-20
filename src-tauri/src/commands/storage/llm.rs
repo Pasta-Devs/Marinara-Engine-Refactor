@@ -107,6 +107,20 @@ pub(crate) async fn llm_stream_channel(
     body: Value,
     on_event: tauri::ipc::Channel<Value>,
 ) -> AppResult<()> {
+    llm_stream_events(state, stream_id, body, |event| {
+        on_event
+            .send(event)
+            .map_err(|error| AppError::new("stream_channel_error", error.to_string()))
+    })
+    .await
+}
+
+pub(crate) async fn llm_stream_events(
+    state: &AppState,
+    stream_id: String,
+    body: Value,
+    mut emit: impl FnMut(Value) -> AppResult<()> + Send,
+) -> AppResult<()> {
     let request = llm_request_from_body(state, body)?;
     let mut cancellation = state.register_llm_stream(&stream_id)?;
     if *cancellation.borrow() {
@@ -114,11 +128,7 @@ pub(crate) async fn llm_stream_channel(
         return Ok(());
     }
     let result = tokio::select! {
-        result = marinara_llm::stream_events(request, |event| {
-            on_event
-                .send(event)
-                .map_err(|error| AppError::new("stream_channel_error", error.to_string()))
-        }) => result,
+        result = marinara_llm::stream_events(request, &mut emit) => result,
         _ = cancellation.changed() => Ok(()),
     };
     state.unregister_llm_stream(&stream_id);

@@ -1,9 +1,11 @@
-mod app;
-mod builtins;
+pub mod app;
+pub(crate) mod builtins;
+pub mod http_dispatch;
+pub mod http_server;
 mod seed_defaults;
-mod state;
+pub mod state;
 #[path = "commands/storage.rs"]
-mod storage_commands;
+pub(crate) mod storage_commands;
 
 use tauri::Manager;
 

@@ -30,10 +30,37 @@ impl AppState {
             .path()
             .app_data_dir()
             .map_err(|error| AppError::new("data_dir_error", error.to_string()))?;
+        let default_data_roots = Self::default_data_roots(app);
+        Self::from_data_dir(data_dir, default_data_roots)
+    }
+
+    pub fn from_data_dir(
+        data_dir: impl Into<PathBuf>,
+        default_data_roots: Vec<PathBuf>,
+    ) -> AppResult<Self> {
+        let data_dir = data_dir.into();
         std::fs::create_dir_all(&data_dir)?;
         let storage = FileStorage::new(data_dir.join("data"))?;
         let game_assets = AssetService::new(data_dir.join("game-assets"))?;
         let backgrounds = AssetService::new(data_dir.join("backgrounds"))?;
+        Self::seed_defaults(&storage, &game_assets, &backgrounds, default_data_roots)?;
+
+        Ok(Self {
+            storage,
+            game_assets,
+            backgrounds,
+            data_dir,
+            llm_stream_cancellations: Arc::new(Mutex::new(LlmStreamCancellations::default())),
+        })
+    }
+
+    pub fn server_default_roots() -> Vec<PathBuf> {
+        vec![PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("resources")
+            .join("default-data")]
+    }
+
+    fn default_data_roots(app: &AppHandle) -> Vec<PathBuf> {
         let mut default_data_roots = Vec::new();
         if let Ok(resource_dir) = app.path().resource_dir() {
             default_data_roots.push(resource_dir.join("resources").join("default-data"));
@@ -43,7 +70,15 @@ impl AppState {
                 .join("resources")
                 .join("default-data"),
         );
+        default_data_roots
+    }
 
+    fn seed_defaults(
+        storage: &FileStorage,
+        game_assets: &AssetService,
+        backgrounds: &AssetService,
+        default_data_roots: Vec<PathBuf>,
+    ) -> AppResult<()> {
         for default_data in default_data_roots {
             if !default_data.exists() {
                 continue;
@@ -52,13 +87,7 @@ impl AppState {
             game_assets.seed_missing_from(&default_data.join("game-assets"))?;
             backgrounds.seed_missing_from(&default_data.join("backgrounds"))?;
         }
-        Ok(Self {
-            storage,
-            game_assets,
-            backgrounds,
-            data_dir,
-            llm_stream_cancellations: Arc::new(Mutex::new(LlmStreamCancellations::default())),
-        })
+        Ok(())
     }
 
     pub fn register_llm_stream(&self, stream_id: &str) -> AppResult<watch::Receiver<bool>> {
@@ -82,29 +111,23 @@ impl AppState {
     }
 
     pub fn cancel_llm_stream(&self, stream_id: &str) -> AppResult<bool> {
-        let cancellations = self
-            .llm_stream_cancellations
-            .lock()
-            .map_err(|_| {
-                AppError::new(
-                    "llm_stream_cancel_error",
-                    "LLM stream cancellation registry is unavailable",
-                )
-            })?;
+        let cancellations = self.llm_stream_cancellations.lock().map_err(|_| {
+            AppError::new(
+                "llm_stream_cancel_error",
+                "LLM stream cancellation registry is unavailable",
+            )
+        })?;
         if let Some(tx) = cancellations.active.get(stream_id) {
             let _ = tx.send(true);
             Ok(true)
         } else {
             drop(cancellations);
-            let mut cancellations = self
-                .llm_stream_cancellations
-                .lock()
-                .map_err(|_| {
-                    AppError::new(
-                        "llm_stream_cancel_error",
-                        "LLM stream cancellation registry is unavailable",
-                    )
-                })?;
+            let mut cancellations = self.llm_stream_cancellations.lock().map_err(|_| {
+                AppError::new(
+                    "llm_stream_cancel_error",
+                    "LLM stream cancellation registry is unavailable",
+                )
+            })?;
             cancellations.pending.insert(stream_id.to_string());
             Ok(false)
         }
