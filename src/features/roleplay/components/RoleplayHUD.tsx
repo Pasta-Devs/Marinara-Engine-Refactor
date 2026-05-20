@@ -28,7 +28,18 @@ import { useGameStateStore } from "../../world-state/stores/world-state.store";
 import { useAgentStore } from "../../../shared/stores/agent.store";
 import { useAgentConfigs, useCustomAgentRuns, type AgentConfigRow } from "../../agents/hooks/use-agents";
 import { useChat } from "../../chats/hooks/use-chats";
-import { discardPendingGameStatePatch, useGameStatePatcher } from "../../world-state/hooks/use-world-state-patcher";
+import { useTrackerStateController } from "../../world-state/hooks/use-tracker-state-controller";
+import { discardPendingGameStatePatch } from "../../world-state/hooks/use-world-state-patcher";
+import {
+  getLocationPinColor,
+  getTemperatureColor,
+  getTemperatureGaugeDisplay,
+  getTemperatureKeywordHint,
+  getWeatherEmoji,
+  getWorldDateDisplay,
+  getWorldTimeDisplay,
+  parseTemperatureValue,
+} from "../../world-state/lib/world-state-display";
 import { useUIStore } from "../../../shared/stores/ui.store";
 import type { Message } from "../../../engine/contracts/types/chat";
 import type { GameState, PresentCharacter, CharacterStat, InventoryItem, QuestProgress, CustomTrackerField } from "../../../engine/contracts/types/game-state";
@@ -90,10 +101,19 @@ export function RoleplayHUD({
   injectionSourceMessages,
 }: RoleplayHUDProps & { mobileCompact?: boolean }) {
   const [agentsOpen, setAgentsOpen] = useState(false);
-  const gameState = useGameStateStore((s) => s.current);
-  const gameStateRefreshing = useGameStateStore((s) => s.isRefreshing);
+  const {
+    gameState,
+    playerStats,
+    personaStats: personaStatBars,
+    presentCharacters,
+    inventory,
+    quests: activeQuests,
+    customTrackerFields,
+    gameStateRefreshing,
+    patchField,
+    patchPlayerStats,
+  } = useTrackerStateController(chatId, "roleplay-hud");
   const setGameState = useGameStateStore((s) => s.setGameState);
-  const { patchField, patchPlayerStats } = useGameStatePatcher(chatId, "roleplay-hud");
 
   const { data: agentConfigs } = useAgentConfigs();
   const globalEnabledAgentTypes = useMemo(() => {
@@ -141,25 +161,6 @@ export function RoleplayHUD({
   const isTrackerBusy = isAgentProcessing || isStreaming || gameStateRefreshing;
   const showHudTrackerWidgets = !gameStateRefreshing && !(trackerPanelEnabled && trackerPanelHideHudWidgets);
 
-  useEffect(() => {
-    if (!chatId) return;
-    // If the store already holds state for this chat, skip the redundant fetch.
-    // This happens when ChatArea remounts after visiting an editor panel.
-    const existing = useGameStateStore.getState().current;
-    if (existing?.chatId === chatId) return;
-
-    let cancelled = false;
-    worldStateApi
-      .get(chatId)
-      .then((gs) => {
-        if (!cancelled) setGameState(gs ?? null);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [chatId, setGameState]);
-
   const clearGameState = useCallback(() => {
     const cleared = {
       date: null,
@@ -204,13 +205,7 @@ export function RoleplayHUD({
   const location = gameState?.location ?? null;
   const weather = gameState?.weather ?? null;
   const temperature = gameState?.temperature ?? null;
-  const presentCharacters = gameState?.presentCharacters ?? [];
-  const personaStatBars = gameState?.personaStats ?? [];
-  const playerStats = gameState?.playerStats ?? null;
   const personaStatus = playerStats?.status ?? "";
-  const inventory = playerStats?.inventory ?? [];
-  const activeQuests = playerStats?.activeQuests ?? [];
-  const customTrackerFields = playerStats?.customTrackerFields ?? [];
   const hasPlayerTrackerSections =
     enabledAgentTypes.has("persona-stats") ||
     enabledAgentTypes.has("character-tracker") ||
@@ -1222,34 +1217,28 @@ function CombinedWorldWidget({
 }) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const weatherEmoji = weather ? getWeatherEmoji(weather) : "🌤️";
+  const trackerTemperatureUnit = useUIStore((s) => s.trackerTemperatureUnit);
+  const weatherEmoji = getWeatherEmoji(weather);
   const pinColor = getLocationPinColor(location);
-  const tempNumeric = temperature ? parseTemperature(temperature) : null;
-  const temp = tempNumeric ?? (temperature ? getTemperatureKeywordHint(temperature) : null);
-  const tempColor =
-    temp !== null
-      ? temp < 0
-        ? "text-blue-400"
-        : temp < 15
-          ? "text-sky-400"
-          : temp < 30
-            ? "text-amber-400"
-            : "text-red-400"
-      : "text-rose-400/50";
+  const tempNumeric = parseTemperatureValue(temperature);
+  const temp = tempNumeric ?? getTemperatureKeywordHint(temperature);
+  const tempColor = getTemperatureColor(temperature);
+  const temperatureDisplay = getTemperatureGaugeDisplay(temperature, trackerTemperatureUnit);
 
   // Dynamic calendar: show day number
-  const dateParts = date ? parseDateLabel(date) : { day: null, month: null };
+  const dateDisplay = getWorldDateDisplay(date);
+  const dateParts = dateDisplay.raw ? { day: dateDisplay.day, month: dateDisplay.month } : { day: null, month: null };
 
   // Dynamic clock: compute hand angles
-  const hour = time ? extractHourFromTime(time) : -1;
-  const minute = time ? parseMinutes(time) : 0;
+  const timeDisplay = getWorldTimeDisplay(time);
+  const hour = timeDisplay.hour ?? -1;
+  const minute = timeDisplay.minute ?? 0;
   const hourAngle = hour >= 0 ? (hour % 12) * 30 + minute * 0.5 : 0;
   const minuteAngle = minute * 6;
 
-  // Thermometer fill fraction (clamp -20..50°C → 0..1)
-  const tempFill = temp !== null ? Math.max(0, Math.min(1, (temp + 20) / 70)) : 0.3;
-  const tempFillColor =
-    temp !== null ? (temp < 0 ? "#60a5fa" : temp < 15 ? "#38bdf8" : temp < 30 ? "#fbbf24" : "#f87171") : "#fb7185";
+  // Thermometer fill comes from the shared world-state display helper.
+  const tempFill = temperatureDisplay.percent / 100;
+  const tempFillColor = temperatureDisplay.color;
 
   return (
     <div className="relative">
@@ -1395,7 +1384,7 @@ function CombinedWorldWidget({
         </svg>
         {tempNumeric !== null && (
           <span className={cn("text-[0.5rem] md:text-[0.5625rem] font-bold leading-none shrink-0", tempColor)}>
-            {tempNumeric}°
+            {temperatureDisplay.label}
           </span>
         )}
       </button>
@@ -1430,134 +1419,4 @@ function CombinedWorldWidget({
       </WidgetPopover>
     </div>
   );
-}
-
-// ═══════════════════════════════════════════════
-// Helpers
-// ═══════════════════════════════════════════════
-
-function parseDateLabel(date: string): { day: string | null; month: string | null } {
-  const numMatch = date.match(/(\d+)/);
-  const day = numMatch ? numMatch[1] : null;
-  const words = date
-    .replace(/\d+(st|nd|rd|th)?/gi, "")
-    .split(/[\s,/.-]+/)
-    .filter((w) => w.length > 2);
-  const month = words[0]?.slice(0, 3) ?? null;
-  return { day, month };
-}
-
-function extractHourFromTime(time: string): number {
-  const t = time.toLowerCase();
-  const m24 = t.match(/\b(\d{1,2})[:.h](\d{2})\b/);
-  if (m24) {
-    let h = parseInt(m24[1]!, 10);
-    if (t.includes("pm") && h < 12) h += 12;
-    if (t.includes("am") && h === 12) h = 0;
-    if (h >= 0 && h < 24) return h;
-  }
-  const mAP = t.match(/\b(\d{1,2})\s*(am|pm)\b/);
-  if (mAP) {
-    let h = parseInt(mAP[1]!, 10);
-    if (mAP[2] === "pm" && h < 12) h += 12;
-    if (mAP[2] === "am" && h === 12) h = 0;
-    if (h >= 0 && h < 24) return h;
-  }
-  if (t.includes("midnight")) return 0;
-  if (t.includes("dawn") || t.includes("sunrise")) return 6;
-  if (t.includes("morning")) return 9;
-  if (t.includes("noon") || t.includes("midday")) return 12;
-  if (t.includes("afternoon")) return 15;
-  if (t.includes("dusk") || t.includes("sunset") || t.includes("evening")) return 18;
-  if (t.includes("night")) return 22;
-  return -1;
-}
-
-function parseMinutes(time: string): number {
-  const m = time.match(/\b\d{1,2}[:.h](\d{2})\b/);
-  return m ? parseInt(m[1]!, 10) : 0;
-}
-
-function getWeatherEmoji(weather: string): string {
-  const w = weather.toLowerCase();
-  if (w.includes("thunder") || w.includes("lightning")) return "⛈️";
-  if (w.includes("blizzard")) return "🌨️";
-  if (w.includes("heavy rain") || w.includes("downpour") || w.includes("storm")) return "🌧️";
-  if (w.includes("rain") || w.includes("drizzle") || w.includes("shower")) return "🌦️";
-  if (w.includes("hail")) return "🧊";
-  if (w.includes("snow") || w.includes("sleet") || w.includes("frost")) return "❄️";
-  if (w.includes("fog") || w.includes("mist") || w.includes("haze")) return "🌫️";
-  if (w.includes("sand") || w.includes("dust")) return "🏜️";
-  if (w.includes("ash") || w.includes("volcanic") || w.includes("smoke")) return "🌋";
-  if (w.includes("ember") || w.includes("fire") || w.includes("inferno")) return "🔥";
-  if (w.includes("wind") || w.includes("breez") || w.includes("gust")) return "💨";
-  if (w.includes("cherry") || w.includes("blossom") || w.includes("petal")) return "🌸";
-  if (w.includes("aurora") || w.includes("northern light")) return "🌌";
-  if (w.includes("cloud") || w.includes("overcast") || w.includes("grey") || w.includes("gray")) return "☁️";
-  if (w.includes("clear") || w.includes("sunny") || w.includes("bright")) return "☀️";
-  if (w.includes("hot") || w.includes("swelter")) return "🥵";
-  if (w.includes("cold") || w.includes("freez")) return "🥶";
-  return "🌤️";
-}
-
-function parseTemperature(temp: string): number | null {
-  const m = temp.match(/-?\d+(\.\d+)?/);
-  if (!m) return null;
-  const num = parseFloat(m[0]!);
-  if (/°?\s*f/i.test(temp)) return Math.round((num - 32) * (5 / 9));
-  return Math.round(num);
-}
-
-/** Map descriptive temperature words to a numeric-equivalent hint (°C). */
-function getTemperatureKeywordHint(text: string): number | null {
-  const t = text.toLowerCase();
-  if (/\b(freez|frigid|arctic|glacial|sub-?zero|blizzard)/.test(t)) return -10;
-  if (/\b(cold|chill|frost|wintry|icy|bitter|nipp)/.test(t)) return 2;
-  if (/\b(cool|brisk|crisp|refresh)/.test(t)) return 12;
-  if (/\b(mild|pleasant|comfort|temperate|fair)/.test(t)) return 20;
-  if (/\b(warm|balmy|toasty|muggy|humid|stuffy|sultry)/.test(t)) return 28;
-  if (/\b(hot|swelter|blaz|scorch|burn|heat|boil|sear|bak)/.test(t)) return 38;
-  return null;
-}
-
-/** Categorise location text into a colour for the map-pin icon. */
-function getLocationPinColor(location: string): string {
-  const l = location.toLowerCase();
-  // Water
-  if (
-    /\b(sea|ocean|lake|river|pond|creek|bay|shore|beach|harbor|harbour|port|coast|marsh|swamp|waterfall|spring|well|dock|canal|dam|reef|lagoon|estuary|fjord|cove)\b/.test(
-      l,
-    )
-  )
-    return "text-blue-400";
-  // Mountains / rocky terrain
-  if (
-    /\b(mountain|hill|cliff|peak|ridge|canyon|gorge|cave|cavern|mine|quarry|summit|bluff|crag|volcano|crater|mesa|plateau|ravine|boulder)\b/.test(
-      l,
-    )
-  )
-    return "text-amber-700";
-  // Urban / city
-  if (
-    /\b(city|town|village|castle|palace|fortress|market|shop|inn|tavern|bar|pub|guild|district|quarter|bazaar|temple|church|cathedral|shrine|tower|gate|square|plaza|street|alley|arena|throne|court|capitol|capital|metro|subway)\b/.test(
-      l,
-    )
-  )
-    return "text-purple-400";
-  // Interior / indoors
-  if (
-    /\b(room|hall|chamber|dungeon|cellar|basement|attic|library|study|bedroom|kitchen|office|lab|laboratory|vault|corridor|passage|cabin|hut|tent|interior|house|home|building|apartment|manor|lodge|dormitor|warehouse|prison|cell|jail)\b/.test(
-      l,
-    )
-  )
-    return "text-amber-300";
-  // Nature / forest / fields (broadest — checked last)
-  if (
-    /\b(forest|wood|grove|jungle|garden|park|field|meadow|glade|clearing|plain|prairie|steppe|savanna|farm|ranch|orchard|vineyard|glen|vale|valley|thicket|copse|heath|moor|desert|tundra|waste|wild|trail|path|road)\b/.test(
-      l,
-    )
-  )
-    return "text-emerald-400";
-  // Default — the base emerald
-  return "text-emerald-400";
 }

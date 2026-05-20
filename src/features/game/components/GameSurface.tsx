@@ -12,6 +12,11 @@ import { useUIStore } from "../../../shared/stores/ui.store";
 import { useGameStateStore } from "../../world-state/stores/world-state.store";
 import { worldStateApi } from "../../world-state/api/world-state-api";
 import {
+  flushGameStatePatch,
+  patchGameStateField,
+  type GameStatePatchField,
+} from "../../world-state/hooks/use-world-state-patcher";
+import {
   useSyncGameState,
   useCreateGame,
   useGameSetup,
@@ -216,6 +221,11 @@ function getConfiguredGameAssetImageSizes(): NonNullable<GameAssetGenerationPayl
     portrait: { width: settings.imagePortraitWidth, height: settings.imagePortraitHeight },
     selfie: { width: settings.imageSelfieWidth, height: settings.imageSelfieHeight },
   };
+}
+
+function patchVisibleGameState(chatId: string, field: GameStatePatchField, value: unknown) {
+  patchGameStateField(chatId, field, value);
+  void flushGameStatePatch(chatId).catch(() => {});
 }
 
 const GAME_ASSET_GENERATION_TIMEOUT_MS = 240_000;
@@ -2255,9 +2265,7 @@ export function GameSurface({
       }
 
       if (currentGameState?.chatId === activeChatId && currentPlayerStats && nextPlayerStats !== currentPlayerStats) {
-        const syncedGameState = { ...currentGameState, playerStats: nextPlayerStats };
-        useGameStateStore.getState().setGameState(syncedGameState);
-        worldStateApi.patch(activeChatId, { playerStats: nextPlayerStats }).catch(() => {});
+        patchVisibleGameState(activeChatId, "playerStats", nextPlayerStats);
       }
 
       for (const entry of journalEntries) {
@@ -4586,13 +4594,7 @@ export function GameSurface({
           gameTime: nextTime,
         });
 
-        if (snapshot?.chatId === activeChatId) {
-          useGameStateStore.getState().setGameState({
-            ...snapshot,
-            time: formattedTime,
-          });
-        }
-        worldStateApi.patch(activeChatId, { time: formattedTime }).catch(() => {});
+        patchVisibleGameState(activeChatId, "time", formattedTime);
         toast.success(`Set game day to ${nextTime.day}.`);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to update game day.");
@@ -4825,25 +4827,16 @@ export function GameSurface({
       : null;
     const shouldPatchGameState =
       Boolean(currentGameState?.chatId === activeChatId) && Boolean(currentPlayerStats) && Boolean(nextPlayerStats);
-    let patchedGameState = false;
 
     try {
-      if (shouldPatchGameState && nextPlayerStats) {
-        await worldStateApi.patch(activeChatId, { playerStats: nextPlayerStats });
-        patchedGameState = true;
-      }
-
       await updateChatMetadata.mutateAsync({
         id: activeChatId,
         gameInventory: updatedInventory,
       });
 
       setInventoryItems(updatedInventory);
-      if (shouldPatchGameState && currentGameState && nextPlayerStats) {
-        useGameStateStore.getState().setGameState({
-          ...currentGameState,
-          playerStats: nextPlayerStats,
-        });
+      if (shouldPatchGameState && nextPlayerStats) {
+        patchVisibleGameState(activeChatId, "playerStats", nextPlayerStats);
       }
 
       setInventoryNotifications([`You gained ${addedItemName}!`]);
@@ -4852,9 +4845,6 @@ export function GameSurface({
       toast.success(`Added ${addedItemName} to inventory.`);
       return addedItemName;
     } catch (error) {
-      if (patchedGameState) {
-        worldStateApi.patch(activeChatId, { playerStats: currentPlayerStats }).catch(() => {});
-      }
       const message = error instanceof Error ? error.message : `Failed to add ${addedItemName} to inventory.`;
       toast.error(message);
       return null;
@@ -4884,25 +4874,16 @@ export function GameSurface({
         : null;
       const shouldPatchGameState =
         Boolean(currentGameState?.chatId === activeChatId) && Boolean(currentPlayerStats) && Boolean(nextPlayerStats);
-      let patchedGameState = false;
 
       try {
-        if (shouldPatchGameState && nextPlayerStats) {
-          await worldStateApi.patch(activeChatId, { playerStats: nextPlayerStats });
-          patchedGameState = true;
-        }
-
         await updateChatMetadata.mutateAsync({
           id: activeChatId,
           gameInventory: updatedInventory,
         });
 
         setInventoryItems(updatedInventory);
-        if (shouldPatchGameState && currentGameState && nextPlayerStats) {
-          useGameStateStore.getState().setGameState({
-            ...currentGameState,
-            playerStats: nextPlayerStats,
-          });
+        if (shouldPatchGameState && nextPlayerStats) {
+          patchVisibleGameState(activeChatId, "playerStats", nextPlayerStats);
         }
 
         setInventoryNotifications([`You gained ${normalizedItemName}!`]);
@@ -4910,9 +4891,6 @@ export function GameSurface({
         notificationTimerRef.current = setTimeout(() => setInventoryNotifications([]), 4000);
         toast.success(`Added 1 ${normalizedItemName}.`);
       } catch (error) {
-        if (patchedGameState) {
-          worldStateApi.patch(activeChatId, { playerStats: currentPlayerStats }).catch(() => {});
-        }
         const message = error instanceof Error ? error.message : `Failed to increase ${normalizedItemName}.`;
         toast.error(message);
       }
@@ -4944,25 +4922,16 @@ export function GameSurface({
         Boolean(currentGameState?.chatId === activeChatId) &&
         Boolean(currentPlayerStats) &&
         nextPlayerStats !== currentPlayerStats;
-      let patchedGameState = false;
 
       try {
-        if (shouldPatchGameState && nextPlayerStats) {
-          await worldStateApi.patch(activeChatId, { playerStats: nextPlayerStats });
-          patchedGameState = true;
-        }
-
         await updateChatMetadata.mutateAsync({
           id: activeChatId,
           gameInventory: updatedInventory,
         });
 
         setInventoryItems(updatedInventory);
-        if (shouldPatchGameState && currentGameState && nextPlayerStats) {
-          useGameStateStore.getState().setGameState({
-            ...currentGameState,
-            playerStats: nextPlayerStats,
-          });
+        if (shouldPatchGameState && nextPlayerStats) {
+          patchVisibleGameState(activeChatId, "playerStats", nextPlayerStats);
         }
 
         gameApi
@@ -4978,9 +4947,6 @@ export function GameSurface({
         notificationTimerRef.current = setTimeout(() => setInventoryNotifications([]), 4000);
         toast.success(`Removed ${itemName} from inventory.`);
       } catch (error) {
-        if (patchedGameState) {
-          worldStateApi.patch(activeChatId, { playerStats: currentPlayerStats }).catch(() => {});
-        }
         const message = error instanceof Error ? error.message : `Failed to remove ${itemName} from inventory.`;
         toast.error(message);
       }
@@ -5013,25 +4979,16 @@ export function GameSurface({
         Boolean(currentGameState?.chatId === activeChatId) &&
         Boolean(currentPlayerStats) &&
         nextPlayerStats !== currentPlayerStats;
-      let patchedGameState = false;
 
       try {
-        if (shouldPatchGameState && nextPlayerStats) {
-          await worldStateApi.patch(activeChatId, { playerStats: nextPlayerStats });
-          patchedGameState = true;
-        }
-
         await updateChatMetadata.mutateAsync({
           id: activeChatId,
           gameInventory: updatedInventory,
         });
 
         setInventoryItems(updatedInventory);
-        if (shouldPatchGameState && currentGameState && nextPlayerStats) {
-          useGameStateStore.getState().setGameState({
-            ...currentGameState,
-            playerStats: nextPlayerStats,
-          });
+        if (shouldPatchGameState && nextPlayerStats) {
+          patchVisibleGameState(activeChatId, "playerStats", nextPlayerStats);
         }
 
         gameApi
@@ -5047,9 +5004,6 @@ export function GameSurface({
         notificationTimerRef.current = setTimeout(() => setInventoryNotifications([]), 4000);
         toast.success(`Used ${normalizedItemName}.`);
       } catch (error) {
-        if (patchedGameState) {
-          worldStateApi.patch(activeChatId, { playerStats: currentPlayerStats }).catch(() => {});
-        }
         const message = error instanceof Error ? error.message : `Failed to use ${normalizedItemName}.`;
         toast.error(message);
       }
@@ -5086,33 +5040,21 @@ export function GameSurface({
         Boolean(currentGameState?.chatId === activeChatId) &&
         Boolean(currentPlayerStats) &&
         nextPlayerStats !== currentPlayerStats;
-      let patchedGameState = false;
 
       try {
-        if (shouldPatchGameState && nextPlayerStats) {
-          await worldStateApi.patch(activeChatId, { playerStats: nextPlayerStats });
-          patchedGameState = true;
-        }
-
         await updateChatMetadata.mutateAsync({
           id: activeChatId,
           gameInventory: updatedInventory,
         });
 
         setInventoryItems(updatedInventory);
-        if (shouldPatchGameState && currentGameState && nextPlayerStats) {
-          useGameStateStore.getState().setGameState({
-            ...currentGameState,
-            playerStats: nextPlayerStats,
-          });
+        if (shouldPatchGameState && nextPlayerStats) {
+          patchVisibleGameState(activeChatId, "playerStats", nextPlayerStats);
         }
 
         toast.success(`Renamed ${currentName} to ${resolvedName}.`);
         return resolvedName;
       } catch (error) {
-        if (patchedGameState) {
-          worldStateApi.patch(activeChatId, { playerStats: currentPlayerStats }).catch(() => {});
-        }
         const message = error instanceof Error ? error.message : `Failed to rename ${currentName} to ${resolvedName}.`;
         toast.error(message);
         return null;

@@ -5,13 +5,12 @@ import type { Persona } from "../../../engine/contracts/types/persona";
 import { useUIStore } from "../../../shared/stores/ui.store";
 import { useChatStore } from "../../../shared/stores/chat.store";
 import { useGameStateStore } from "../../world-state/stores/world-state.store";
-import { worldStateApi } from "../../world-state/api/world-state-api";
 import { useAgentStore } from "../../../shared/stores/agent.store";
 import { useChat, useChatMessages, useUpdateChatMetadata } from "../../chats/hooks/use-chats";
 import { useAgentConfigs, useUpdateAgent, type AgentConfigRow } from "../../agents/hooks/use-agents";
 import { useCharacters, usePersonas } from "../../characters/hooks/use-characters";
 import { useGenerate } from "../../generation/hooks/use-generate";
-import { useGameStatePatcher } from "../../world-state/hooks/use-world-state-patcher";
+import { useTrackerStateController } from "../../world-state/hooks/use-tracker-state-controller";
 import { npcAvatarApi } from "../../../shared/api/avatar-api";
 import { parseCharacterDisplayData } from "../../../shared/lib/character-display";
 import { cn } from "../../../shared/lib/utils";
@@ -48,12 +47,20 @@ export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolea
   const activeChatId = useChatStore((s) => s.activeChatId);
   const streamingChatId = useChatStore((s) => s.streamingChatId);
   const isStreamingGlobal = useChatStore((s) => s.isStreaming);
-  const currentGameState = useGameStateStore((s) =>
-    activeChatId && s.current?.chatId === activeChatId ? s.current : null,
-  );
-  const gameStateRefreshing = useGameStateStore((s) => s.isRefreshing);
-  const setGameState = useGameStateStore((s) => s.setGameState);
-  const { patchField, patchPlayerStats, flushPatch } = useGameStatePatcher(activeChatId, "tracker-data-sidebar");
+  const {
+    gameState: currentGameState,
+    playerStats,
+    personaStats,
+    presentCharacters,
+    inventory,
+    quests,
+    customTrackerFields: customFields,
+    gameStateRefreshing,
+    isLoadingGameState,
+    patchField,
+    patchPlayerStats,
+    flushPatch,
+  } = useTrackerStateController(activeChatId, "tracker-data-sidebar");
   const trackerPanelSide = useUIStore((s) => s.trackerPanelSide);
   const trackerPanelCollapsedSections = useUIStore((s) => s.trackerPanelCollapsedSections);
   const trackerPanelSectionOrder = useUIStore((s) => s.trackerPanelSectionOrder);
@@ -66,7 +73,6 @@ export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolea
   const updateChatMetadata = useUpdateChatMetadata();
   const updateAgent = useUpdateAgent();
   const { retryAgents } = useGenerate();
-  const [loadingGameState, setLoadingGameState] = useState(false);
   const [deleteMode, setDeleteMode] = useState(false);
   const [addMode, setAddMode] = useState(false);
   const [featuredCharacterCards, setFeaturedCharacterCards] = useState<Set<string>>(() => new Set());
@@ -74,39 +80,7 @@ export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolea
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const featuredCharacterCardsRef = useRef<Set<string>>(new Set());
   const isStreaming = isStreamingGlobal && streamingChatId === activeChatId;
-  const isLoadingGameState = loadingGameState || gameStateRefreshing;
   const trackerRetryBusy = isAgentProcessing || isStreaming || gameStateRefreshing;
-
-  useEffect(() => {
-    if (!activeChatId) {
-      setLoadingGameState(false);
-      return;
-    }
-
-    const existing = useGameStateStore.getState().current;
-    if (existing?.chatId === activeChatId) {
-      setLoadingGameState(false);
-      return;
-    }
-
-    let cancelled = false;
-    setLoadingGameState(true);
-    worldStateApi
-      .get(activeChatId)
-      .then((state) => {
-        if (!cancelled) setGameState(state ?? null);
-      })
-      .catch(() => {
-        if (!cancelled) setGameState(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingGameState(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeChatId, setGameState]);
 
   const chatMeta = useMemo(() => {
     const raw = (chat as unknown as { metadata?: string | Record<string, unknown> } | undefined)?.metadata;
@@ -223,12 +197,6 @@ export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolea
   }, [chat, personas]);
   const expressionSpritesEnabled = trackerPanelUseExpressionSprites && expressionAgentEnabled;
 
-  const playerStats = currentGameState?.playerStats ?? null;
-  const personaStats = currentGameState?.personaStats ?? [];
-  const presentCharacters = currentGameState?.presentCharacters ?? [];
-  const inventory = playerStats?.inventory ?? [];
-  const quests = playerStats?.activeQuests ?? [];
-  const customFields = playerStats?.customTrackerFields ?? [];
   const isPanelCollapsed = (section: TrackerPanelSection) => trackerPanelCollapsedSections[section] === true;
   const hasFixedTrackerPanel = orderedTrackerSections.length > 0;
   const showTrackerSections = !!activeChatId && !isLoadingGameState && !!currentGameState && hasFixedTrackerPanel;
