@@ -296,21 +296,29 @@ mod tests {
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    fn temp_storage() -> (FileStorage, PathBuf) {
+    struct TempRoot(PathBuf);
+
+    impl Drop for TempRoot {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn temp_storage() -> (FileStorage, TempRoot) {
         let suffix = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("clock should be after epoch")
             .as_nanos();
         let root = std::env::temp_dir().join(format!("marinara-seed-test-{suffix}"));
         let storage = FileStorage::new(root.join("data")).expect("storage should initialize");
-        (storage, root)
+        (storage, TempRoot(root))
     }
 
     #[test]
     fn seeds_professor_mari_as_default_character() {
         let (storage, root) = temp_storage();
 
-        seed_bundled_defaults(&storage, &root.join("missing-default-data"))
+        seed_bundled_defaults(&storage, &root.0.join("missing-default-data"))
             .expect("defaults should seed");
 
         let character = storage
@@ -329,7 +337,5 @@ mod tests {
                 .and_then(Value::as_bool),
             Some(true)
         );
-
-        let _ = std::fs::remove_dir_all(root);
     }
 }
