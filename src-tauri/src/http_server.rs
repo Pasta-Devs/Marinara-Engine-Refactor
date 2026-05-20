@@ -12,6 +12,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::convert::Infallible;
 use std::net::SocketAddr;
+use std::time::Instant;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tower_http::cors::{Any, CorsLayer};
@@ -56,7 +57,24 @@ async fn invoke(
     State(state): State<HttpState>,
     Json(request): Json<InvokeRequest>,
 ) -> Result<Json<Value>, HttpError> {
-    Ok(Json(dispatch(&state.app, request).await?))
+    let command = request.command.clone();
+    let started = Instant::now();
+    println!("invoke {command} started");
+    match dispatch(&state.app, request).await {
+        Ok(value) => {
+            println!("invoke {command} ok in {}ms", started.elapsed().as_millis());
+            Ok(Json(value))
+        }
+        Err(error) => {
+            println!(
+                "invoke {command} error code={} message={} in {}ms",
+                error.code,
+                error.message,
+                started.elapsed().as_millis()
+            );
+            Err(error.into())
+        }
+    }
 }
 
 async fn llm_stream(
@@ -65,6 +83,9 @@ async fn llm_stream(
 ) -> Sse<UnboundedReceiverStream<Result<Event, Infallible>>> {
     let (tx, rx) = mpsc::unbounded_channel::<Result<Event, Infallible>>();
     tokio::spawn(async move {
+        let stream_id = body.stream_id.clone();
+        let started = Instant::now();
+        println!("llm_stream {stream_id} started");
         let result = llm::llm_stream_events(&state.app, body.stream_id, body.request, |event| {
             let data = serde_json::to_string(&event)?;
             tx.send(Ok(Event::default().data(data)))
@@ -72,14 +93,28 @@ async fn llm_stream(
         })
         .await;
 
-        if let Err(error) = result {
-            let payload = json!({
-                "type": "error",
-                "code": error.code,
-                "message": error.message,
-                "data": error.details,
-            });
-            let _ = tx.send(Ok(Event::default().data(payload.to_string())));
+        match result {
+            Ok(()) => {
+                println!(
+                    "llm_stream {stream_id} ok in {}ms",
+                    started.elapsed().as_millis()
+                );
+            }
+            Err(error) => {
+                println!(
+                    "llm_stream {stream_id} error code={} message={} in {}ms",
+                    error.code,
+                    error.message,
+                    started.elapsed().as_millis()
+                );
+                let payload = json!({
+                    "type": "error",
+                    "code": error.code,
+                    "message": error.message,
+                    "data": error.details,
+                });
+                let _ = tx.send(Ok(Event::default().data(payload.to_string())));
+            }
         }
     });
 
@@ -90,7 +125,26 @@ async fn llm_stream_cancel(
     State(state): State<HttpState>,
     Path(stream_id): Path<String>,
 ) -> Result<Json<Value>, HttpError> {
-    Ok(Json(llm::llm_stream_cancel(&state.app, &stream_id)?))
+    let started = Instant::now();
+    println!("llm_stream_cancel {stream_id} started");
+    match llm::llm_stream_cancel(&state.app, &stream_id) {
+        Ok(value) => {
+            println!(
+                "llm_stream_cancel {stream_id} ok in {}ms",
+                started.elapsed().as_millis()
+            );
+            Ok(Json(value))
+        }
+        Err(error) => {
+            println!(
+                "llm_stream_cancel {stream_id} error code={} message={} in {}ms",
+                error.code,
+                error.message,
+                started.elapsed().as_millis()
+            );
+            Err(error.into())
+        }
+    }
 }
 
 struct HttpError(AppError);
