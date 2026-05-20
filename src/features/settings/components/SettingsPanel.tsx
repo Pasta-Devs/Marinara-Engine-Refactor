@@ -2591,7 +2591,15 @@ function ImportSettings() {
         error?: string;
       };
       if (isZip) {
-        data = await importApi.marinaraFile(file);
+        data = await importApi.marinaraFile({
+          file,
+          fields: {
+            timestampOverrides: JSON.stringify({
+              createdAt: file.lastModified,
+              updatedAt: file.lastModified,
+            }),
+          },
+        });
       } else {
         let envelope: unknown;
         try {
