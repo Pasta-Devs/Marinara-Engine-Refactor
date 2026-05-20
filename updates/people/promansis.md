@@ -2,26 +2,26 @@
 
 ## Current Work
 
-- Reloading immediately after tracker edits can lose pending world state.
+- Saving a character can persist card data in the wrong shape.
   - Status: In review
-  - Next step: Ready for review on the focused bug-fix branch after TypeScript and docs checks.
+  - Next step: Ready for review on the focused bug-fix branch after Rust, TypeScript, and docs checks.
   - Blockers: None.
 
 ## Owned Bugs
 
-### Reloading immediately after tracker edits can lose pending world state
+### Saving a character can persist card data in the wrong shape
 
 - Status: In review
 - Owner: Promansis
-- Impact area: UI | shared state
+- Impact area: UI | shared/api | Rust capability | engine
 - Reported: 2026-05-19
 - Last updated: 2026-05-19
 
 #### Notes
 
-The local-only bug backlog lists this as bug 3. The fix belongs to the world-state patch queue because tracker edits are debounced before being written through the world state API.
+The local-only bug backlog lists this as bug 4. Character create and version restore already serialize card `data`, but generic `storage_update` patches could persist object-shaped `data` from the character editor, agent card updates, roleplay scene memories, chat schedules, and connected character commands.
 
-The patch queue now mirrors pending tracker edits into browser storage synchronously and clears them only after the Tauri-backed world-state patch succeeds, so an immediate reload can replay unsaved edits on the next mount.
+Generic character update patches now normalize card `data` at the Rust storage command boundary before writing to storage, so all `storage_update` callers keep the persisted JSON-string contract.
 
 ## Status Notes
 
