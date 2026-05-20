@@ -101,18 +101,27 @@
         <pre><code>cargo run --manifest-path src-tauri/Cargo.toml --bin marinara-server</code></pre>
         <p>By default it listens on:</p>
         <pre><code>http://127.0.0.1:8787</code></pre>
-        <p>Override the bind address and data directory with:</p>
+        <p>
+          Auth is optional. For public or shared networks, enable Basic auth and
+          pass the credentials through the Remote Runtime URL.
+        </p>
+        <pre><code>MARINARA_SERVER_BASIC_AUTH=mari:change-this-password cargo run --manifest-path src-tauri/Cargo.toml --bin marinara-server
+Remote Runtime URL: http://mari:change-this-password@127.0.0.1:8787</code></pre>
+        <p>Override the bind address, data directory, and allowed browser origins with:</p>
         <pre><code>MARINARA_SERVER_ADDR=0.0.0.0:8787
-MARINARA_DATA_DIR=/path/to/data</code></pre>
+MARINARA_DATA_DIR=/path/to/data
+MARINARA_SERVER_ALLOWED_ORIGINS=http://localhost:1420,http://127.0.0.1:1420,tauri://localhost</code></pre>
 
         <h2>Run The Remote Runtime With Docker</h2>
         <p>Build and start the Rust API server with Docker Compose:</p>
         <pre><code>docker compose up --build</code></pre>
+        <p>Enable Basic auth for Docker with:</p>
+        <pre><code>MARINARA_SERVER_BASIC_AUTH=mari:change-this-password docker compose up --build</code></pre>
         <p>The compose service exposes:</p>
         <pre><code>http://127.0.0.1:8787</code></pre>
         <p>To build directly from GitHub, use Docker's remote git context:</p>
         <pre><code>docker build -t marinara-engine-server https://github.com/Pasta-Devs/Marinara-Engine-Refactor.git#main
-docker run --rm -p 8787:8787 -v marinara-server-data:/data marinara-engine-server</code></pre>
+docker run --rm -p 8787:8787 -v marinara-server-data:/data -e MARINARA_SERVER_BASIC_AUTH=mari:change-this-password marinara-engine-server</code></pre>
 
         <h2>Checks</h2>
         <table>
