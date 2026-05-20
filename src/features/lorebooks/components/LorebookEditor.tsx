@@ -70,6 +70,7 @@ import {
   FolderPlus,
 } from "lucide-react";
 import { cn } from "../../../shared/lib/utils";
+import { isDragHandleEventTarget } from "../../../shared/lib/drag-handle";
 import { HelpTooltip } from "../../../shared/components/ui/HelpTooltip";
 import { exportApi } from "../../../shared/api/export-api";
 import { invokeTauri } from "../../../shared/api/tauri-client";
@@ -367,7 +368,6 @@ export function LorebookEditor() {
     return () => window.clearTimeout(handle);
   }, [keywordPreviewText]);
   const [draggingEntryIdx, setDraggingEntryIdx] = useState<number | null>(null);
-  const [entryDragReadyIdx, setEntryDragReadyIdx] = useState<number | null>(null);
   const [entryDropIdx, setEntryDropIdx] = useState<number | null>(null);
   const [entrySelectionMode, setEntrySelectionMode] = useState(false);
   const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(new Set());
@@ -406,7 +406,6 @@ export function LorebookEditor() {
   const [dropTargetContainer, setDropTargetContainer] = useState<string | null | undefined>(undefined);
   // Folder reorder uses its own pair so it doesn't entangle with entry DnD.
   const [draggingFolderIdx, setDraggingFolderIdx] = useState<number | null>(null);
-  const [folderDragReadyIdx, setFolderDragReadyIdx] = useState<number | null>(null);
   const [folderDropIdx, setFolderDropIdx] = useState<number | null>(null);
 
   // ── Form state for lorebook overview ──
@@ -690,7 +689,6 @@ export function LorebookEditor() {
 
   const resetEntryDragState = useCallback(() => {
     setDraggingEntryIdx(null);
-    setEntryDragReadyIdx(null);
     setEntryDropIdx(null);
     setDragSourceContainer(undefined);
     setDropTargetContainer(undefined);
@@ -698,7 +696,6 @@ export function LorebookEditor() {
 
   const resetFolderDragState = useCallback(() => {
     setDraggingFolderIdx(null);
-    setFolderDragReadyIdx(null);
     setFolderDropIdx(null);
   }, []);
 
@@ -712,7 +709,7 @@ export function LorebookEditor() {
   // source container so commitEntryDrop can detect a cross-container move.
   const handleEntryDragStart = useCallback(
     (containerId: string | null, idxInContainer: number, entryId: string, e: ReactDragEvent<HTMLDivElement>) => {
-      if (!canReorderEntries) {
+      if (!canReorderEntries || !isDragHandleEventTarget(e.target)) {
         e.preventDefault();
         return;
       }
@@ -858,7 +855,7 @@ export function LorebookEditor() {
   // ── Folder reorder DnD ──
   const handleFolderDragStart = useCallback(
     (idx: number, folderId: string, e: ReactDragEvent<HTMLDivElement>) => {
-      if (!canReorderFolders) {
+      if (!canReorderFolders || !isDragHandleEventTarget(e.target)) {
         e.preventDefault();
         return;
       }
@@ -1752,11 +1749,6 @@ export function LorebookEditor() {
                                 onToggleCollapse={() => toggleFolderCollapsed(folder.id)}
                                 draggable={canReorderFolders}
                                 isDragging={draggingFolderIdx === fIdx}
-                                isDragReady={folderDragReadyIdx === fIdx}
-                                onDragHandleMouseDown={() => {
-                                  if (canReorderFolders) setFolderDragReadyIdx(fIdx);
-                                }}
-                                onDragHandleMouseUp={() => setFolderDragReadyIdx(null)}
                                 onDragStart={(e) => handleFolderDragStart(fIdx, folder.id, e)}
                                 onDragOver={(e) => {
                                   e.stopPropagation();
@@ -1827,14 +1819,6 @@ export function LorebookEditor() {
                                           folders={folders}
                                           draggable={canReorderEntries}
                                           isDragging={sameContainer && draggingEntryIdx === eIdx}
-                                          isDragReady={sameContainer && entryDragReadyIdx === eIdx}
-                                          onDragHandleMouseDown={() => {
-                                            if (canReorderEntries) {
-                                              setEntryDragReadyIdx(eIdx);
-                                              setDragSourceContainer(folder.id);
-                                            }
-                                          }}
-                                          onDragHandleMouseUp={() => setEntryDragReadyIdx(null)}
                                           onDragStart={(e) => handleEntryDragStart(folder.id, eIdx, entry.id, e)}
                                           onDragOver={(e) => {
                                             e.stopPropagation();
@@ -1930,14 +1914,6 @@ export function LorebookEditor() {
                               folders={folders}
                               draggable={canReorderEntries}
                               isDragging={sameContainer && draggingEntryIdx === idx}
-                              isDragReady={sameContainer && entryDragReadyIdx === idx}
-                              onDragHandleMouseDown={() => {
-                                if (canReorderEntries) {
-                                  setEntryDragReadyIdx(idx);
-                                  setDragSourceContainer(null);
-                                }
-                              }}
-                              onDragHandleMouseUp={() => setEntryDragReadyIdx(null)}
                               onDragStart={(e) => handleEntryDragStart(null, idx, entry.id, e)}
                               onDragOver={(e) => {
                                 e.stopPropagation();
@@ -1976,9 +1952,6 @@ export function LorebookEditor() {
                         folders={folders}
                         draggable={false}
                         isDragging={false}
-                        isDragReady={false}
-                        onDragHandleMouseDown={() => undefined}
-                        onDragHandleMouseUp={() => undefined}
                         onDragStart={() => undefined}
                         onDragOver={() => undefined}
                         onDrop={() => undefined}

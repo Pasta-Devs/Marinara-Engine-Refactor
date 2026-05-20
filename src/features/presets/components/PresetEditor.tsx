@@ -58,6 +58,7 @@ import {
   Copy,
 } from "lucide-react";
 import { cn } from "../../../shared/lib/utils";
+import { isDragHandleEventTarget } from "../../../shared/lib/drag-handle";
 import { HelpTooltip } from "../../../shared/components/ui/HelpTooltip";
 import { DraftNumberInput } from "../../../shared/components/ui/DraftNumberInput";
 import { exportApi } from "../../../shared/api/export-api";
@@ -664,7 +665,6 @@ function SectionsTab({
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showGroupsPanel, setShowGroupsPanel] = useState(false);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
-  const [dragReady, setDragReady] = useState<number | null>(null); // index of section ready to drag (grip held)
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState("");
   const [lorebookWarningDismissed, setLorebookWarningDismissed] = useState(() => {
@@ -750,8 +750,13 @@ function SectionsTab({
   // dropIdx represents the *gap* the item will be inserted at:
   //   0 = before first, 1 = between 0 and 1, N = after last, etc.
   const [dropIdx, setDropIdx] = useState<number | null>(null);
+  const canDragSections = sections.length > 1 && !onReorderSections.isPending;
 
   const handleDragStart = (idx: number, e: React.DragEvent) => {
+    if (!canDragSections || !isDragHandleEventTarget(e.target)) {
+      e.preventDefault();
+      return;
+    }
     setDraggingIdx(idx);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", String(idx));
@@ -1053,7 +1058,7 @@ function SectionsTab({
               <div key={section.id}>
                 {showDropBefore && <div className="mx-2 mb-1 h-0.5 rounded-full bg-purple-400" />}
                 <div
-                  draggable={dragReady === idx}
+                  draggable={false}
                   onDragStart={(e) => handleDragStart(idx, e)}
                   onDragOver={(e) => {
                     e.stopPropagation();
@@ -1063,10 +1068,7 @@ function SectionsTab({
                     e.stopPropagation();
                     commitDrop(e);
                   }}
-                  onDragEnd={() => {
-                    handleDragEnd();
-                    setDragReady(null);
-                  }}
+                  onDragEnd={handleDragEnd}
                   className={cn(
                     "rounded-xl border transition-all",
                     isEnabled ? "border-[var(--border)]" : "border-[var(--border)]/50 opacity-50",
@@ -1077,10 +1079,15 @@ function SectionsTab({
                   <div className="flex min-w-0 items-center gap-2 px-3 py-2.5">
                     <div className="flex shrink-0 items-center gap-0.5">
                       <div
-                        className="cursor-grab rounded p-0.5 hover:bg-[var(--accent)] active:cursor-grabbing"
-                        title="Drag to reorder"
-                        onMouseDown={() => setDragReady(idx)}
-                        onMouseUp={() => setDragReady(null)}
+                        data-drag-handle="true"
+                        draggable={canDragSections}
+                        className={cn(
+                          "rounded p-0.5",
+                          canDragSections
+                            ? "cursor-grab hover:bg-[var(--accent)] active:cursor-grabbing"
+                            : "cursor-not-allowed opacity-40",
+                        )}
+                        title={canDragSections ? "Drag to reorder" : "Add another section to reorder"}
                       >
                         <GripVertical size="0.875rem" className="text-[var(--muted-foreground)]" />
                       </div>
@@ -1385,9 +1392,13 @@ function PresetVariablesEditor({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
   const [dropIdx, setDropIdx] = useState<number | null>(null);
-  const [dragReady, setDragReady] = useState<number | null>(null);
+  const canDragVariables = variables.length > 1 && !onReorderVariables.isPending;
 
   const handleDragStart = (idx: number, e: React.DragEvent) => {
+    if (!canDragVariables || !isDragHandleEventTarget(e.target)) {
+      e.preventDefault();
+      return;
+    }
     setDraggingIdx(idx);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", String(idx));
@@ -1493,7 +1504,7 @@ function PresetVariablesEditor({
               <div key={variable.id}>
                 {showDropBefore && <div className="mx-2 mb-1 h-0.5 rounded-full bg-amber-400" />}
                 <div
-                  draggable={dragReady === idx}
+                  draggable={false}
                   onDragStart={(e) => handleDragStart(idx, e)}
                   onDragOver={(e) => {
                     e.stopPropagation();
@@ -1503,10 +1514,7 @@ function PresetVariablesEditor({
                     e.stopPropagation();
                     commitDrop(e);
                   }}
-                  onDragEnd={() => {
-                    handleDragEnd();
-                    setDragReady(null);
-                  }}
+                  onDragEnd={handleDragEnd}
                   className={cn(draggingIdx === idx && "opacity-40")}
                 >
                   <VariableCard
@@ -1516,8 +1524,7 @@ function PresetVariablesEditor({
                     onToggle={() => setExpandedId(expandedId === variable.id ? null : variable.id)}
                     onUpdateVariable={onUpdateVariable}
                     onDeleteVariable={onDeleteVariable}
-                    onGripDown={() => setDragReady(idx)}
-                    onGripUp={() => setDragReady(null)}
+                    canDrag={canDragVariables}
                     onMoveUp={() => moveVariableByOffset(idx, -1)}
                     onMoveDown={() => moveVariableByOffset(idx, 1)}
                     canMoveUp={idx > 0}
@@ -1544,8 +1551,7 @@ function VariableCard({
   onToggle,
   onUpdateVariable,
   onDeleteVariable,
-  onGripDown,
-  onGripUp,
+  canDrag,
   onMoveUp,
   onMoveDown,
   canMoveUp,
@@ -1558,8 +1564,7 @@ function VariableCard({
   onToggle: () => void;
   onUpdateVariable: any;
   onDeleteVariable: any;
-  onGripDown: () => void;
-  onGripUp: () => void;
+  canDrag: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
   canMoveUp: boolean;
@@ -1597,10 +1602,15 @@ function VariableCard({
       <div className="flex min-w-0 items-center gap-2 px-3 py-2.5">
         <div className="flex shrink-0 items-center gap-0.5">
           <div
-            className="cursor-grab rounded p-0.5 hover:bg-[var(--accent)] active:cursor-grabbing"
-            title="Drag to reorder"
-            onMouseDown={onGripDown}
-            onMouseUp={onGripUp}
+            data-drag-handle="true"
+            draggable={canDrag}
+            className={cn(
+              "rounded p-0.5",
+              canDrag
+                ? "cursor-grab hover:bg-[var(--accent)] active:cursor-grabbing"
+                : "cursor-not-allowed opacity-40",
+            )}
+            title={canDrag ? "Drag to reorder" : "Add another variable to reorder"}
           >
             <GripVertical size="0.875rem" className="text-[var(--muted-foreground)]" />
           </div>
