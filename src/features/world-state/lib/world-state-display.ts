@@ -174,7 +174,7 @@ export function parseTemperatureValue(temperature: string | null | undefined) {
   const match = (temperature ?? "").match(/-?\d+(\.\d+)?/);
   if (!match) return null;
   const numeric = parseFloat(match[0]!);
-  if (/(?:^|[^a-z])(?:°\s*f|f\b|fahrenheit\b)/i.test(temperature ?? "")) {
+  if (/(?:^|[^a-z])(?:°\s*f\b|f\b|fahrenheit\b)/i.test(temperature ?? "")) {
     return Math.round((numeric - 32) * (5 / 9));
   }
   return Math.round(numeric);
