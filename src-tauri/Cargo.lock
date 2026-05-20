@@ -2881,6 +2881,7 @@ dependencies = [
  "marinara-security",
  "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]

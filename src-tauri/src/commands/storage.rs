@@ -44,6 +44,8 @@ mod knowledge;
 mod llm;
 #[path = "storage/mari.rs"]
 mod mari;
+#[path = "storage/memory.rs"]
+mod memory;
 #[path = "storage/lorebook_images.rs"]
 mod lorebook_images;
 #[path = "storage/media_uploads.rs"]
@@ -75,6 +77,8 @@ pub mod import_commands;
 pub mod integration_commands;
 #[path = "storage/commands/media.rs"]
 pub mod media_commands;
+#[path = "storage/commands/memory.rs"]
+pub mod memory_commands;
 #[path = "storage/commands/mari.rs"]
 pub mod mari_commands;
 #[path = "storage/commands/profile.rs"]
