@@ -86,6 +86,7 @@ export function WorldRenderedEdit({
         onKeyDown={(event) => {
           if (event.key === "Enter") commit();
           if (event.key === "Escape") {
+            committedRef.current = true;
             setDraft(currentValue);
             setEditing(false);
           }

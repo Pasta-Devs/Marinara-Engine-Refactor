@@ -17,8 +17,8 @@ export function QuestTrackerPanel({
   quests: QuestProgress[];
   action?: ReactNode;
   onAddQuest: () => void;
-  onUpdateQuest: (index: number, quest: QuestProgress) => void;
-  onRemoveQuest: (index: number) => void;
+  onUpdateQuest: (questEntryId: string, quest: QuestProgress) => void;
+  onRemoveQuest: (questEntryId: string) => void;
   deleteMode: boolean;
   addMode: boolean;
   collapsed?: boolean;

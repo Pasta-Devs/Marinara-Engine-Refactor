@@ -37,7 +37,11 @@ export function useTrackerRerun({
       } catch {
         return;
       }
-      await retryAgents(activeChatId, [agentType]);
+      try {
+        await retryAgents(activeChatId, [agentType]);
+      } catch (error) {
+        console.warn("Failed to re-run tracker agents.", error);
+      }
     },
     [activeChatId, enabledAgentTypes, flushPatch, retryAgents, trackerRetryBusy],
   );

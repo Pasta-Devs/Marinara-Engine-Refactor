@@ -9,5 +9,7 @@ export function getCharacterPortraitFallback(character: PresentCharacter) {
 }
 
 export function getCharacterFeatureKey(character: PresentCharacter, index: number) {
-  return character.characterId || character.name || `character-${index}`;
+  if (character.characterId) return character.characterId;
+  if (character.name) return `${character.name}-${index}`;
+  return `character-${index}`;
 }

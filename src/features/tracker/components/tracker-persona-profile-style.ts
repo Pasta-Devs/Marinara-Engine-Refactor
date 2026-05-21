@@ -30,5 +30,5 @@ export function getPersonaAmbienceStyle(
 }
 
 export function getPersonaInitial(persona: Persona | null) {
-  return visibleText(persona?.name, "P").slice(0, 1).toUpperCase();
+  return (Array.from(visibleText(persona?.name, "P"))[0] ?? "P").toUpperCase();
 }
