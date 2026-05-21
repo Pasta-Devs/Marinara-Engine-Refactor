@@ -6,6 +6,8 @@ import type {
   QuestProgress,
 } from "../../../engine/contracts/types/game-state";
 
+type TrackerItemMerger<T extends object> = (previous: T | undefined, latest: T | undefined, next: T) => T;
+
 export function replaceTrackerListItem<T>(items: readonly T[], index: number, item: T): T[] {
   if (index < 0 || index >= items.length) return [...items];
   return items.map((current, currentIndex) => (currentIndex === index ? item : current));
@@ -17,6 +19,158 @@ export function removeTrackerListItem<T>(items: readonly T[], index: number): T[
 
 export function appendTrackerListItem<T>(items: readonly T[], item: T): T[] {
   return [...items, item];
+}
+
+export function mergeChangedTrackerFields<T extends object>(
+  previous: T | undefined,
+  latest: T | undefined,
+  next: T,
+): T {
+  const merged = { ...(latest ?? previous ?? next) } as T;
+  for (const key of Object.keys(next) as Array<keyof T>) {
+    if (!previous || !Object.is(next[key], previous[key])) {
+      merged[key] = next[key];
+    }
+  }
+  return merged;
+}
+
+export function mergeTrackerListItemUpdate<T extends object>(
+  previousItems: readonly T[],
+  latestItems: readonly T[],
+  index: number,
+  nextItem: T,
+  mergeItem: TrackerItemMerger<T> = mergeChangedTrackerFields,
+): T[] {
+  const latestItem = latestItems[index];
+  if (!latestItem && index >= latestItems.length) return [...latestItems];
+  return replaceTrackerListItem(latestItems, index, mergeItem(previousItems[index], latestItem, nextItem));
+}
+
+function getRemovedListIndex<T>(previousItems: readonly T[], nextItems: readonly T[]) {
+  if (nextItems.length !== previousItems.length - 1) return null;
+  for (let index = 0; index < previousItems.length; index += 1) {
+    if (previousItems[index] !== nextItems[index]) return index;
+  }
+  return previousItems.length - 1;
+}
+
+function getAppendedListItem<T>(previousItems: readonly T[], nextItems: readonly T[]) {
+  if (nextItems.length !== previousItems.length + 1) return null;
+  for (let index = 0; index < previousItems.length; index += 1) {
+    if (previousItems[index] !== nextItems[index]) return null;
+  }
+  return nextItems[nextItems.length - 1];
+}
+
+export function mergeTrackerListUpdate<T extends object>(
+  previousItems: readonly T[],
+  latestItems: readonly T[],
+  nextItems: readonly T[],
+  mergeItem: TrackerItemMerger<T> = mergeChangedTrackerFields,
+): T[] {
+  const removedIndex = getRemovedListIndex(previousItems, nextItems);
+  if (removedIndex !== null) return removeTrackerListItem(latestItems, removedIndex);
+
+  const appendedItem = getAppendedListItem(previousItems, nextItems);
+  if (appendedItem) return appendTrackerListItem(latestItems, appendedItem);
+
+  if (nextItems.length !== previousItems.length) return [...nextItems];
+
+  const merged = [...latestItems];
+  for (let index = 0; index < nextItems.length; index += 1) {
+    merged[index] = mergeItem(previousItems[index], latestItems[index], nextItems[index]);
+  }
+  return merged;
+}
+
+function mergeTrackerRecordUpdate<T>(
+  previous: Readonly<Record<string, T>>,
+  latest: Readonly<Record<string, T>>,
+  next: Readonly<Record<string, T>>,
+): Record<string, T> {
+  const merged = { ...latest };
+  for (const key of Object.keys(previous)) {
+    if (!Object.prototype.hasOwnProperty.call(next, key)) delete merged[key];
+  }
+  for (const key of Object.keys(next)) {
+    if (!Object.prototype.hasOwnProperty.call(previous, key) || !Object.is(previous[key], next[key])) {
+      merged[key] = next[key];
+    }
+  }
+  return merged;
+}
+
+function mergePresentCharacterUpdate(
+  previous: PresentCharacter | undefined,
+  latest: PresentCharacter | undefined,
+  next: PresentCharacter,
+): PresentCharacter {
+  const merged = mergeChangedTrackerFields(previous, latest, next);
+  if (!previous) return merged;
+
+  if (!Object.is(previous.stats, next.stats)) {
+    merged.stats = mergeTrackerListUpdate(previous.stats ?? [], latest?.stats ?? [], next.stats ?? []);
+  }
+
+  if (!Object.is(previous.customFields, next.customFields)) {
+    merged.customFields = mergeTrackerRecordUpdate(
+      previous.customFields ?? {},
+      latest?.customFields ?? {},
+      next.customFields ?? {},
+    );
+  }
+
+  return merged;
+}
+
+function mergeQuestProgressUpdate(
+  previous: QuestProgress | undefined,
+  latest: QuestProgress | undefined,
+  next: QuestProgress,
+): QuestProgress {
+  const merged = mergeChangedTrackerFields(previous, latest, next);
+  if (!previous) return merged;
+
+  if (!Object.is(previous.objectives, next.objectives)) {
+    merged.objectives = mergeTrackerListUpdate(previous.objectives ?? [], latest?.objectives ?? [], next.objectives ?? []);
+  }
+
+  return merged;
+}
+
+export function mergePresentCharacterListItemUpdate(
+  previousItems: readonly PresentCharacter[],
+  latestItems: readonly PresentCharacter[],
+  index: number,
+  nextItem: PresentCharacter,
+): PresentCharacter[] {
+  return mergeTrackerListItemUpdate(previousItems, latestItems, index, nextItem, mergePresentCharacterUpdate);
+}
+
+export function mergePresentCharacterListUpdate(
+  previousItems: readonly PresentCharacter[],
+  latestItems: readonly PresentCharacter[],
+  nextItems: readonly PresentCharacter[],
+): PresentCharacter[] {
+  return mergeTrackerListUpdate(previousItems, latestItems, nextItems, mergePresentCharacterUpdate);
+}
+
+export function mergeQuestProgressListItemUpdate(
+  previousItems: readonly QuestProgress[],
+  latestItems: readonly QuestProgress[],
+  index: number,
+  nextItem: QuestProgress,
+): QuestProgress[] {
+  return mergeTrackerListItemUpdate(previousItems, latestItems, index, nextItem, mergeQuestProgressUpdate);
+}
+
+export function mergeQuestProgressListUpdate(
+  previousItems: readonly QuestProgress[],
+  latestItems: readonly QuestProgress[],
+  nextItems: readonly QuestProgress[],
+): QuestProgress[] {
+  return mergeTrackerListUpdate(previousItems, latestItems, nextItems, mergeQuestProgressUpdate);
 }
 
 export function createManualPresentCharacter(options: Partial<PresentCharacter> = {}): PresentCharacter {

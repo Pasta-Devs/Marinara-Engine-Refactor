@@ -37,7 +37,7 @@ export interface GameStatePatchValue {
   personaStats: GameState["personaStats"];
 }
 
-export interface TrackerStateController {
+export interface TrackerStateSnapshot {
   gameState: GameState | null;
   playerStats: PlayerStats | null;
   personaStats: CharacterStat[];
@@ -45,9 +45,13 @@ export interface TrackerStateController {
   inventory: InventoryItem[];
   quests: QuestProgress[];
   customTrackerFields: CustomTrackerField[];
+}
+
+export interface TrackerStateController extends TrackerStateSnapshot {
   loadingGameState: boolean;
   gameStateRefreshing: boolean;
   isLoadingGameState: boolean;
+  getSnapshot: () => TrackerStateSnapshot;
   patchField: <K extends GameStatePatchField>(field: K, value: GameStatePatchValue[K]) => void;
   patchPlayerStats: <K extends keyof PlayerStats>(field: K, value: PlayerStats[K]) => void;
   flushPatch: () => Promise<void>;
