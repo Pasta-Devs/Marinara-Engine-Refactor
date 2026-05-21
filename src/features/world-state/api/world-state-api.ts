@@ -1,8 +1,14 @@
 import type { GameState } from "../../../engine/contracts/types/game-state";
 import { storageApi } from "../../../shared/api/storage-api";
+import { trackerSnapshotApi, type TrackerSnapshotTarget } from "../../../shared/api/tracker-snapshot-api";
 
 export type WorldState = GameState;
 export type WorldStatePatch = Record<string, unknown>;
+export type WorldStateTarget = Partial<TrackerSnapshotTarget>;
+type ResolvedWorldStateTarget = { messageId: string; swipeIndex: number };
+
+const OPERATIONAL_PATCH_KEYS = new Set(["manual", "clearOverrides", "targetVisible"]);
+const MANUAL_OVERRIDE_FIELDS = ["date", "time", "location", "weather", "temperature"] as const;
 
 function createEmptyWorldState(chatId: string): WorldState {
   return {
@@ -27,20 +33,133 @@ function throwIfAborted(init?: RequestInit) {
   if (init?.signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
 }
 
+function readTarget(value: unknown): ResolvedWorldStateTarget | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (!Object.prototype.hasOwnProperty.call(record, "messageId") || typeof record.messageId !== "string") return null;
+  const messageId = record.messageId.trim();
+  const rawSwipeIndex = record.swipeIndex;
+  const swipeIndex =
+    typeof rawSwipeIndex === "number" && Number.isInteger(rawSwipeIndex) && rawSwipeIndex >= 0 ? rawSwipeIndex : 0;
+  return { messageId, swipeIndex };
+}
+
+function readText(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string") {
+    const text = value.trim();
+    return text.length ? text : null;
+  }
+  if (typeof value === "number" || typeof value === "bigint") return String(value);
+  return null;
+}
+
+function removePatchControlFields(patch: WorldStatePatch): WorldStatePatch {
+  return Object.fromEntries(
+    Object.entries(patch).filter(
+      ([key, value]) => key !== "messageId" && key !== "swipeIndex" && !OPERATIONAL_PATCH_KEYS.has(key) && value !== undefined,
+    ),
+  );
+}
+
+function updateManualOverrides(
+  current: unknown,
+  patch: WorldStatePatch,
+  options: { manual: boolean; clearOverrides: boolean },
+): Record<string, string> | null {
+  if (options.clearOverrides) return null;
+  if (!options.manual) {
+    return current && typeof current === "object" && !Array.isArray(current) ? (current as Record<string, string>) : null;
+  }
+  const next =
+    current && typeof current === "object" && !Array.isArray(current) ? { ...(current as Record<string, string>) } : {};
+  for (const field of MANUAL_OVERRIDE_FIELDS) {
+    if (!Object.prototype.hasOwnProperty.call(patch, field)) continue;
+    const text = readText(patch[field]);
+    if (text) next[field] = text;
+    else delete next[field];
+  }
+  return Object.keys(next).length ? next : null;
+}
+
+function withTarget(state: WorldState, chatId: string, target: ResolvedWorldStateTarget | null): WorldState {
+  if (!target) return { ...state, chatId };
+  return { ...state, chatId, messageId: target.messageId, swipeIndex: target.swipeIndex };
+}
+
+async function latestAssistantTarget(chatId: string): Promise<ResolvedWorldStateTarget | null> {
+  const messages = await storageApi.listChatMessages<Record<string, unknown>>(chatId);
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]!;
+    if (message.role !== "assistant" || typeof message.id !== "string" || !message.id) continue;
+    const swipeIndex =
+      typeof message.activeSwipeIndex === "number" &&
+      Number.isInteger(message.activeSwipeIndex) &&
+      message.activeSwipeIndex >= 0
+        ? message.activeSwipeIndex
+        : 0;
+    return { messageId: message.id, swipeIndex };
+  }
+  return null;
+}
+
+async function resolveVisibleTarget(chatId: string, fallback: unknown): Promise<ResolvedWorldStateTarget | null> {
+  return (await latestAssistantTarget(chatId).catch(() => null)) ?? readTarget(fallback);
+}
+
 export const worldStateApi = {
-  get: async (chatId: string, init?: RequestInit) => {
+  get: async (chatId: string, targetOrInit?: WorldStateTarget | RequestInit, maybeInit?: RequestInit) => {
+    const requestedTarget = readTarget(targetOrInit);
+    const init = requestedTarget ? maybeInit : (targetOrInit as RequestInit | undefined);
     throwIfAborted(init);
     const chat = await storageApi.get<{ gameState?: WorldState }>("chats", chatId);
-    return chat?.gameState ?? null;
+    throwIfAborted(init);
+    const target = requestedTarget ?? (await resolveVisibleTarget(chatId, chat?.gameState));
+    throwIfAborted(init);
+    if (target) {
+      const snapshot = await trackerSnapshotApi.get(chatId, target);
+      throwIfAborted(init);
+      if (snapshot) return snapshot;
+    }
+    return chat?.gameState ? withTarget(chat.gameState, chatId, target) : null;
   },
   patch: async (chatId: string, patch: WorldStatePatch, init?: RequestInit) => {
     throwIfAborted(init);
+    const requestedTarget = readTarget(patch);
+    const statePatch = removePatchControlFields(patch);
+    const manual = patch.manual === true;
+    const clearOverrides = patch.clearOverrides === true;
+    const targetVisible = patch.targetVisible !== false;
     const chat = await storageApi.get<{ gameState?: WorldState }>("chats", chatId);
     throwIfAborted(init);
-    const existing = chat?.gameState ?? createEmptyWorldState(chatId);
-    const next = { ...existing, chatId, ...patch } as unknown as WorldState;
+    const target =
+      requestedTarget ??
+      (targetVisible ? await resolveVisibleTarget(chatId, chat?.gameState) : null) ??
+      (manual ? { messageId: "", swipeIndex: 0 } : null);
     throwIfAborted(init);
-    await storageApi.update("chats", chatId, { gameState: next });
-    return next;
+    const existingSnapshot = target ? await trackerSnapshotApi.get(chatId, target) : null;
+    throwIfAborted(init);
+    const latestSnapshot = target && !existingSnapshot ? await trackerSnapshotApi.latest(chatId).catch(() => null) : null;
+    throwIfAborted(init);
+    const existing = existingSnapshot ?? latestSnapshot ?? chat?.gameState ?? createEmptyWorldState(chatId);
+    const manualOverrides = updateManualOverrides(target ? existingSnapshot?.manualOverrides : existing.manualOverrides, statePatch, {
+      manual,
+      clearOverrides,
+    });
+    const next = withTarget(
+      {
+        ...existing,
+        chatId,
+        ...statePatch,
+        manualOverrides,
+        ...(target && !existingSnapshot ? { id: "", committed: false, createdAt: new Date().toISOString() } : {}),
+      } as unknown as WorldState,
+      chatId,
+      target,
+    );
+    const saved = target ? await trackerSnapshotApi.save(chatId, next) : null;
+    throwIfAborted(init);
+    await storageApi.update("chats", chatId, { gameState: saved ?? next });
+    return saved ?? next;
   },
 };

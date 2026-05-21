@@ -96,6 +96,11 @@ export const storageApi: StorageGateway = {
     const chat = await storageApi.get<Record<string, unknown>>("chats", chatId);
     return (chat?.gameState as never) ?? null;
   },
+  saveTrackerSnapshot: (chatId, snapshot) =>
+    invokeTauri("tracker_snapshot_save", {
+      chatId,
+      snapshot,
+    }),
   listLorebookEntries: (lorebookId) => storageApi.list("lorebook-entries", { filters: { lorebookId } }),
   createLorebookEntries: async (lorebookId, entries) =>
     Promise.all(entries.map((entry) => storageApi.create("lorebook-entries", { ...entry, lorebookId }))) as Promise<
