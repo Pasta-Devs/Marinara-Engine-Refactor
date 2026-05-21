@@ -16,6 +16,7 @@ import {
   DEFAULT_TRACKER_CARD_ACCENT,
   getTrackerCardCssPaintValue,
   getTrackerCardFinish,
+  getTrackerCardPaintEnabled,
   getTrackerCardPaintOpacity,
   getTrackerCardPortraitStageBackground,
   getTrackerCardSkinFinish,
@@ -29,9 +30,7 @@ import {
 import {
   FEATURED_CHARACTER_PORTRAIT_STAGE_REM,
   PERSONA_ADD_STAT_DENSITY_HEIGHT_REM,
-  PERSONA_STAT_ALLOWANCE_REM,
   PERSONA_STAT_DENSITY_HEIGHT_REM,
-  type PersonaPortraitMode,
   type TrackerStatDensity,
   type TrackerStatDisplayScale,
 } from "./tracker-data-sidebar.constants";
@@ -60,10 +59,9 @@ export function personaStatStackHeight(statCount: number, density: TrackerStatDe
 
 export function getPersonaStatDensity(
   statCount: number,
-  portraitMode: PersonaPortraitMode,
   includeAdd: boolean,
+  allowance = FEATURED_CHARACTER_PORTRAIT_STAGE_REM,
 ): TrackerStatDensity {
-  const allowance = PERSONA_STAT_ALLOWANCE_REM[portraitMode];
   if (personaStatStackHeight(statCount, "normal", includeAdd) <= allowance) return "normal";
   if (personaStatStackHeight(statCount, "compact", includeAdd) <= allowance) return "compact";
   return "tight";
@@ -96,12 +94,23 @@ export function visibleText(value: string | number | null | undefined, fallback 
 }
 
 export const WORLD_GRID_BASE_CLASS = "grid-cols-[2.5rem_2.5rem_minmax(0,1fr)]";
+export const WORLD_FREEFORM_DATE_GRID_BASE_CLASS = "grid-cols-[minmax(3.8rem,4.45rem)_2.5rem_minmax(0,1fr)]";
 export const WORLD_GRID_BALANCED_CLASS =
   "@min-[380px]:grid-cols-[2.5rem_2.5rem_minmax(6.25rem,1fr)_minmax(7.5rem,1.35fr)]";
 export const WORLD_GRID_FORECAST_HEAVY_CLASS =
   "@min-[380px]:grid-cols-[2.5rem_2.5rem_minmax(7rem,1.05fr)_minmax(7.25rem,1.2fr)]";
 export const WORLD_GRID_LOCATION_HEAVY_CLASS =
-  "@min-[380px]:grid-cols-[2.5rem_2.5rem_minmax(5.5rem,0.8fr)_minmax(8.75rem,1.65fr)]";
+  "@min-[380px]:grid-cols-[2.5rem_2.5rem_minmax(7rem,0.95fr)_minmax(9rem,1.45fr)]";
+export const WORLD_FREEFORM_DATE_GRID_BALANCED_CLASS =
+  "@min-[380px]:grid-cols-[minmax(4.1rem,4.7rem)_2.5rem_minmax(5rem,0.86fr)_minmax(7.25rem,1.35fr)]";
+export const WORLD_FREEFORM_DATE_GRID_FORECAST_HEAVY_CLASS =
+  "@min-[380px]:grid-cols-[minmax(4.1rem,4.7rem)_2.5rem_minmax(5.75rem,1fr)_minmax(6.75rem,1.1fr)]";
+export const WORLD_FREEFORM_DATE_GRID_LOCATION_HEAVY_CLASS =
+  "@min-[380px]:grid-cols-[minmax(4.1rem,4.7rem)_2.5rem_minmax(5rem,0.75fr)_minmax(8.25rem,1.45fr)]";
+
+type WorldDashboardGridClassOptions = {
+  hasFreeformDate?: boolean;
+};
 
 export function getWorldTileTextNeed(value: string | null | undefined, fallback: string) {
   const text = visibleText(value, fallback).replace(/\s+/g, " ");
@@ -113,15 +122,23 @@ export function getWorldDashboardGridClass(
   weather: string | null | undefined,
   temperature: string | null | undefined,
   location: string | null | undefined,
+  options: WorldDashboardGridClassOptions = {},
 ) {
+  const { hasFreeformDate = false } = options;
   const forecastNeed =
     getWorldTileTextNeed(weather, "Set weather") + Math.min(8, getWorldTileTextNeed(temperature, "--") * 0.35);
   const locationNeed = getWorldTileTextNeed(location, "Set location");
   const hasLocation = visibleText(location, "").length > 0;
-  if (hasLocation && locationNeed >= forecastNeed + 2) return WORLD_GRID_LOCATION_HEAVY_CLASS;
-  if (forecastNeed >= locationNeed + 4) return WORLD_GRID_FORECAST_HEAVY_CLASS;
-  if (locationNeed >= forecastNeed + 6) return WORLD_GRID_LOCATION_HEAVY_CLASS;
-  return WORLD_GRID_BALANCED_CLASS;
+  if (hasLocation && locationNeed >= forecastNeed + 2) {
+    return hasFreeformDate ? WORLD_FREEFORM_DATE_GRID_LOCATION_HEAVY_CLASS : WORLD_GRID_LOCATION_HEAVY_CLASS;
+  }
+  if (forecastNeed >= locationNeed + 4) {
+    return hasFreeformDate ? WORLD_FREEFORM_DATE_GRID_FORECAST_HEAVY_CLASS : WORLD_GRID_FORECAST_HEAVY_CLASS;
+  }
+  if (locationNeed >= forecastNeed + 6) {
+    return hasFreeformDate ? WORLD_FREEFORM_DATE_GRID_LOCATION_HEAVY_CLASS : WORLD_GRID_LOCATION_HEAVY_CLASS;
+  }
+  return hasFreeformDate ? WORLD_FREEFORM_DATE_GRID_BALANCED_CLASS : WORLD_GRID_BALANCED_CLASS;
 }
 
 export function clampNumber(value: number, min: number, max: number) {
@@ -131,25 +148,6 @@ export function clampNumber(value: number, min: number, max: number) {
 export function getNumberValueWidth(value: number) {
   const text = Number.isFinite(value) ? String(value) : "0";
   return `${Math.min(7, Math.max(1.15, text.length + 0.35))}ch`;
-}
-
-export function getForecastWeatherTextClass(weather: string | null | undefined) {
-  const text = visibleText(weather, "Set weather");
-  const normalized = text.replace(/\s+/g, " ").trim();
-  const wordCount = normalized ? normalized.split(" ").length : 0;
-  const length = normalized.length;
-  const longestWord = normalized.split(" ").reduce((longest, word) => Math.max(longest, word.length), 0);
-
-  if (length > 44 || wordCount > 5 || longestWord > 16) {
-    return "text-[0.46875rem] leading-[0.5625rem] @min-[7rem]:text-[0.53125rem] @min-[7rem]:leading-[0.65625rem] @min-[10rem]:text-[0.625rem] @min-[10rem]:leading-[0.75rem] @min-[14rem]:text-[0.6875rem] @min-[14rem]:leading-[0.8125rem]";
-  }
-  if (length > 30 || wordCount > 4 || longestWord > 12) {
-    return "text-[0.53125rem] leading-[0.65625rem] @min-[7rem]:text-[0.59375rem] @min-[7rem]:leading-[0.71875rem] @min-[10rem]:text-[0.6875rem] @min-[10rem]:leading-[0.8125rem] @min-[14rem]:text-[0.75rem] @min-[14rem]:leading-[0.875rem]";
-  }
-  if (length > 16 || wordCount > 2) {
-    return "text-[0.625rem] leading-[0.75rem] @min-[7rem]:text-[0.6875rem] @min-[7rem]:leading-[0.8125rem] @min-[10rem]:text-[0.8125rem] @min-[10rem]:leading-[0.925rem] @min-[14rem]:text-[0.9375rem] @min-[14rem]:leading-[1.05rem]";
-  }
-  return "text-[0.8125rem] leading-[0.9rem] @min-[7rem]:text-[0.9375rem] @min-[7rem]:leading-[1rem] @min-[10rem]:text-[1.0625rem] @min-[10rem]:leading-[1.1rem] @min-[14rem]:text-[1.1875rem] @min-[14rem]:leading-[1.2rem] @min-[18rem]:text-[1.25rem] @min-[18rem]:leading-[1.25rem]";
 }
 
 export function getWorldAmbienceStyle(state: GameState | null): CSSProperties {
@@ -218,6 +216,15 @@ export function getSolidCssColor(value: string | null | undefined) {
   return getTrackerCardSolidColor(value);
 }
 
+const TRACKER_CARD_NEUTRAL_SURFACE_TOP =
+  "var(--tracker-card-neutral-surface-top, color-mix(in srgb, color-mix(in srgb, var(--secondary) 66%, var(--accent) 34%) 91%, var(--primary) 9%))";
+const TRACKER_CARD_NEUTRAL_SURFACE_BOTTOM =
+  "var(--tracker-card-neutral-surface-bottom, color-mix(in srgb, color-mix(in srgb, var(--secondary) 78%, var(--accent) 22%) 94%, var(--muted-foreground) 6%))";
+const TRACKER_CARD_NEUTRAL_MATERIAL =
+  "var(--tracker-card-neutral-material, color-mix(in srgb, color-mix(in srgb, var(--secondary) 68%, var(--accent) 32%) 89%, var(--primary) 11%))";
+const TRACKER_CARD_NEUTRAL_LIFT =
+  "var(--tracker-card-neutral-lift, color-mix(in srgb, var(--muted-foreground) 72%, var(--primary) 28%))";
+
 function clampPercent(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
@@ -228,6 +235,13 @@ function opacityWeight(value: number) {
 
 function scalePercent(value: number, opacity: number) {
   return Math.round(value * opacityWeight(opacity));
+}
+
+function getStrengthAdjustedProfileColor(color: string, opacity: number, neutral: string) {
+  const clampedOpacity = clampPercent(opacity);
+  if (clampedOpacity >= 100) return color;
+  if (clampedOpacity <= 0) return neutral;
+  return `color-mix(in srgb, ${neutral} ${100 - clampedOpacity}%, ${color} ${clampedOpacity}%)`;
 }
 
 export interface TrackerProfileColors {
@@ -250,12 +264,14 @@ function getTrackerProfilePalette(
   const trackerCardColors = profileColors?.trackerCardColors ?? null;
   const mode = normalizeTrackerCardColorMode(trackerCardColors?.mode);
   const finish = getTrackerCardFinish(trackerCardColors, mode);
+  const enabled = getTrackerCardPaintEnabled(trackerCardColors);
   const opacity = getTrackerCardPaintOpacity(trackerCardColors);
   const effectiveColors = mode === "default" ? null : mode === "custom" ? trackerCardColors : profileColors;
   const effectiveFallback = mode === "chat" ? fallbackAccent : DEFAULT_TRACKER_CARD_ACCENT;
 
   return getTrackerCardStylePalette({
     colors: effectiveColors,
+    enabled,
     finish,
     opacity,
     portraitStageBackground: getTrackerCardPortraitStageBackground(trackerCardColors),
@@ -267,19 +283,35 @@ function withTrackerProfileStyle(palette: TrackerProfilePalette, background?: st
   const vars = getTrackerCardStyleVars({ palette, background });
   const style: CSSProperties & {
     "--tracker-profile-accent": string;
+    "--tracker-profile-accent-highlight-opacity": string;
     "--tracker-profile-accent-layer": string;
+    "--tracker-profile-accent-solid": string;
+    "--tracker-profile-accent-wash-opacity": string;
+    "--tracker-profile-body-rule-opacity": string;
+    "--tracker-profile-body-wash-opacity": string;
     "--tracker-profile-dialogue": string;
     "--tracker-profile-dialogue-border": string;
     "--tracker-profile-dialogue-glow": string;
     "--tracker-profile-display-layer": string;
     "--tracker-profile-display-solid": string;
+    "--tracker-profile-display-rail-opacity": string;
+    "--tracker-profile-field-material": string;
+    "--tracker-profile-field-material-blend": string;
+    "--tracker-profile-glow-opacity": string;
     "--tracker-profile-icon": string;
+    "--tracker-profile-label-icon": string;
+    "--tracker-profile-label-muted-text": string;
+    "--tracker-profile-label-text": string;
     "--tracker-profile-box": string;
     "--tracker-profile-box-layer": string;
     "--tracker-profile-frame": string;
     "--tracker-profile-frame-blend": string;
+    "--tracker-profile-material": string;
+    "--tracker-profile-material-blend": string;
     "--tracker-profile-panel": string;
     "--tracker-profile-panel-blend": string;
+    "--tracker-profile-panel-material": string;
+    "--tracker-profile-panel-material-blend": string;
     "--tracker-profile-panel-strong": string;
     "--tracker-profile-panel-strong-blend": string;
     "--tracker-profile-portrait-base": string;
@@ -296,9 +328,15 @@ function withTrackerProfileStyle(palette: TrackerProfilePalette, background?: st
     "--tracker-profile-portrait-veil": string;
     "--tracker-profile-muted-panel": string;
     "--tracker-profile-muted-panel-blend": string;
+    "--tracker-profile-nameplate": string;
+    "--tracker-profile-nameplate-glow": string;
+    "--tracker-profile-nameplate-rule": string;
+    "--tracker-profile-nameplate-text": string;
     "--tracker-profile-rule": string;
     "--tracker-profile-surface": string;
     "--tracker-profile-surface-blend": string;
+    "--tracker-profile-surface-layer": string;
+    "--tracker-profile-surface-solid": string;
     "--tracker-profile-slot-rule": string;
     "--tracker-profile-slot-shadow": string;
     "--tracker-profile-slot-surface": string;
@@ -328,19 +366,35 @@ function withTrackerProfileStyle(palette: TrackerProfilePalette, background?: st
     "--primary"?: string;
   } = {
     "--tracker-profile-accent": vars.accent,
+    "--tracker-profile-accent-highlight-opacity": vars.accentHighlightOpacity,
     "--tracker-profile-accent-layer": vars.accentLayer,
+    "--tracker-profile-accent-solid": vars.accentSolid,
+    "--tracker-profile-accent-wash-opacity": vars.accentWashOpacity,
+    "--tracker-profile-body-rule-opacity": vars.bodyRuleOpacity,
+    "--tracker-profile-body-wash-opacity": vars.bodyWashOpacity,
     "--tracker-profile-dialogue": vars.accent,
     "--tracker-profile-dialogue-border": vars.dialogueBorder,
     "--tracker-profile-dialogue-glow": vars.dialogueGlow,
     "--tracker-profile-display-layer": vars.displayLayer,
     "--tracker-profile-display-solid": vars.displaySolid,
-    "--tracker-profile-icon": vars.displaySolid,
+    "--tracker-profile-display-rail-opacity": vars.displayRailOpacity,
+    "--tracker-profile-field-material": vars.fieldMaterial,
+    "--tracker-profile-field-material-blend": vars.fieldMaterialBlend,
+    "--tracker-profile-glow-opacity": vars.glowOpacity,
+    "--tracker-profile-icon": vars.icon,
+    "--tracker-profile-label-icon": vars.labelIcon,
+    "--tracker-profile-label-muted-text": vars.labelMutedText,
+    "--tracker-profile-label-text": vars.labelText,
     "--tracker-profile-box": vars.box,
     "--tracker-profile-box-layer": vars.boxLayer,
     "--tracker-profile-frame": vars.frame,
     "--tracker-profile-frame-blend": vars.frameBlend,
+    "--tracker-profile-material": vars.material,
+    "--tracker-profile-material-blend": vars.materialBlend,
     "--tracker-profile-panel": vars.panel,
     "--tracker-profile-panel-blend": vars.panelBlend,
+    "--tracker-profile-panel-material": vars.panelMaterial,
+    "--tracker-profile-panel-material-blend": vars.panelMaterialBlend,
     "--tracker-profile-panel-strong": vars.panelStrong,
     "--tracker-profile-panel-strong-blend": vars.panelStrongBlend,
     "--tracker-profile-portrait-base": vars.portraitBase,
@@ -357,9 +411,15 @@ function withTrackerProfileStyle(palette: TrackerProfilePalette, background?: st
     "--tracker-profile-portrait-veil": vars.portraitVeil,
     "--tracker-profile-muted-panel": vars.mutedPanel,
     "--tracker-profile-muted-panel-blend": vars.mutedPanelBlend,
+    "--tracker-profile-nameplate": vars.nameplate,
+    "--tracker-profile-nameplate-glow": vars.nameplateGlow,
+    "--tracker-profile-nameplate-rule": vars.nameplateRule,
+    "--tracker-profile-nameplate-text": vars.nameplateText,
     "--tracker-profile-rule": vars.rule,
     "--tracker-profile-surface": vars.surface,
     "--tracker-profile-surface-blend": vars.surfaceBlend,
+    "--tracker-profile-surface-layer": vars.surfaceLayer,
+    "--tracker-profile-surface-solid": vars.surfaceSolid,
     "--tracker-profile-slot-rule": vars.slotRule,
     "--tracker-profile-slot-shadow": vars.slotShadow,
     "--tracker-profile-slot-surface": vars.slotSurface,
@@ -391,7 +451,7 @@ function withTrackerProfileStyle(palette: TrackerProfilePalette, background?: st
   };
 
   if (palette.accent !== DEFAULT_TRACKER_CARD_ACCENT) {
-    style["--primary"] = palette.accent;
+    style["--primary"] = vars.accent;
   }
 
   return style;
@@ -465,15 +525,20 @@ export function getCharacterAmbienceStyle(
     getSolidCssColor(character.stats?.find((stat) => stat.color)?.color) ?? DEFAULT_TRACKER_CARD_ACCENT,
   );
   const finish = getTrackerCardSkinFinish(palette.finish);
-  const boxMix = scalePercent(Math.min(32, Math.round(finish.surfaceBoxMix * 0.9)), palette.opacity.boxColorOpacity);
-  const displayMix = scalePercent(
-    Math.min(28, Math.round(finish.surfaceDisplayMix * 0.85)),
-    palette.opacity.nameColorOpacity,
-  );
+  const surfaceOpacity = palette.hasSurfacePaint ? palette.opacity.boxColorOpacity : 0;
+  const hasActiveSurface = surfaceOpacity > 0;
+  const boxMix = scalePercent(Math.min(32, Math.round(finish.surfaceBoxMix * 0.9)), surfaceOpacity);
+  const backMix = Math.round(boxMix * 0.68);
+  const effectiveBox = getStrengthAdjustedProfileColor(palette.box, surfaceOpacity, TRACKER_CARD_NEUTRAL_MATERIAL);
+  const surfaceMaterialPaint = hasActiveSurface
+    ? `color-mix(in srgb, ${effectiveBox} 88%, ${TRACKER_CARD_NEUTRAL_LIFT} 12%)`
+    : effectiveBox;
+  const materialTopBase = TRACKER_CARD_NEUTRAL_SURFACE_TOP;
+  const materialDepthBase = TRACKER_CARD_NEUTRAL_SURFACE_BOTTOM;
   return withTrackerProfileStyle(
     palette,
-    `linear-gradient(135deg, color-mix(in srgb, var(--card) ${100 - boxMix}%, ${palette.box} ${boxMix}%), ` +
-      `color-mix(in srgb, var(--background) ${100 - displayMix}%, ${palette.displaySolid} ${displayMix}%))`,
+    `linear-gradient(135deg, color-mix(in srgb, ${materialTopBase} ${100 - boxMix}%, ${surfaceMaterialPaint} ${boxMix}%), ` +
+      `color-mix(in srgb, ${materialDepthBase} ${100 - backMix}%, ${surfaceMaterialPaint} ${backMix}%))`,
   );
 }
 

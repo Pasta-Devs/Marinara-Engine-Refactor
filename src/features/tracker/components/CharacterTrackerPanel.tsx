@@ -1,7 +1,11 @@
 import type { ReactNode } from "react";
 import { Users } from "lucide-react";
 import type { PresentCharacter } from "../../../engine/contracts/types/game-state";
-import type { TrackerPanelSide } from "../../../shared/stores/ui.store";
+import type {
+  TrackerPanelSizeProfile,
+  TrackerPanelSide,
+  TrackerThoughtBubbleDisplay,
+} from "../../../shared/stores/ui.store";
 import { cn } from "../../../shared/lib/utils";
 import {
   getCharacterFeatureKey,
@@ -21,6 +25,9 @@ export function CharacterTrackerPanel({
   characterProfileColors,
   resolveSpriteCharacterId,
   trackerPanelSide,
+  trackerPanelSizeProfile,
+  thoughtBubbleDisplay,
+  dockedThoughtsAlwaysVisible,
   onUpdateCharacter,
   onRemoveCharacter,
   onAddCharacter,
@@ -41,6 +48,9 @@ export function CharacterTrackerPanel({
   characterProfileColors: Record<string, TrackerProfileColors>;
   resolveSpriteCharacterId: (character: PresentCharacter) => string | null;
   trackerPanelSide: TrackerPanelSide;
+  trackerPanelSizeProfile: TrackerPanelSizeProfile;
+  thoughtBubbleDisplay: TrackerThoughtBubbleDisplay;
+  dockedThoughtsAlwaysVisible: boolean;
   onUpdateCharacter: (index: number, character: PresentCharacter) => void;
   onRemoveCharacter: (index: number) => void;
   onAddCharacter: () => void;
@@ -98,6 +108,9 @@ export function CharacterTrackerPanel({
         characterPicture={characterPicture}
         profileColors={profileColors}
         trackerPanelSide={trackerPanelSide}
+        trackerPanelSizeProfile={trackerPanelSizeProfile}
+        thoughtBubbleDisplay={thoughtBubbleDisplay}
+        dockedThoughtsAlwaysVisible={dockedThoughtsAlwaysVisible}
         onUpdate={(updated) => onUpdateCharacter(index, updated)}
         onRemove={() => onRemoveCharacter(index)}
         deleteMode={deleteMode}
