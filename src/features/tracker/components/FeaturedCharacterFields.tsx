@@ -7,17 +7,15 @@ import type { TrackerStatDensity } from "./tracker-data-sidebar.constants";
 import { visibleText } from "./tracker-display.helpers";
 import { InlineEdit, TRACKER_PROFILE_FIELD_TILE_CLASS } from "./tracker-data-sidebar.controls";
 import { StatList as TrackerStatList } from "./tracker-data-sidebar.stats";
+import "./TrackerProfileFields.css";
 
 const FEATURED_FIELD_LIST_CLASS = "relative z-[1] grid h-full min-h-0 grid-cols-1 gap-1 overflow-hidden p-1";
-const FEATURED_FIELD_ICON_CLASS =
-  "relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[color-mix(in_srgb,var(--tracker-profile-icon)_58%,var(--tracker-profile-text)_42%)] opacity-[0.82] ring-1 ring-inset ring-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_18%,transparent)] transition-colors before:absolute before:inset-[3px] before:rounded-full before:bg-[color-mix(in_srgb,var(--tracker-profile-accent-solid)_3%,transparent)] before:content-[''] group-hover/field:text-[color-mix(in_srgb,var(--tracker-profile-icon)_78%,var(--tracker-profile-text)_22%)] group-hover/field:ring-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_34%,transparent)] group-hover/field:before:bg-[color-mix(in_srgb,var(--tracker-profile-accent-solid)_6%,transparent)] [&>svg]:relative [&>svg]:z-[1] [&>svg]:stroke-[1.85]";
+const FEATURED_FIELD_ICON_CLASS = "tracker-featured-field-icon";
 type FeaturedFieldTone = "mood" | "appearance" | "outfit";
 const FEATURED_FIELD_ICON_TONE_CLASS = {
-  mood: "text-[color-mix(in_srgb,var(--tracker-profile-icon)_70%,var(--tracker-profile-text)_30%)] before:bg-[color-mix(in_srgb,var(--tracker-profile-accent-solid)_4%,transparent)] group-hover/field:text-[color-mix(in_srgb,var(--tracker-profile-icon)_84%,var(--tracker-profile-text)_16%)]",
-  appearance:
-    "text-[color-mix(in_srgb,var(--tracker-profile-icon)_58%,var(--tracker-profile-text)_42%)] before:bg-[color-mix(in_srgb,var(--tracker-profile-accent-solid)_3%,transparent)] group-hover/field:text-[color-mix(in_srgb,var(--tracker-profile-icon)_76%,var(--tracker-profile-text)_24%)]",
-  outfit:
-    "text-[color-mix(in_srgb,var(--tracker-profile-icon)_50%,var(--tracker-profile-text)_50%)] before:bg-[color-mix(in_srgb,var(--tracker-profile-accent-solid)_3%,transparent)] group-hover/field:text-[color-mix(in_srgb,var(--tracker-profile-icon)_68%,var(--tracker-profile-text)_32%)]",
+  mood: "tracker-featured-field-icon--mood",
+  appearance: "tracker-featured-field-icon--appearance",
+  outfit: "tracker-featured-field-icon--outfit",
 } satisfies Record<FeaturedFieldTone, string>;
 const FEATURED_FIELD_TILE_CLASS_BY_PROFILE = {
   compact: "py-0.5",
@@ -40,8 +38,7 @@ const FEATURED_FIELD_PREVIEW_CLASS_BY_PROFILE = {
   expanded: "line-clamp-4",
 } satisfies Record<TrackerPanelSizeProfile, string>;
 const FEATURED_STAT_SHELF_CLASS = cn(
-  "group/statbox relative isolate flex min-h-0 flex-col overflow-x-hidden border-t border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_38%,transparent)] bg-[image:var(--tracker-profile-material)] px-1 py-1.5 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_4%,transparent),inset_0_8px_14px_color-mix(in_srgb,var(--background)_22%,transparent)] [background-blend-mode:var(--tracker-profile-material-blend)] before:pointer-events-none before:absolute before:inset-x-3 before:top-0 before:z-[1] before:h-px before:bg-[linear-gradient(90deg,transparent,color-mix(in_srgb,var(--tracker-profile-dialogue-border)_34%,transparent),transparent)] before:opacity-55 before:content-['']",
-  "max-h-[7.75rem] @min-[380px]:max-h-[9.25rem]",
+  "group/statbox tracker-featured-stat-shelf",
 );
 
 function FeaturedFieldTile({

@@ -11,6 +11,7 @@ import { TRACKER_BAR } from "../tracker-data-sidebar.constants";
 import { InlineEdit } from "../tracker-data-sidebar.controls";
 import { visibleText } from "../tracker-display.helpers";
 import { QuestObjectiveRow } from "./QuestObjectiveRow";
+import "./QuestRow.css";
 
 export function QuestRow({
   quest,
@@ -52,11 +53,11 @@ export function QuestRow({
   return (
     <article
       className={cn(
-        "group/quest relative mx-1 overflow-hidden rounded-sm border border-[var(--border)]/30 bg-[color-mix(in_srgb,var(--background)_22%,transparent)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_5%,transparent)]",
-        quest.completed && "opacity-75",
+        "group/quest tracker-quest-row",
+        quest.completed && "tracker-quest-row--completed",
       )}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[var(--primary)]/16" />
+      <div className="tracker-quest-row__top-rule" />
       <div
         className={cn(
           "relative grid min-h-5 grid-cols-[1rem_minmax(0,1fr)_auto] items-center gap-1 px-1 py-0.5",
@@ -68,8 +69,8 @@ export function QuestRow({
             type="button"
             onClick={() => onUpdate({ ...quest, completed: !quest.completed })}
             className={cn(
-              "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--primary)]/10 hover:text-emerald-300",
-              quest.completed && "text-emerald-300",
+              "tracker-quest-row__toggle",
+              quest.completed && "tracker-quest-row__toggle--completed",
             )}
             title={quest.completed ? "Mark incomplete" : "Mark complete"}
             aria-label={quest.completed ? "Mark quest incomplete" : "Mark quest complete"}
@@ -78,7 +79,7 @@ export function QuestRow({
           </button>
         )}
         {!onUpdate && (
-          <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[var(--muted-foreground)]">
+          <span className={cn("tracker-quest-row__status", quest.completed && "tracker-quest-row__toggle--completed")}>
             {quest.completed ? <CheckCircle2 size="0.75rem" /> : <Target size="0.75rem" />}
           </span>
         )}
@@ -90,28 +91,28 @@ export function QuestRow({
             title={`Quest: ${questTitle}`}
             showEditHint={false}
             className={cn(
-              "h-5 w-full min-w-0 overflow-hidden px-0.5 py-0 text-[0.75rem] font-semibold leading-5 text-[var(--foreground)]/92 hover:bg-[var(--accent)]/20",
-              quest.completed && "line-through opacity-60",
+              "tracker-quest-row__title-edit",
+              quest.completed && "tracker-quest-row__title-edit--completed",
             )}
           />
         ) : (
           <div
             className={cn(
-              "min-w-0 truncate text-[0.75rem] font-semibold",
-              quest.completed && "text-[var(--muted-foreground)] line-through",
+              "tracker-quest-row__title-static",
+              quest.completed && "tracker-quest-row__title-static--completed",
             )}
           >
             {questTitle}
           </div>
         )}
-        <span className="shrink-0 rounded-sm border border-[var(--border)]/32 bg-[var(--background)]/18 px-1 py-0.5 text-[0.5625rem] font-semibold uppercase leading-none tabular-nums text-[var(--foreground)]/68">
+        <span className="tracker-quest-row__count">
           {completionLabel}
         </span>
         {onRemove && deleteMode && (
           <button
             type="button"
             onClick={onRemove}
-            className="flex h-4 w-4 items-center justify-center rounded-sm text-[var(--destructive)] transition-all hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] active:scale-90"
+            className="tracker-quest-row__remove"
             title="Remove quest"
             aria-label="Remove quest"
           >
@@ -120,22 +121,22 @@ export function QuestRow({
         )}
       </div>
 
-      <div className={cn("relative mx-1 overflow-hidden bg-[var(--border)]/28", TRACKER_BAR)}>
+      <div className={cn("tracker-quest-row__progress", TRACKER_BAR)}>
         <div
           className={cn(
-            "h-full rounded-[1px] transition-[width] duration-200",
-            quest.completed ? "bg-emerald-300/85" : "bg-[var(--primary)]/85",
+            "tracker-quest-row__progress-fill",
+            quest.completed && "tracker-quest-row__progress-fill--complete",
           )}
           style={{ width: `${completionPercent}%` }}
         />
       </div>
 
       {(quest.objectives.length > 0 || (onUpdate && addMode)) && (
-        <div className="relative mx-1 mb-0.5 mt-0.5 grid gap-px pl-4">
+        <div className="tracker-quest-row__objective-list">
           <span
             className={cn(
-              "pointer-events-none absolute left-[0.4375rem] top-1 w-px bg-[var(--border)]/28",
-              addMode ? "bottom-4" : "bottom-1",
+              "tracker-quest-row__objective-connector",
+              addMode ? "tracker-quest-row__objective-connector--long" : "tracker-quest-row__objective-connector--short",
             )}
           />
           {quest.objectives.map((objective, index) => (
@@ -153,7 +154,7 @@ export function QuestRow({
             <button
               type="button"
               onClick={addObjective}
-              className="relative grid h-4 w-full grid-cols-[0.875rem_minmax(0,1fr)] items-center gap-1 rounded-[2px] px-0.5 text-left text-[0.6875rem] leading-4 text-[var(--foreground)]/35 transition-colors hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)]"
+              className="tracker-quest-row__add-objective"
               title="Add objective"
               aria-label="Add objective"
             >
