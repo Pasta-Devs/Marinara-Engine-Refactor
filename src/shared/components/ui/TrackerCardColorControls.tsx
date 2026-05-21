@@ -16,6 +16,7 @@ import { cn } from "../../lib/utils";
 import {
   cleanTrackerCardColorConfig,
   getTrackerCardFinish,
+  getTrackerCardPaintEnabled,
   getTrackerCardPaintOpacity,
   getTrackerCardPortraitStageBackground,
   getTrackerCardStylePalette,
@@ -23,20 +24,21 @@ import {
   normalizeTrackerCardColorMode,
   parseTrackerCardColorConfig,
   type TrackerCardFinish,
+  type TrackerCardPaintColors,
+  type TrackerCardPaintEnabled,
   type TrackerCardPaintOpacity,
 } from "../../lib/tracker-card-colors";
 import { ColorPicker } from "./ColorPicker";
 
+export type TrackerCardColorEntityLabel = "Character" | "Persona";
+
 interface TrackerCardColorControlsProps {
   value: TrackerCardColorConfig | string | null | undefined;
   onChange: (value: TrackerCardColorConfig) => void;
-  chatColors: {
-    nameColor?: string | null;
-    dialogueColor?: string | null;
-    boxColor?: string | null;
-  };
-  entityLabel: "Character" | "Persona";
+  chatColors: TrackerCardPaintColors;
+  entityLabel: TrackerCardColorEntityLabel;
   previewName: string;
+  disabled?: boolean;
 }
 
 const MODE_OPTIONS: Array<{
@@ -50,30 +52,73 @@ const MODE_OPTIONS: Array<{
 ];
 
 const FINISH_OPTIONS: Array<{
-  key: "tintIntensity" | "glowIntensity" | "contrastIntensity";
+  key: "materialBrightness" | "glowIntensity" | "contrastIntensity";
   label: string;
+  title: string;
 }> = [
-  { key: "tintIntensity", label: "Tint" },
-  { key: "glowIntensity", label: "Glow" },
-  { key: "contrastIntensity", label: "Contrast" },
+  {
+    key: "materialBrightness",
+    label: "Material",
+    title: "Brightness of neutral and Surface card material",
+  },
+  { key: "glowIntensity", label: "Glow", title: "Light from edges, portrait, stats, and nameplate" },
+  { key: "contrastIntensity", label: "Contrast", title: "Text readability and neutral panel separation" },
 ];
 
 const FINISH_PRESETS: Array<{
   label: string;
+  title: string;
   finish: TrackerCardFinish;
 }> = [
-  { label: "Clean", finish: { tintIntensity: 12, glowIntensity: 24, contrastIntensity: 58 } },
-  { label: "Tinted", finish: { tintIntensity: 48, glowIntensity: 46, contrastIntensity: 64 } },
-  { label: "Dramatic", finish: { tintIntensity: 86, glowIntensity: 82, contrastIntensity: 86 } },
+  {
+    label: "Soft",
+    title: "Brighter material with gentle glow and mild separation",
+    finish: { tintIntensity: 100, materialBrightness: 54, glowIntensity: 24, contrastIntensity: 58 },
+  },
+  {
+    label: "Crisp",
+    title: "Neutral material with clearer edges and medium glow",
+    finish: { tintIntensity: 100, materialBrightness: 50, glowIntensity: 46, contrastIntensity: 64 },
+  },
+  {
+    label: "Vivid",
+    title: "Darker material with strong glow and high contrast",
+    finish: { tintIntensity: 100, materialBrightness: 44, glowIntensity: 82, contrastIntensity: 86 },
+  },
 ];
 
 const PAINT_OPACITY_OPTIONS: Array<{
   key: keyof TrackerCardPaintOpacity;
+  enabledKey: keyof TrackerCardPaintEnabled;
+  colorKey: "nameColor" | "dialogueColor" | "boxColor";
+  emptyText: string;
   label: string;
+  title: string;
 }> = [
-  { key: "nameColorOpacity", label: "Display" },
-  { key: "dialogueColorOpacity", label: "Accent" },
-  { key: "boxColorOpacity", label: "Surface" },
+  {
+    key: "nameColorOpacity",
+    enabledKey: "displayEnabled",
+    colorKey: "nameColor",
+    emptyText: "No display color set",
+    label: "Display",
+    title: "Names, readable field tint, and identity emphasis",
+  },
+  {
+    key: "dialogueColorOpacity",
+    enabledKey: "accentEnabled",
+    colorKey: "dialogueColor",
+    emptyText: "No accent color set",
+    label: "Accent",
+    title: "Borders, icons, highlights, buttons, and glow",
+  },
+  {
+    key: "boxColorOpacity",
+    enabledKey: "surfaceEnabled",
+    colorKey: "boxColor",
+    emptyText: "No surface color - neutral card",
+    label: "Surface",
+    title: "Card body, panels, shelves, and field material",
+  },
 ];
 
 const PORTRAIT_STAGE_BACKGROUND_OPTIONS: Array<{
@@ -162,12 +207,14 @@ type TrackerPreviewStyle = CSSProperties & {
 function getTrackerPreviewStyle(
   colors: TrackerCardColorControlsProps["chatColors"],
   finish: ReturnType<typeof getTrackerCardFinish>,
+  paintEnabled: TrackerCardPaintEnabled,
   paintOpacity: TrackerCardPaintOpacity,
   portraitStageBackground: TrackerCardPortraitStageBackground,
 ): TrackerPreviewStyle {
   const vars = getTrackerCardStyleVars({
     palette: getTrackerCardStylePalette({
       colors,
+      enabled: paintEnabled,
       finish,
       opacity: paintOpacity,
       portraitStageBackground,
@@ -238,10 +285,66 @@ function getEffectiveColors(
   mode: TrackerCardColorMode,
   config: TrackerCardColorConfig,
   chatColors: TrackerCardColorControlsProps["chatColors"],
-) {
+): TrackerCardPaintColors {
   if (mode === "custom") return config;
   if (mode === "chat") return chatColors;
   return {};
+}
+
+function hasPaintForChannel(colors: TrackerCardPaintColors, colorKey: "nameColor" | "dialogueColor" | "boxColor") {
+  const hasDisplayPaint = !!colors.nameColor?.trim();
+  const hasAccentPaint = !!colors.dialogueColor?.trim();
+  const hasSurfacePaint = !!colors.boxColor?.trim();
+
+  if (colorKey === "boxColor") return hasSurfacePaint;
+  if (colorKey === "nameColor") return hasDisplayPaint || hasAccentPaint;
+  return hasAccentPaint || hasDisplayPaint;
+}
+
+function getPaintOpacitySummary(opacity: TrackerCardPaintOpacity, enabled: TrackerCardPaintEnabled) {
+  return [
+    enabled.displayEnabled ? opacity.nameColorOpacity : "off",
+    enabled.accentEnabled ? opacity.dialogueColorOpacity : "off",
+    enabled.surfaceEnabled ? opacity.boxColorOpacity : "off",
+  ].join("/");
+}
+
+function getChannelValueLabel(enabled: boolean, hasPaint: boolean, value: number) {
+  if (!enabled) return "off";
+  return hasPaint ? `${value}%` : "none";
+}
+
+function ChannelToggle({
+  checked,
+  disabled,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label
+      className={cn(
+        "inline-flex h-4 w-7 shrink-0 cursor-pointer items-center rounded-full bg-[var(--background)] p-0.5 ring-1 ring-[var(--border)] transition-colors",
+        checked && "bg-[var(--primary)]/22 ring-[var(--primary)]/40",
+        disabled && "cursor-not-allowed opacity-55",
+      )}
+      title={`${checked ? "Disable" : "Enable"} ${label}`}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+        aria-label={`${label} channel`}
+        className="peer sr-only"
+      />
+      <span className="h-3 w-3 rounded-full bg-[var(--muted-foreground)] transition-transform peer-checked:translate-x-3 peer-checked:bg-[var(--primary)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--primary)]/60 peer-disabled:cursor-not-allowed" />
+    </label>
+  );
 }
 
 export function TrackerCardColorControls({
@@ -250,20 +353,22 @@ export function TrackerCardColorControls({
   chatColors,
   entityLabel,
   previewName,
+  disabled = false,
 }: TrackerCardColorControlsProps) {
   const config = typeof value === "string" ? parseTrackerCardColorConfig(value) : cleanTrackerCardColorConfig(value);
   const mode = normalizeTrackerCardColorMode(config.mode);
   const finish = getTrackerCardFinish(config, mode);
+  const paintEnabled = getTrackerCardPaintEnabled(config);
   const paintOpacity = getTrackerCardPaintOpacity(config);
   const portraitStageBackground = getTrackerCardPortraitStageBackground(config);
   const effectiveColors = getEffectiveColors(mode, config, chatColors);
-  const previewStyle = getTrackerPreviewStyle(effectiveColors, finish, paintOpacity, portraitStageBackground);
+  const previewStyle = getTrackerPreviewStyle(effectiveColors, finish, paintEnabled, paintOpacity, portraitStageBackground);
   const [collapsed, setCollapsed] = useState(false);
   const modeLabel = MODE_OPTIONS.find((option) => option.mode === mode)?.label ?? "Chat colors";
   const portraitStageBackgroundLabel =
     PORTRAIT_STAGE_BACKGROUND_OPTIONS.find((option) => option.value === portraitStageBackground)?.label ?? "Ambient";
-  const finishSummary = `${finish.tintIntensity}/${finish.glowIntensity}/${finish.contrastIntensity}`;
-  const paintOpacitySummary = `${paintOpacity.nameColorOpacity}/${paintOpacity.dialogueColorOpacity}/${paintOpacity.boxColorOpacity}`;
+  const finishSummary = `${finish.materialBrightness}/${finish.glowIntensity}/${finish.contrastIntensity}`;
+  const paintOpacitySummary = getPaintOpacitySummary(paintOpacity, paintEnabled);
   const previewInitial = getPreviewInitial(previewName, entityLabel === "Persona" ? "Y" : "C");
   const previewContrastStyle = {
     background:
@@ -288,7 +393,7 @@ export function TrackerCardColorControls({
     onChange(cleanTrackerCardColorConfig({ ...config, mode: "custom", [key]: color }));
   };
 
-  const updateFinish = (key: "tintIntensity" | "glowIntensity" | "contrastIntensity", nextValue: number) => {
+  const updateFinish = (key: "materialBrightness" | "glowIntensity" | "contrastIntensity", nextValue: number) => {
     onChange(cleanTrackerCardColorConfig({ ...config, [key]: nextValue }));
   };
 
@@ -300,12 +405,16 @@ export function TrackerCardColorControls({
     onChange(cleanTrackerCardColorConfig({ ...config, [key]: nextValue }));
   };
 
+  const updatePaintEnabled = (key: keyof TrackerCardPaintEnabled, enabled: boolean) => {
+    onChange(cleanTrackerCardColorConfig({ ...config, [key]: enabled }));
+  };
+
   const updatePortraitStageBackground = (nextBackground: TrackerCardPortraitStageBackground) => {
     onChange(cleanTrackerCardColorConfig({ ...config, portraitStageBackground: nextBackground }));
   };
 
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-2.5">
+    <div className={cn("rounded-xl border border-[var(--border)] bg-[var(--card)] p-2.5", disabled && "opacity-75")}>
       <button
         type="button"
         onClick={() => setCollapsed((open) => !open)}
@@ -316,20 +425,20 @@ export function TrackerCardColorControls({
         <div className="min-w-0">
           <h4 className="text-xs font-semibold text-[var(--foreground)]">{entityLabel} Tracker Card</h4>
           <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-            {modeLabel}, {portraitStageBackgroundLabel.toLowerCase()} stage, finish {finishSummary}.
+            {modeLabel}, {portraitStageBackgroundLabel.toLowerCase()} stage, finish M/G/C {finishSummary}.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5" aria-hidden="true">
           <span
-            className="h-5 w-5 rounded-md ring-1 ring-[var(--border)]"
+            className={cn("h-5 w-5 rounded-md ring-1 ring-[var(--border)]", !paintEnabled.displayEnabled && "opacity-35")}
             style={getDisplayStyle(effectiveColors.nameColor)}
           />
           <span
-            className="h-5 w-5 rounded-md ring-1 ring-[var(--border)]"
+            className={cn("h-5 w-5 rounded-md ring-1 ring-[var(--border)]", !paintEnabled.accentEnabled && "opacity-35")}
             style={getDisplayStyle(effectiveColors.dialogueColor)}
           />
           <span
-            className="h-5 w-5 rounded-md ring-1 ring-[var(--border)]"
+            className={cn("h-5 w-5 rounded-md ring-1 ring-[var(--border)]", !paintEnabled.surfaceEnabled && "opacity-35")}
             style={getDisplayStyle(effectiveColors.boxColor)}
           />
           <ChevronDown
@@ -360,8 +469,9 @@ export function TrackerCardColorControls({
                       key={option.mode}
                       type="button"
                       onClick={() => updateMode(option.mode)}
+                      disabled={disabled}
                       className={cn(
-                        "flex min-h-7 min-w-0 items-center justify-center gap-1 rounded-sm px-1 text-[0.5625rem] font-semibold transition-colors",
+                        "flex min-h-7 min-w-0 items-center justify-center gap-1 rounded-sm px-1 text-[0.5625rem] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55",
                         selected
                           ? "bg-[var(--primary)]/12 text-[var(--primary)] ring-1 ring-[var(--primary)]/24"
                           : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]/45 hover:text-[var(--foreground)]",
@@ -392,8 +502,9 @@ export function TrackerCardColorControls({
                       type="button"
                       title={option.title}
                       onClick={() => updatePortraitStageBackground(option.value)}
+                      disabled={disabled}
                       className={cn(
-                        "flex min-h-7 min-w-0 items-center justify-center gap-1 rounded-sm px-1 text-[0.5625rem] font-semibold transition-colors",
+                        "flex min-h-7 min-w-0 items-center justify-center gap-1 rounded-sm px-1 text-[0.5625rem] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55",
                         selected
                           ? "bg-[var(--primary)]/12 text-[var(--primary)] ring-1 ring-[var(--primary)]/24"
                           : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]/45 hover:text-[var(--foreground)]",
@@ -554,7 +665,7 @@ export function TrackerCardColorControls({
               <div className="grid grid-cols-3 gap-1 rounded-md bg-[var(--background)]/35 p-0.5">
                 {FINISH_PRESETS.map((preset) => {
                   const selected =
-                    finish.tintIntensity === preset.finish.tintIntensity &&
+                    finish.materialBrightness === preset.finish.materialBrightness &&
                     finish.glowIntensity === preset.finish.glowIntensity &&
                     finish.contrastIntensity === preset.finish.contrastIntensity;
 
@@ -562,9 +673,11 @@ export function TrackerCardColorControls({
                     <button
                       key={preset.label}
                       type="button"
+                      title={preset.title}
                       onClick={() => updateFinishPreset(preset.finish)}
+                      disabled={disabled}
                       className={cn(
-                        "min-h-7 rounded-sm px-1 text-[0.5625rem] font-semibold transition-colors",
+                        "min-h-7 rounded-sm px-1 text-[0.5625rem] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55",
                         selected
                           ? "bg-[var(--primary)]/12 text-[var(--primary)] ring-1 ring-[var(--primary)]/24"
                           : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]/45 hover:text-[var(--foreground)]",
@@ -584,6 +697,7 @@ export function TrackerCardColorControls({
                   <label
                     key={option.key}
                     className="min-w-0 space-y-1.5 rounded-md bg-[var(--background)]/24 px-2 py-1.5 ring-1 ring-[var(--border)]/25"
+                    title={option.title}
                   >
                     <span className="flex items-center justify-between gap-2 text-[0.625rem] text-[var(--muted-foreground)]">
                       <span className="font-semibold text-[var(--foreground)]/80">{option.label}</span>
@@ -593,10 +707,13 @@ export function TrackerCardColorControls({
                     </span>
                     <input
                       type="range"
+                      aria-label={`${option.label}: ${option.title}`}
+                      title={option.title}
                       min={0}
                       max={100}
                       value={value}
                       onChange={(event) => updateFinish(option.key, Number(event.target.value))}
+                      disabled={disabled}
                       className="h-1.5 w-full cursor-pointer accent-[var(--primary)]"
                     />
                   </label>
@@ -618,21 +735,41 @@ export function TrackerCardColorControls({
               <div className="grid gap-2 sm:grid-cols-3">
                 {PAINT_OPACITY_OPTIONS.map((option) => {
                   const value = paintOpacity[option.key];
+                  const channelEnabled = paintEnabled[option.enabledKey];
+                  const hasSourcePaint = hasPaintForChannel(effectiveColors, option.colorKey);
+                  const sliderEnabled = channelEnabled && hasSourcePaint;
                   return (
-                    <label key={option.key} className="min-w-0 space-y-1">
+                    <div
+                      key={option.key}
+                      className="grid min-w-0 gap-1 rounded-md bg-[var(--background)]/18 px-1.5 py-1"
+                      title={channelEnabled ? option.title : `${option.label} channel is off.`}
+                    >
                       <span className="flex items-center justify-between gap-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                        <span>{option.label}</span>
-                        <span className="font-mono tabular-nums">{value}%</span>
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="min-w-0 truncate">{option.label}</span>
+                          <ChannelToggle
+                            checked={channelEnabled}
+                            disabled={disabled}
+                            label={option.label}
+                            onChange={(checked) => updatePaintEnabled(option.enabledKey, checked)}
+                          />
+                        </span>
+                        <span className="font-mono tabular-nums">
+                          {getChannelValueLabel(channelEnabled, hasSourcePaint, value)}
+                        </span>
                       </span>
                       <input
                         type="range"
+                        aria-label={`${option.label}: ${option.title}`}
+                        title={option.title}
                         min={0}
                         max={100}
-                        value={value}
+                        value={sliderEnabled ? value : 0}
                         onChange={(event) => updatePaintOpacity(option.key, Number(event.target.value))}
+                        disabled={disabled || !sliderEnabled}
                         className="h-1.5 w-full cursor-pointer accent-[var(--primary)]"
                       />
-                    </label>
+                    </div>
                   );
                 })}
               </div>
@@ -652,35 +789,52 @@ export function TrackerCardColorControls({
               <div className="grid gap-2 lg:grid-cols-3">
                 {PAINT_OPACITY_OPTIONS.map((option) => {
                   const value = paintOpacity[option.key];
-                  const colorKey =
-                    option.key === "nameColorOpacity"
-                      ? "nameColor"
-                      : option.key === "dialogueColorOpacity"
-                        ? "dialogueColor"
-                        : "boxColor";
+                  const channelEnabled = paintEnabled[option.enabledKey];
+                  const hasCustomPaint = hasPaintForChannel(config, option.colorKey);
+                  const sliderEnabled = channelEnabled && hasCustomPaint;
 
                   return (
                     <div
                       key={option.key}
-                      className="min-w-0 space-y-2 rounded-lg bg-[var(--background)]/25 p-2 ring-1 ring-[var(--border)]/30"
+                      className={cn(
+                        "min-w-0 space-y-2 rounded-lg bg-[var(--background)]/25 p-2 ring-1 ring-[var(--border)]/30",
+                        !channelEnabled && "bg-[var(--background)]/12 ring-[var(--border)]/18",
+                        disabled && "pointer-events-none",
+                      )}
                     >
                       <ColorPicker
-                        value={config[colorKey] ?? ""}
-                        onChange={(color) => updateCustomColor(colorKey, color)}
+                        value={config[option.colorKey] ?? ""}
+                        onChange={(color) => updateCustomColor(option.colorKey, color)}
                         gradient
+                        compact
                         label={option.label}
+                        emptyText={option.emptyText}
+                        helpText={option.title}
+                        headerAction={
+                          <ChannelToggle
+                            checked={channelEnabled}
+                            disabled={disabled}
+                            label={option.label}
+                            onChange={(checked) => updatePaintEnabled(option.enabledKey, checked)}
+                          />
+                        }
                       />
                       <label className="block min-w-0 space-y-1">
                         <span className="flex items-center justify-between gap-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                          <span>Strength</span>
-                          <span className="font-mono tabular-nums">{value}%</span>
+                          <span>{option.label} strength</span>
+                          <span className="font-mono tabular-nums">
+                            {getChannelValueLabel(channelEnabled, hasCustomPaint, value)}
+                          </span>
                         </span>
                         <input
                           type="range"
+                          aria-label={`${option.label}: ${option.title}`}
+                          title={option.title}
                           min={0}
                           max={100}
-                          value={value}
+                          value={sliderEnabled ? value : 0}
                           onChange={(event) => updatePaintOpacity(option.key, Number(event.target.value))}
+                          disabled={disabled || !sliderEnabled}
                           className="h-1.5 w-full cursor-pointer accent-[var(--primary)]"
                         />
                       </label>
