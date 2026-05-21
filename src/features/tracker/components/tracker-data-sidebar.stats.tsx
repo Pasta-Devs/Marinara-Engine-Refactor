@@ -7,6 +7,7 @@ import { visibleText } from "./tracker-display.helpers";
 import { getTrackerStatDisplayScale } from "./tracker-stat-layout";
 import { getTrackerStatPercent } from "../../world-state/lib/tracker-state-display";
 import { EmptySection, FittedText, InlineAddRow, InlineEdit, InlineNumber } from "./tracker-data-sidebar.controls";
+import "./TrackerProfileStats.css";
 
 type StatListVisualTone = "plain" | "instrument";
 
@@ -27,25 +28,23 @@ function StatBarGhost({
 }) {
   const isTight = density === "tight";
   const isInstrument = visualTone === "instrument";
-  const ghostTrackClass = isInstrument
-    ? "relative isolate mt-0.5 shrink-0 overflow-hidden bg-transparent ring-1 ring-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_18%,transparent)] shadow-[inset_0_1px_2px_color-mix(in_srgb,var(--background)_34%,transparent)]"
-    : "relative isolate mt-0 shrink-0 overflow-hidden bg-[image:var(--tracker-profile-stat-track)] opacity-40 ring-1 ring-[var(--tracker-profile-stat-track-ring)]";
+  const ghostTrackClass = isInstrument ? "tracker-stat-track--ghost-instrument" : "tracker-stat-track--ghost-plain";
 
   return (
     <div
       aria-hidden="true"
       className={cn(
-        "pointer-events-none relative hidden select-none overflow-hidden rounded-[4px] border border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_24%,transparent)] bg-[image:var(--tracker-profile-field-material)] opacity-70 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_3%,transparent),inset_0_-4px_8px_color-mix(in_srgb,var(--background)_20%,transparent)] [background-blend-mode:var(--tracker-profile-field-material-blend)] before:pointer-events-none before:absolute before:inset-x-1 before:top-0 before:h-px before:bg-[linear-gradient(90deg,transparent,color-mix(in_srgb,var(--tracker-profile-dialogue-border)_28%,transparent),transparent)] before:content-[''] @min-[240px]:block",
+        "tracker-stat-ghost-card",
         wideColumnCell ? "px-1" : "px-1.5",
         isTight ? "px-1 py-0.5" : "py-1",
       )}
     >
       <div className="grid grid-cols-[minmax(0,1fr)_max-content] items-center gap-x-1">
-        <span className="h-2 w-12 max-w-[64%] rounded-[2px] bg-[color-mix(in_srgb,var(--tracker-profile-text)_9%,transparent)]" />
-        <span className="h-2 w-7 rounded-[2px] bg-[color-mix(in_srgb,var(--tracker-profile-number-text)_7%,transparent)]" />
+        <span className="tracker-stat-ghost-name" />
+        <span className="tracker-stat-ghost-number" />
       </div>
       <div className={cn(ghostTrackClass, isTight ? "h-[2px] rounded-[1px]" : "h-[4px] rounded-[2px]")}>
-        <div className="h-full w-[34%] rounded-[inherit] bg-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_10%,transparent)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_8%,transparent)]" />
+        <div className="tracker-stat-ghost-fill" />
       </div>
     </div>
   );
@@ -152,13 +151,13 @@ function StatBar({
           : "grid-cols-[minmax(0,1fr)_max-content]";
   const valueGroupClass = cn(
     "flex shrink-0 items-baseline justify-end gap-0 whitespace-nowrap tabular-nums text-[color:var(--tracker-profile-number-text)]",
-    isInstrument && "text-[color:color-mix(in_srgb,var(--tracker-profile-number-text)_90%,var(--foreground)_10%)]",
+    isInstrument && "tracker-stat-value-group--instrument",
     numberClass,
   );
   const valueInputClass = cn("min-w-0 px-0 py-0 text-right tabular-nums", numberClass);
   const statBarContainerClass = isInstrument
     ? cn(
-        "relative isolate overflow-hidden rounded-[4px] border border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_34%,transparent)] bg-[image:var(--tracker-profile-field-material)] text-[color:var(--tracker-profile-text)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_5%,transparent),inset_0_-5px_10px_color-mix(in_srgb,var(--background)_22%,transparent)] transition-colors [background-blend-mode:var(--tracker-profile-field-material-blend)] before:pointer-events-none before:absolute before:inset-x-1 before:top-0 before:h-px before:bg-[linear-gradient(90deg,transparent,color-mix(in_srgb,var(--tracker-profile-dialogue-border)_48%,transparent)_48%,transparent)] before:opacity-70 before:content-[''] after:pointer-events-none after:absolute after:bottom-px after:right-1 after:h-px after:w-[40%] after:bg-[linear-gradient(90deg,transparent,color-mix(in_srgb,var(--tracker-profile-accent-solid)_32%,transparent)_48%,transparent)] after:opacity-[var(--tracker-profile-accent-highlight-opacity,0.28)] after:[mask-image:linear-gradient(90deg,transparent_0%,black_22%,black_86%,transparent_100%)] after:content-[''] hover:border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_44%,transparent)]",
+        "tracker-stat-row--instrument",
         wideColumnCell ? "px-1" : "px-1.5",
         isTight ? "px-1 py-0.5" : "py-1",
       )
@@ -166,14 +165,10 @@ function StatBar({
         "border-b border-[var(--tracker-profile-row-rule)] last:border-b-0",
         isTight ? "py-0" : isCompact ? "py-px" : isRoomy ? "py-1" : "py-0.5",
       );
-  const statTrackClass = isInstrument
-    ? "relative isolate shrink-0 overflow-hidden bg-transparent ring-1 ring-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_34%,transparent)] shadow-[inset_0_1px_2px_color-mix(in_srgb,var(--background)_46%,transparent)]"
-    : "relative isolate shrink-0 overflow-hidden bg-[image:var(--tracker-profile-stat-track)] ring-1 ring-[var(--tracker-profile-stat-track-ring)] shadow-[inset_0_1px_2px_var(--tracker-profile-stat-track-shadow)] [background-blend-mode:var(--tracker-profile-stat-track-blend)]";
+  const statTrackClass = isInstrument ? "tracker-stat-track--instrument" : "tracker-stat-track--plain";
   const statFillClass = cn(
-    "h-full rounded-[inherit] bg-[var(--primary)] transition-[width] duration-200",
-    isInstrument
-      ? "shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_28%,transparent),0_0_6px_color-mix(in_srgb,var(--primary)_34%,transparent)]"
-      : "shadow-[inset_0_1px_0_var(--tracker-profile-stat-fill-highlight),0_0_7px_var(--tracker-profile-stat-fill-glow)]",
+    "tracker-stat-fill",
+    isInstrument ? "tracker-stat-fill--instrument" : "tracker-stat-fill--plain",
   );
 
   return (
@@ -225,17 +220,13 @@ function StatBar({
         {onUpdateValue && onUpdateMax ? (
           <div className={valueGroupClass}>
             <InlineNumber value={stat.value} onChange={onUpdateValue} title="Value" className={valueInputClass} />
-            <span className="px-px text-[color:color-mix(in_srgb,var(--tracker-profile-number-text)_58%,transparent)]">
-              /
-            </span>
+            <span className="tracker-stat-value-separator">/</span>
             <InlineNumber value={stat.max} onChange={onUpdateMax} min={0} title="Max" className={valueInputClass} />
           </div>
         ) : (
           <div className={valueGroupClass} title={`${stat.value} / ${stat.max}`}>
             <span>{stat.value}</span>
-            <span className="px-px text-[color:color-mix(in_srgb,var(--tracker-profile-number-text)_58%,transparent)]">
-              /
-            </span>
+            <span className="tracker-stat-value-separator">/</span>
             <span>{stat.max}</span>
           </div>
         )}
@@ -244,7 +235,7 @@ function StatBar({
             type="button"
             onClick={onRemove}
             disabled={!onRemove}
-            className="flex h-4 w-4 items-center justify-center rounded text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 disabled:opacity-0"
+            className="tracker-stat-remove-button"
             title={`Remove ${visibleText(stat.name, "stat")}`}
             aria-label={`Remove ${visibleText(stat.name, "stat")}`}
           >

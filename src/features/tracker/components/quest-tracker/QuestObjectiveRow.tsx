@@ -24,7 +24,7 @@ export function QuestObjectiveRow({
   return (
     <div
       className={cn(
-        "relative grid min-h-4 items-center gap-1 rounded-[2px] px-0.5 text-[0.6875rem] leading-4 transition-colors hover:bg-[var(--accent)]/14",
+        "tracker-quest-objective-row",
         objectiveGridColumns,
       )}
     >
@@ -33,8 +33,8 @@ export function QuestObjectiveRow({
           type="button"
           onClick={onToggle}
           className={cn(
-            "flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--primary)]/10 hover:text-emerald-300",
-            objective.completed && "text-emerald-300",
+            "tracker-quest-objective-row__toggle",
+            objective.completed && "tracker-quest-objective-row__toggle--completed",
           )}
           title={objective.completed ? "Mark incomplete" : "Mark complete"}
           aria-label={objective.completed ? "Mark objective incomplete" : "Mark objective complete"}
@@ -42,9 +42,13 @@ export function QuestObjectiveRow({
           {objective.completed ? <CheckCircle2 size="0.6875rem" /> : <Circle size="0.6875rem" />}
         </button>
       ) : objective.completed ? (
-        <CheckCircle2 size="0.6875rem" className="shrink-0 text-emerald-300" />
+        <span className="tracker-quest-objective-row__status tracker-quest-objective-row__status--completed">
+          <CheckCircle2 size="0.6875rem" />
+        </span>
       ) : (
-        <Circle size="0.6875rem" className="shrink-0 text-[var(--muted-foreground)]" />
+        <span className="tracker-quest-objective-row__status">
+          <Circle size="0.6875rem" />
+        </span>
       )}
       {onUpdate ? (
         <InlineEdit
@@ -54,15 +58,15 @@ export function QuestObjectiveRow({
           title={`Objective: ${visibleText(objective.text, "Objective")}`}
           showEditHint={false}
           className={cn(
-            "h-4 w-full min-w-0 overflow-hidden px-0.5 py-0 text-[0.6875rem] leading-4 hover:bg-[var(--accent)]/20",
-            objective.completed && "line-through opacity-60",
+            "tracker-quest-objective-row__edit",
+            objective.completed && "tracker-quest-objective-row__edit--completed",
           )}
         />
       ) : (
         <span
           className={cn(
-            "min-w-0 truncate",
-            objective.completed ? "text-[var(--muted-foreground)] line-through" : "text-[var(--foreground)]",
+            "tracker-quest-objective-row__text",
+            objective.completed && "tracker-quest-objective-row__text--completed",
           )}
         >
           {visibleText(objective.text, "Objective")}
@@ -72,7 +76,7 @@ export function QuestObjectiveRow({
         <button
           type="button"
           onClick={onRemove}
-          className="flex h-4 w-4 items-center justify-center rounded-sm text-[var(--destructive)] transition-all hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] active:scale-90"
+          className="tracker-quest-objective-row__remove"
           title="Remove objective"
           aria-label="Remove objective"
         >
