@@ -63,7 +63,7 @@ export function RangeControl({
 export function ToggleControl({ label, checked, disabled, onChange, title }: ToggleControlProps) {
   return (
     <label
-      className="flex min-w-fit items-center gap-2 whitespace-nowrap rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs font-medium text-[var(--foreground)]"
+      className="flex min-w-fit items-center gap-2 whitespace-nowrap rounded-lg bg-(--secondary) px-3 py-2 text-xs font-medium text-(--foreground)"
       title={title}
     >
       <input
@@ -71,7 +71,7 @@ export function ToggleControl({ label, checked, disabled, onChange, title }: Tog
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
         disabled={disabled}
-        className="h-4 w-4 accent-[var(--primary)] disabled:opacity-50"
+        className="h-4 w-4 accent-(--primary) disabled:opacity-50"
       />
       {label}
     </label>

@@ -418,18 +418,15 @@ export function useSpriteCleanupEditor({ imageUrl, applying, onApply }: UseSprit
   }, []);
 
   const handleUndo = useCallback(() => {
-    setHistory((prev) => {
-      const previous = prev[prev.length - 1];
-      if (!previous) return prev;
+    const previous = history[history.length - 1];
+    if (!previous) return;
 
-      restoreImageData(previous);
-      const nextHistory = prev.slice(0, -1);
-      setHasChanges(!imageDataEquals(previous, originalImageRef.current));
-      setStatus("Undo applied");
-      setError(null);
-      return nextHistory;
-    });
-  }, [restoreImageData]);
+    setHistory(history.slice(0, -1));
+    restoreImageData(previous);
+    setHasChanges(!imageDataEquals(previous, originalImageRef.current));
+    setStatus("Undo applied");
+    setError(null);
+  }, [history, restoreImageData]);
 
   const handleReset = useCallback(() => {
     if (!originalImageRef.current) return;
