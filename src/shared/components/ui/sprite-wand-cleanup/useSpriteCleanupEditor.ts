@@ -78,11 +78,19 @@ export function useSpriteCleanupEditor({ imageUrl, applying, onApply }: UseSprit
   const [zoom, setZoom] = useState(1);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [hoverPoint, setHoverPoint] = useState<HoverPoint | null>(null);
-  const [history, setHistory] = useState<ImageData[]>([]);
+  const [history, setHistoryState] = useState<ImageData[]>([]);
+  // Keep undo history synchronous for repeated undo clicks before React re-renders.
+  const historyRef = useRef<ImageData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+
+  const setHistory = useCallback((update: ImageData[] | ((prev: ImageData[]) => ImageData[])) => {
+    const next = typeof update === "function" ? update(historyRef.current) : update;
+    historyRef.current = next;
+    setHistoryState(next);
+  }, []);
 
   const putCurrentImage = useCallback(() => {
     const canvas = canvasRef.current;
@@ -164,7 +172,7 @@ export function useSpriteCleanupEditor({ imageUrl, applying, onApply }: UseSprit
       cancelled = true;
       if (frameId !== null) cancelAnimationFrame(frameId);
     };
-  }, [fitCanvasToStage, imageUrl, restoreImageData]);
+  }, [fitCanvasToStage, imageUrl, restoreImageData, setHistory]);
 
   const updateHoverPoint = useCallback((event: PointerEvent<HTMLCanvasElement>): CanvasPoint | null => {
     const point = canvasPointFromClient(canvasRef.current, event.clientX, event.clientY);
@@ -181,7 +189,7 @@ export function useSpriteCleanupEditor({ imageUrl, applying, onApply }: UseSprit
 
   const pushHistory = useCallback((snapshot: ImageData) => {
     setHistory((prev) => [...prev.slice(Math.max(0, prev.length - MAX_HISTORY + 1)), snapshot]);
-  }, []);
+  }, [setHistory]);
 
   const applyWandAtPoint = useCallback(
     (point: CanvasPoint) => {
@@ -418,15 +426,15 @@ export function useSpriteCleanupEditor({ imageUrl, applying, onApply }: UseSprit
   }, []);
 
   const handleUndo = useCallback(() => {
-    const previous = history[history.length - 1];
+    const previous = historyRef.current[historyRef.current.length - 1];
     if (!previous) return;
 
-    setHistory(history.slice(0, -1));
+    setHistory(historyRef.current.slice(0, -1));
     restoreImageData(previous);
     setHasChanges(!imageDataEquals(previous, originalImageRef.current));
     setStatus("Undo applied");
     setError(null);
-  }, [history, restoreImageData]);
+  }, [restoreImageData, setHistory]);
 
   const handleReset = useCallback(() => {
     if (!originalImageRef.current) return;
@@ -435,7 +443,7 @@ export function useSpriteCleanupEditor({ imageUrl, applying, onApply }: UseSprit
     setHasChanges(false);
     setStatus("Reset");
     setError(null);
-  }, [restoreImageData]);
+  }, [restoreImageData, setHistory]);
 
   const handleResetWandDefaults = useCallback(() => {
     setTolerance(DEFAULT_TOLERANCE);
