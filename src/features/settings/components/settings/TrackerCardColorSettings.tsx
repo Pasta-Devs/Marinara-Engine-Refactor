@@ -434,8 +434,6 @@ export function TrackerCardColorSettings() {
           ...characterData,
           extensions: nextExtensions,
         },
-        skipVersionSnapshot: true,
-        versionSource: "settings-tracker-card-colors",
       });
     },
     [queryClient, updateCharacter, updatePersona],
