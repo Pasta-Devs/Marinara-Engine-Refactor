@@ -554,9 +554,18 @@ export function getTrackerCardPortraitView(
   defaults: Partial<TrackerCardPortraitView> = {},
 ): TrackerCardPortraitView {
   return {
-    x: getClampedFinishValue(config?.portraitFocusX) ?? defaults.x ?? DEFAULT_TRACKER_CARD_PORTRAIT_FOCUS_X,
-    y: getClampedPortraitFocusYValue(config?.portraitFocusY) ?? defaults.y ?? DEFAULT_TRACKER_CARD_PORTRAIT_FOCUS_Y,
-    zoom: getClampedPortraitZoomValue(config?.portraitZoom) ?? defaults.zoom ?? DEFAULT_TRACKER_CARD_PORTRAIT_ZOOM,
+    x:
+      getClampedFinishValue(config?.portraitFocusX) ??
+      getClampedFinishValue(defaults.x) ??
+      DEFAULT_TRACKER_CARD_PORTRAIT_FOCUS_X,
+    y:
+      getClampedPortraitFocusYValue(config?.portraitFocusY) ??
+      getClampedPortraitFocusYValue(defaults.y) ??
+      DEFAULT_TRACKER_CARD_PORTRAIT_FOCUS_Y,
+    zoom:
+      getClampedPortraitZoomValue(config?.portraitZoom) ??
+      getClampedPortraitZoomValue(defaults.zoom) ??
+      DEFAULT_TRACKER_CARD_PORTRAIT_ZOOM,
   };
 }
 

@@ -13,7 +13,7 @@ export function trackerStatStackHeight(statCount: number, density: TrackerStatDe
   );
 }
 
-export function getPersonaStatDensity(
+function selectStatDensity(
   statCount: number,
   includeAdd: boolean,
   allowance = FEATURED_CHARACTER_PORTRAIT_STAGE_REM,
@@ -23,14 +23,20 @@ export function getPersonaStatDensity(
   return "tight";
 }
 
+export function getPersonaStatDensity(
+  statCount: number,
+  includeAdd: boolean,
+  allowance = FEATURED_CHARACTER_PORTRAIT_STAGE_REM,
+): TrackerStatDensity {
+  return selectStatDensity(statCount, includeAdd, allowance);
+}
+
 export function getFeaturedCharacterStatDensity(
   statCount: number,
   includeAdd: boolean,
   allowance = FEATURED_CHARACTER_PORTRAIT_STAGE_REM,
 ): TrackerStatDensity {
-  if (trackerStatStackHeight(statCount, "normal", includeAdd) <= allowance) return "normal";
-  if (trackerStatStackHeight(statCount, "compact", includeAdd) <= allowance) return "compact";
-  return "tight";
+  return selectStatDensity(statCount, includeAdd, allowance);
 }
 
 export function getTrackerStatDisplayScale(

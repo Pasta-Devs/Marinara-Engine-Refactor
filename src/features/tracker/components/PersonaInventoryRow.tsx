@@ -17,6 +17,8 @@ export function PersonaInventoryRow({
   deleteMode: boolean;
   fullWidth?: boolean;
 }) {
+  const removeLabel = `Remove ${visibleText(item.name, "item")}`;
+
   return (
     <div
       className={cn(
@@ -50,8 +52,8 @@ export function PersonaInventoryRow({
           type="button"
           onClick={onRemove}
           className="absolute right-0.5 top-1/2 flex h-3.5 w-3.5 -translate-y-1/2 items-center justify-center rounded text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10"
-          title={`Remove ${item.name}`}
-          aria-label={`Remove ${item.name}`}
+          title={removeLabel}
+          aria-label={removeLabel}
         >
           <X size="0.65rem" />
         </button>

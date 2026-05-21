@@ -89,18 +89,35 @@ function removeKeyedTrackerListItem<T>(
   return latestIndex === null ? [...latestItems] : removeTrackerListItem(latestItems, latestIndex);
 }
 
-function getRemovedListIndex<T>(previousItems: readonly T[], nextItems: readonly T[]) {
+function isSameListItem<T>(previousItem: T | undefined, nextItem: T | undefined, getKey?: TrackerItemKeyGetter<T>) {
+  if (!getKey) return previousItem === nextItem;
+
+  const previousKey = getKey(previousItem);
+  const nextKey = getKey(nextItem);
+  if (previousKey || nextKey) return previousKey === nextKey;
+  return previousItem === nextItem;
+}
+
+function getRemovedListIndex<T>(
+  previousItems: readonly T[],
+  nextItems: readonly T[],
+  getKey?: TrackerItemKeyGetter<T>,
+) {
   if (nextItems.length !== previousItems.length - 1) return null;
   for (let index = 0; index < previousItems.length; index += 1) {
-    if (previousItems[index] !== nextItems[index]) return index;
+    if (!isSameListItem(previousItems[index], nextItems[index], getKey)) return index;
   }
   return previousItems.length - 1;
 }
 
-function getAppendedListItem<T>(previousItems: readonly T[], nextItems: readonly T[]) {
+function getAppendedListItem<T>(
+  previousItems: readonly T[],
+  nextItems: readonly T[],
+  getKey?: TrackerItemKeyGetter<T>,
+) {
   if (nextItems.length !== previousItems.length + 1) return null;
   for (let index = 0; index < previousItems.length; index += 1) {
-    if (previousItems[index] !== nextItems[index]) return null;
+    if (!isSameListItem(previousItems[index], nextItems[index], getKey)) return null;
   }
   return nextItems[nextItems.length - 1];
 }
@@ -173,10 +190,10 @@ function mergeKeyedTrackerListUpdate<T extends object>(
   getKey: TrackerItemKeyGetter<T>,
   mergeItem: TrackerItemMerger<T>,
 ): T[] {
-  const removedIndex = getRemovedListIndex(previousItems, nextItems);
+  const removedIndex = getRemovedListIndex(previousItems, nextItems, getKey);
   if (removedIndex !== null) return removeKeyedTrackerListItem(previousItems, latestItems, removedIndex, getKey);
 
-  const appendedItem = getAppendedListItem(previousItems, nextItems);
+  const appendedItem = getAppendedListItem(previousItems, nextItems, getKey);
   if (appendedItem) return appendTrackerListItem(latestItems, appendedItem);
 
   if (nextItems.length !== previousItems.length) return [...nextItems];

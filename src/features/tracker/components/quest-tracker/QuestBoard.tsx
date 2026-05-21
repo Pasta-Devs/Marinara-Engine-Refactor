@@ -20,8 +20,8 @@ export function QuestBoard({
   quests: QuestProgress[];
   action?: ReactNode;
   onAddQuest: () => void;
-  onUpdateQuest: (index: number, quest: QuestProgress) => void;
-  onRemoveQuest: (index: number) => void;
+  onUpdateQuest: (questEntryId: string, quest: QuestProgress) => void;
+  onRemoveQuest: (questEntryId: string) => void;
   deleteMode: boolean;
   addMode: boolean;
   collapsed?: boolean;
@@ -52,12 +52,12 @@ export function QuestBoard({
           </div>
         ) : (
           <div className={cn("relative grid gap-0.5 pt-0.5", quests.length > 1 && "@min-[380px]:grid-cols-2")}>
-            {quests.map((quest, index) => (
+            {quests.map((quest) => (
               <QuestRow
-                key={`${quest.questEntryId}-${index}`}
+                key={quest.questEntryId}
                 quest={quest}
-                onUpdate={(updated) => onUpdateQuest(index, updated)}
-                onRemove={() => onRemoveQuest(index)}
+                onUpdate={(updated) => onUpdateQuest(quest.questEntryId, updated)}
+                onRemove={() => onRemoveQuest(quest.questEntryId)}
                 deleteMode={deleteMode}
                 addMode={addMode}
               />

@@ -24,6 +24,10 @@ import {
 } from "../../world-state/lib/tracker-state-edits";
 import { getCharacterFeatureKey } from "../components/tracker-character.helpers";
 
+function getQuestIndexByEntryId(quests: readonly QuestProgress[], questEntryId: string) {
+  return quests.findIndex((quest) => quest.questEntryId === questEntryId);
+}
+
 export function useTrackerMutations({
   activeChatId,
   agentConfigLookupEnabled,
@@ -100,7 +104,7 @@ export function useTrackerMutations({
   const removeCharacter = useCallback(
     (index: number) => {
       const latestCharacters = getLatestPresentCharacters();
-      const removed = presentCharacters[index] ?? latestCharacters[index];
+      const removed = latestCharacters[index] ?? presentCharacters[index];
       if (removed) removeFeaturedCharacterCard(getCharacterFeatureKey(removed, index));
       updatePresentCharacters(removePresentCharacterListItem(presentCharacters, latestCharacters, index));
     },
@@ -140,15 +144,29 @@ export function useTrackerMutations({
   );
 
   const updateQuest = useCallback(
-    (index: number, quest: QuestProgress) => {
-      updateQuests(mergeQuestProgressListItemUpdate(quests, getLatestQuests(), index, quest));
+    (questEntryId: string, quest: QuestProgress) => {
+      const latestQuests = getLatestQuests();
+      const index = getQuestIndexByEntryId(quests, questEntryId);
+      if (index !== -1) {
+        updateQuests(mergeQuestProgressListItemUpdate(quests, latestQuests, index, quest));
+        return;
+      }
+      if (getQuestIndexByEntryId(latestQuests, questEntryId) === -1) return;
+      updateQuests(latestQuests.map((current) => (current.questEntryId === questEntryId ? quest : current)));
     },
     [getLatestQuests, quests, updateQuests],
   );
 
   const removeQuest = useCallback(
-    (index: number) => {
-      updateQuests(removeQuestProgressListItem(quests, getLatestQuests(), index));
+    (questEntryId: string) => {
+      const latestQuests = getLatestQuests();
+      const index = getQuestIndexByEntryId(quests, questEntryId);
+      if (index !== -1) {
+        updateQuests(removeQuestProgressListItem(quests, latestQuests, index));
+        return;
+      }
+      if (getQuestIndexByEntryId(latestQuests, questEntryId) === -1) return;
+      updateQuests(latestQuests.filter((current) => current.questEntryId !== questEntryId));
     },
     [getLatestQuests, quests, updateQuests],
   );

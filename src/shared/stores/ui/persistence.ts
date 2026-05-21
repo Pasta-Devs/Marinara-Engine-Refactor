@@ -1,5 +1,6 @@
 import { createJSONStorage } from "zustand/middleware";
 import {
+  normalizeTrackerPanelSectionOrder,
   normalizeTrackerPanelSizeProfile,
   normalizeTrackerTemperatureUnit,
   normalizeTrackerThoughtBubbleDisplay,
@@ -166,6 +167,7 @@ export function migrateUiState(persistedState: unknown): Partial<UIState> {
     legacyWidth,
   );
   persisted.trackerTemperatureUnit = normalizeTrackerTemperatureUnit(persisted.trackerTemperatureUnit);
+  persisted.trackerPanelSectionOrder = normalizeTrackerPanelSectionOrder(persisted.trackerPanelSectionOrder);
   delete persisted.trackerPanelWidth;
 
   return persisted;

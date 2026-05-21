@@ -65,7 +65,7 @@ export function getWorldDashboardGridClass(
   if (forecastNeed >= locationNeed + 4) {
     return hasFreeformDate ? WORLD_FREEFORM_DATE_GRID_FORECAST_HEAVY_CLASS : WORLD_GRID_FORECAST_HEAVY_CLASS;
   }
-  if (locationNeed >= forecastNeed + 6) {
+  if (hasLocation && locationNeed >= forecastNeed + 6) {
     return hasFreeformDate ? WORLD_FREEFORM_DATE_GRID_LOCATION_HEAVY_CLASS : WORLD_GRID_LOCATION_HEAVY_CLASS;
   }
   return hasFreeformDate ? WORLD_FREEFORM_DATE_GRID_BALANCED_CLASS : WORLD_GRID_BALANCED_CLASS;

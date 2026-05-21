@@ -136,6 +136,14 @@ type WorldWeatherLabelPlan =
       minScale: number;
     };
 
+function scoreWeatherLines(lines: string[]) {
+  const lengths = lines.map((line) => line.length);
+  const longest = Math.max(...lengths);
+  const shortest = Math.min(...lengths);
+  const isolatedTinyWordPenalty = lines.some((line) => line.length <= 3 && !line.includes(" ")) ? 8 : 0;
+  return longest * 2 + (longest - shortest) + isolatedTinyWordPenalty;
+}
+
 function getBalancedWeatherLines(text: string, lineCount: 2 | 3) {
   const words = text.split(/\s+/).filter(Boolean);
   if (words.length <= 1) return [text];
@@ -159,15 +167,7 @@ function getBalancedWeatherLines(text: string, lineCount: 2 | 3) {
   }
 
   return candidates.reduce((best, candidate) => {
-    const scoreLines = (lines: string[]) => {
-      const lengths = lines.map((line) => line.length);
-      const longest = Math.max(...lengths);
-      const shortest = Math.min(...lengths);
-      const isolatedTinyWordPenalty = lines.some((line) => line.length <= 3 && !line.includes(" ")) ? 8 : 0;
-      return longest * 2 + (longest - shortest) + isolatedTinyWordPenalty;
-    };
-
-    return scoreLines(candidate) < scoreLines(best) ? candidate : best;
+    return scoreWeatherLines(candidate) < scoreWeatherLines(best) ? candidate : best;
   }, candidates[0] ?? [text]);
 }
 
@@ -270,7 +270,8 @@ function WorldThermometerGauge({
   display: ReturnType<typeof getTemperatureGaugeDisplay>;
   variant?: "compact" | "expanded";
 }) {
-  const fillRatio = display.percent / 100;
+  const clampedPercent = Number.isFinite(display.percent) ? Math.min(100, Math.max(0, display.percent)) : 0;
+  const fillRatio = clampedPercent / 100;
   return (
     <svg
       viewBox="0 0 10 20"
