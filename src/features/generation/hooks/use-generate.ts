@@ -27,7 +27,7 @@ import { useAgentStore, type PendingCardUpdate } from "../../../shared/stores/ag
 import { useChatStore } from "../../../shared/stores/chat.store";
 import { useUIStore } from "../../../shared/stores/ui.store";
 import { useGameStateStore } from "../../world-state/stores/world-state.store";
-import { worldStateApi } from "../../world-state/api/world-state-api";
+import { worldStateApi, type WorldStateTarget } from "../../world-state/api/world-state-api";
 import { chatKeys } from "../../chats/hooks/use-chats";
 import { characterKeys } from "../../characters/hooks/use-characters";
 import {
@@ -449,6 +449,33 @@ function readNumber(value: unknown, fallback: number): number {
   return fallback;
 }
 
+function readNonNegativeInteger(value: unknown, fallback: number): number {
+  const parsed = readNumber(value, fallback);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function trackerTargetFromMessagePayload(value: unknown): WorldStateTarget | null {
+  const record = parseMaybeRecord(value);
+  const messageId = readString(record.id).trim();
+  if (!messageId) return null;
+  const fallbackSwipeIndex = Math.max(0, readNonNegativeInteger(record.swipeCount, 1) - 1);
+  return {
+    messageId,
+    swipeIndex: readNonNegativeInteger(record.activeSwipeIndex, fallbackSwipeIndex),
+  };
+}
+
+async function refreshGameStateFromStorage(chatId: string, target?: WorldStateTarget | null) {
+  try {
+    const state = target ? await worldStateApi.get(chatId, target) : await worldStateApi.get(chatId);
+    if (useChatStore.getState().activeChatId === chatId) {
+      useGameStateStore.getState().setGameState(state ?? null);
+    }
+  } catch (error) {
+    console.warn("Failed to refresh tracker game state", error);
+  }
+}
+
 function parseStat(value: unknown): CharacterStat | null {
   const record = parseMaybeRecord(value);
   const name = readString(record.name).trim();
@@ -566,7 +593,7 @@ async function applyTrackerResultToGameState(chatId: string, result: AgentResult
   store.setGameState({ ...previous, ...patch } as GameState);
 
   try {
-    const saved = await worldStateApi.patch(chatId, patch);
+    const saved = await worldStateApi.patch(chatId, { ...patch, targetVisible: false });
     if (useGameStateStore.getState().current?.chatId === chatId) {
       useGameStateStore.getState().setGameState(saved);
     }
@@ -720,9 +747,14 @@ export async function runGenerationWithUi(
           break;
         case "message":
         case "user_message":
+          if (event.data && typeof event.data === "object") {
+            await queryClient.invalidateQueries({ queryKey: ["chats"] });
+          }
+          break;
         case "assistant_message":
           if (event.data && typeof event.data === "object") {
             await queryClient.invalidateQueries({ queryKey: ["chats"] });
+            await refreshGameStateFromStorage(chatId, trackerTargetFromMessagePayload(event.data));
           }
           break;
         case "agent_result":
@@ -851,6 +883,7 @@ export function useGenerate() {
         for (const result of results) {
           await applyAgentResultEffects(queryClient, chatId, result);
         }
+        await refreshGameStateFromStorage(chatId);
         useAgentStore.getState().clearFailedAgentTypes();
         await queryClient.invalidateQueries({ queryKey: ["agents"] });
         await queryClient.invalidateQueries({ queryKey: ["chats"] });

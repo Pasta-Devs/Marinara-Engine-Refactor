@@ -31,7 +31,7 @@ pub(crate) fn save_tracker_snapshot(
 ) -> AppResult<Value> {
     let mut snapshot = normalize_tracker_snapshot(chat_id, body)?;
     let message_id =
-        required_message_id(string_value(&snapshot, "messageId").as_deref())?.to_string();
+        tracker_message_id(string_value(&snapshot, "messageId").as_deref())?.to_string();
     let swipe_index = parse_swipe_index(snapshot.get("swipeIndex"))?;
     let mut existing = tracker_snapshots_for_target(state, chat_id, &message_id, swipe_index)?;
     sort_newest_first(&mut existing);
@@ -81,7 +81,7 @@ fn tracker_snapshots_for_target(
     swipe_index: i64,
 ) -> AppResult<Vec<Value>> {
     let chat_id = required_chat_id(chat_id)?;
-    let message_id = required_message_id(Some(message_id))?;
+    let message_id = tracker_message_id(Some(message_id))?;
     let swipe_index = swipe_index.max(0);
     let mut filters = Map::new();
     filters.insert("chatId".to_string(), Value::String(chat_id.to_string()));
@@ -111,7 +111,7 @@ fn normalize_tracker_snapshot(chat_id: &str, body: Value) -> AppResult<Map<Strin
     }
 
     let message_id =
-        required_message_id(incoming.get("messageId").and_then(Value::as_str))?.to_string();
+        tracker_message_id(incoming.get("messageId").and_then(Value::as_str))?.to_string();
     let swipe_index = parse_swipe_index(incoming.get("swipeIndex"))?;
 
     let mut snapshot = Map::new();
@@ -164,12 +164,10 @@ fn required_chat_id(chat_id: &str) -> AppResult<&str> {
     Ok(chat_id)
 }
 
-fn required_message_id(message_id: Option<&str>) -> AppResult<&str> {
-    let message_id = message_id.unwrap_or("").trim();
-    if message_id.is_empty() {
-        return Err(AppError::invalid_input("messageId is required"));
-    }
-    Ok(message_id)
+fn tracker_message_id(message_id: Option<&str>) -> AppResult<&str> {
+    message_id
+        .map(str::trim)
+        .ok_or_else(|| AppError::invalid_input("messageId is required"))
 }
 
 fn non_empty_string<'a>(row: &'a Value, key: &str) -> Option<&'a str> {
@@ -424,15 +422,29 @@ mod tests {
     }
 
     #[test]
-    fn normalize_tracker_snapshot_requires_message_id() {
-        let error = normalize_tracker_snapshot(
+    fn normalize_tracker_snapshot_allows_bootstrap_message_id() {
+        let snapshot = normalize_tracker_snapshot(
             "chat-1",
             json!({
                 "chatId": "chat-1",
                 "messageId": "  "
             }),
         )
-        .expect_err("message id should be required");
+        .expect("empty message id is the bootstrap tracker target");
+
+        assert_eq!(snapshot["messageId"], "");
+        assert_eq!(snapshot["swipeIndex"], json!(0));
+    }
+
+    #[test]
+    fn normalize_tracker_snapshot_requires_message_id_field() {
+        let error = normalize_tracker_snapshot(
+            "chat-1",
+            json!({
+                "chatId": "chat-1"
+            }),
+        )
+        .expect_err("message id field should be present");
 
         assert_eq!(error.code, "invalid_input");
     }

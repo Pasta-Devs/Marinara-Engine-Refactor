@@ -1,4 +1,5 @@
 import type { AgentResult } from "../contracts/types/agent";
+import type { GameState } from "../contracts/types/game-state";
 import type { EventGateway } from "../capabilities/events";
 import type { IntegrationGateway } from "../capabilities/integrations";
 import type { LlmGateway, LlmMessage } from "../capabilities/llm";
@@ -11,6 +12,10 @@ import {
   appendReadableAttachmentsToContent,
   extractImageAttachmentDataUrls,
   getAttachmentFilename,
+  resolveRegenerationGameStateAnchor,
+  resolveRegenerationGameStateFallbackMessageIds,
+  resolveVisibleGameStateAnchor,
+  shouldPreferLatestVisibleGameState,
   type PromptAttachment,
 } from "./generate-route-utils";
 import type { GenerationEvent } from "./generation-events";
@@ -19,6 +24,14 @@ import { assembleGenerationPrompt } from "./prompt-assembly";
 import type { GenerationCharacterContext } from "./prompt-assembly";
 import { applyRuntimeRegexScripts } from "./regex-runtime";
 import { hiddenFromAi, isRecord, nowIso, readString, stringArray, type JsonRecord } from "./runtime-records";
+import {
+  commitTrackerSnapshotForTarget,
+  createTrackerSnapshotReadContext,
+  getTrackerSnapshotForTarget,
+  persistTrackerSnapshotForTurn,
+  selectTrackerSnapshotForGeneration,
+  trackerSnapshotTargetFromMessage,
+} from "./tracker-snapshots";
 
 export interface StartGenerationInput extends JsonRecord {
   chatId: string;
@@ -97,12 +110,16 @@ async function prepareUserInput(storage: StorageGateway, input: StartGenerationI
   };
 }
 
+function shouldSaveUserMessage(input: StartGenerationInput, prepared: PreparedUserInput): boolean {
+  return !!prepared.content.trim() && input.impersonate !== true && !readString(input.regenerateMessageId).trim();
+}
+
 async function saveUserMessage(
   storage: StorageGateway,
   input: StartGenerationInput,
   prepared: PreparedUserInput,
 ): Promise<unknown | null> {
-  if (!prepared.content.trim() || input.impersonate === true || readString(input.regenerateMessageId).trim()) return null;
+  if (!shouldSaveUserMessage(input, prepared)) return null;
   const extra: Record<string, unknown> = {};
   if (prepared.attachments.length) extra.attachments = prepared.attachments;
   if (prepared.mentionedCharacterNames.length) extra.mentionedCharacterNames = prepared.mentionedCharacterNames;
@@ -277,6 +294,22 @@ async function persistAgentResults(
   }
 }
 
+async function persistTrackerSnapshotSafely(
+  storage: StorageGateway,
+  chatId: string,
+  targetMessage: unknown,
+  results: AgentResult[],
+  baseSnapshot?: GameState | null,
+): Promise<void> {
+  const target = trackerSnapshotTargetFromMessage(targetMessage);
+  if (!target) return;
+  try {
+    await persistTrackerSnapshotForTurn(storage, chatId, target, results, { baseSnapshot });
+  } catch (error) {
+    console.warn("[generation] tracker snapshot persist failed", error);
+  }
+}
+
 async function saveAssistantMessage(args: {
   storage: StorageGateway;
   chat: JsonRecord;
@@ -332,6 +365,42 @@ function targetAssistantMessage(messages: JsonRecord[], options: Record<string, 
   return [...messages].reverse().find((message) => readString(message.role) === "assistant") ?? null;
 }
 
+async function commitVisibleTrackerSnapshotSafely(
+  storage: StorageGateway,
+  chatId: string,
+  messages: JsonRecord[],
+): Promise<void> {
+  try {
+    await commitTrackerSnapshotForTarget(storage, chatId, resolveVisibleGameStateAnchor(messages));
+  } catch (error) {
+    console.warn("[generation] tracker snapshot commit failed", error);
+  }
+}
+
+async function selectGenerationTrackerBaseline(
+  storage: StorageGateway,
+  chatId: string,
+  input: StartGenerationInput,
+  prepared: PreparedUserInput,
+  storedMessages: JsonRecord[],
+): Promise<GameState | null> {
+  const regenerateMessageId = readString(input.regenerateMessageId).trim();
+  const visibleAnchor = regenerateMessageId
+    ? resolveRegenerationGameStateAnchor(storedMessages, regenerateMessageId)
+    : resolveVisibleGameStateAnchor(storedMessages);
+  return selectTrackerSnapshotForGeneration(storage, chatId, {
+    preferLatestVisible: shouldPreferLatestVisibleGameState({
+      attachments: prepared.attachments,
+      impersonate: input.impersonate,
+      regenerateMessageId,
+      userMessage: inputUserMessage(input),
+    }),
+    visibleAnchor,
+    excludeMessageId: regenerateMessageId || null,
+    fallbackMessageIds: resolveRegenerationGameStateFallbackMessageIds(storedMessages, regenerateMessageId),
+  });
+}
+
 export async function retryGenerationAgents(
   deps: GenerationEngineDeps,
   input: RetryAgentsInput,
@@ -345,8 +414,28 @@ export async function retryGenerationAgents(
   const chat = requireRecord(await deps.storage.get("chats", chatId), "Chat");
   const connection = await resolveGenerationConnection(deps.storage, chat, input);
   const storedMessages = await loadChatMessages(deps.storage, chatId);
+  const target = targetAssistantMessage(storedMessages, input.options);
+  const targetTrackerTarget = trackerSnapshotTargetFromMessage(target);
+  const trackerReadContext = await createTrackerSnapshotReadContext(deps.storage, chatId);
+  const retryBaseline = await selectTrackerSnapshotForGeneration(
+    deps.storage,
+    chatId,
+    {
+      preferLatestVisible: true,
+      visibleAnchor: targetTrackerTarget,
+      excludeMessageId: targetTrackerTarget?.messageId ?? null,
+    },
+    trackerReadContext,
+  );
+  const targetSnapshot = await getTrackerSnapshotForTarget(
+    deps.storage,
+    chatId,
+    targetTrackerTarget,
+    trackerReadContext,
+  );
+  const chatForAgents = targetSnapshot ?? retryBaseline ? { ...chat, gameState: targetSnapshot ?? retryBaseline } : chat;
   const assembly = await assembleGenerationPrompt(deps.storage, {
-    chat,
+    chat: chatForAgents,
     storedMessages,
     connection,
     request: input,
@@ -356,7 +445,7 @@ export async function retryGenerationAgents(
   const runtime = await createGenerationAgentRuntime(
     { storage: deps.storage, llm: deps.llm, integrations: deps.integrations },
     {
-      chat,
+      chat: chatForAgents,
       connection,
       storedMessages,
       characters: assembly.characters,
@@ -368,7 +457,6 @@ export async function retryGenerationAgents(
     },
     (result) => results.push(result),
   );
-  const target = targetAssistantMessage(storedMessages, input.options);
   const mainResponse = target ? readString(target.content) : "";
   results.push(...(await runtime.runParallel()));
   results.push(...(await runtime.runPost(mainResponse)));
@@ -378,6 +466,9 @@ export async function retryGenerationAgents(
     unique.set(resultKey(result), result);
   }
   const finalResults = [...unique.values()];
+  if (target) {
+    await persistTrackerSnapshotSafely(deps.storage, chatId, target, finalResults, retryBaseline);
+  }
   await persistAgentResults(deps.storage, chatId, target ? readString(target.id) || null : null, finalResults);
   return finalResults;
 }
@@ -392,12 +483,23 @@ export async function* startGeneration(
 
   yield { type: "phase", data: "Saving message..." };
   const preparedUserInput = await prepareUserInput(deps.storage, input);
+  if (shouldSaveUserMessage(input, preparedUserInput)) {
+    await commitVisibleTrackerSnapshotSafely(deps.storage, chatId, await loadChatMessages(deps.storage, chatId));
+  }
   const savedUserMessage = await saveUserMessage(deps.storage, input, preparedUserInput);
   if (savedUserMessage) yield { type: "user_message", data: savedUserMessage };
   const chat = requireRecord(await deps.storage.get("chats", chatId), "Chat");
   const connection = await resolveGenerationConnection(deps.storage, chat, input);
   const storedMessages = await loadChatMessages(deps.storage, chatId);
   const generationMessages = messagesBeforeRegenerationTarget(storedMessages, input.regenerateMessageId);
+  const generationTrackerBaseline = await selectGenerationTrackerBaseline(
+    deps.storage,
+    chatId,
+    input,
+    preparedUserInput,
+    storedMessages,
+  );
+  const chatForGeneration = generationTrackerBaseline ? { ...chat, gameState: generationTrackerBaseline } : chat;
   const directMessages = requestMessages(input);
   const agentEvents: AgentResult[] = [];
   const continueAssistantResponse = shouldContinueAssistantResponse(input, preparedUserInput, generationMessages);
@@ -405,7 +507,7 @@ export async function* startGeneration(
   yield { type: "phase", data: "Assembling prompt..." };
   let prompt = directMessages;
   let assembly = await assembleGenerationPrompt(deps.storage, {
-    chat,
+    chat: chatForGeneration,
     storedMessages: generationMessages,
     connection,
     request: input,
@@ -419,7 +521,7 @@ export async function* startGeneration(
       ? await createGenerationAgentRuntime(
           { storage: deps.storage, llm: deps.llm, integrations: deps.integrations },
           {
-            chat,
+            chat: chatForGeneration,
             connection,
             storedMessages: generationMessages,
             characters: assembly.characters,
@@ -437,7 +539,7 @@ export async function* startGeneration(
     agentEvents.length = 0;
 
     assembly = await assembleGenerationPrompt(deps.storage, {
-      chat,
+      chat: chatForGeneration,
       storedMessages: generationMessages,
       connection,
       request: input,
@@ -504,6 +606,7 @@ export async function* startGeneration(
           attachments: connected.assistantAttachments,
           usage,
         });
+    if (saved) await persistTrackerSnapshotSafely(deps.storage, chatId, saved, allAgentResults, generationTrackerBaseline);
     await persistAgentResults(deps.storage, chatId, messageId(saved), allAgentResults);
     if (saved) yield { type: "assistant_message", data: saved };
     yield { type: "done", data: { transcript: visibleTranscript(generationMessages) } };
@@ -552,12 +655,12 @@ export async function* startGeneration(
         chat,
         input,
         connection,
-      content: connected.displayContent,
-      agentResults: [],
-      noteCount: connected.createdNotes.length + connected.executedCommands.length,
-      attachments: connected.assistantAttachments,
-      usage,
-    });
+        content: connected.displayContent,
+        agentResults: [],
+        noteCount: connected.createdNotes.length + connected.executedCommands.length,
+        attachments: connected.assistantAttachments,
+        usage,
+      });
   if (saved) yield { type: "assistant_message", data: saved };
   yield { type: "done" };
 }

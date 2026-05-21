@@ -54,7 +54,7 @@ import { Modal } from "../../../shared/components/ui/Modal";
 import { useEncounter } from "../../encounter/hooks/use-encounter";
 import { useScene } from "../../roleplay/hooks/use-scene";
 import { useEncounterStore } from "../../../shared/stores/encounter.store";
-import { worldStateApi } from "../../world-state/api/world-state-api";
+import { worldStateApi, type WorldStateTarget } from "../../world-state/api/world-state-api";
 import { useTranslationStore } from "../../../shared/stores/translation.store";
 import { ttsService } from "../../../shared/lib/tts-service";
 import { useTTSConfig } from "../../../shared/hooks/use-tts";
@@ -659,10 +659,10 @@ export function ModeSurface() {
   const expressionAgentEnabled = enabledAgentTypes.has("expression");
   const shouldRefreshGameStateOnSwipe = isGameChat || Boolean(chatMeta.enableAgents);
 
-  const refreshVisibleGameState = useCallback(async () => {
+  const refreshVisibleGameState = useCallback(async (target?: WorldStateTarget | null) => {
     if (!shouldRefreshGameStateOnSwipe || !activeChatId) return;
     try {
-      const gs = await worldStateApi.get(activeChatId);
+      const gs = target ? await worldStateApi.get(activeChatId, target) : await worldStateApi.get(activeChatId);
       if (useChatStore.getState().activeChatId !== activeChatId) return;
       useGameStateStore.getState().setGameState(gs ?? null);
     } catch {
@@ -940,7 +940,7 @@ export function ModeSurface() {
             }
           }
           if (swipeActionSeq.current !== actionId) return;
-          await refreshVisibleGameState();
+          await refreshVisibleGameState({ messageId, swipeIndex: index });
         } catch {
           if (swipeActionSeq.current !== actionId) return;
           toast.error("Could not switch swipes.");

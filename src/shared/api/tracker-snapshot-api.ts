@@ -2,6 +2,7 @@ import type { GameState } from "../../engine/contracts/types/game-state";
 import { invokeTauri } from "./tauri-client";
 
 export interface TrackerSnapshotTarget {
+  /** Empty string is the bootstrap tracker target used before the first assistant message exists. */
   messageId: string;
   swipeIndex?: number;
 }
