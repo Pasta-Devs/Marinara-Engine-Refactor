@@ -38,6 +38,7 @@ interface TrackerCardColorControlsProps {
   chatColors: TrackerCardPaintColors;
   entityLabel: TrackerCardColorEntityLabel;
   previewName: string;
+  variant?: "full" | "compact";
   disabled?: boolean;
 }
 
@@ -353,6 +354,7 @@ export function TrackerCardColorControls({
   chatColors,
   entityLabel,
   previewName,
+  variant = "full",
   disabled = false,
 }: TrackerCardColorControlsProps) {
   const config = typeof value === "string" ? parseTrackerCardColorConfig(value) : cleanTrackerCardColorConfig(value);
@@ -412,6 +414,299 @@ export function TrackerCardColorControls({
   const updatePortraitStageBackground = (nextBackground: TrackerCardPortraitStageBackground) => {
     onChange(cleanTrackerCardColorConfig({ ...config, portraitStageBackground: nextBackground }));
   };
+
+  if (variant === "compact") {
+    return (
+      <div className={cn("rounded-xl border border-[var(--border)] bg-[var(--card)] p-2.5", disabled && "opacity-75")}>
+        <button
+          type="button"
+          onClick={() => setCollapsed((open) => !open)}
+          aria-expanded={!collapsed}
+          title={collapsed ? "Expand tracker card colors" : "Collapse tracker card colors"}
+          className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1 rounded-lg px-1 py-0.5 text-left transition-colors hover:bg-[var(--accent)]/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)]/60"
+        >
+          <h4 className="min-w-0 truncate text-xs font-semibold text-[var(--foreground)]">{entityLabel} card</h4>
+          <div className="flex shrink-0 items-center gap-1.5" aria-hidden="true">
+            <span
+              className={cn("h-4 w-4 rounded ring-1 ring-[var(--border)]", !paintEnabled.displayEnabled && "opacity-35")}
+              style={getDisplayStyle(effectiveColors.nameColor)}
+            />
+            <span
+              className={cn("h-4 w-4 rounded ring-1 ring-[var(--border)]", !paintEnabled.accentEnabled && "opacity-35")}
+              style={getDisplayStyle(effectiveColors.dialogueColor)}
+            />
+            <span
+              className={cn("h-4 w-4 rounded ring-1 ring-[var(--border)]", !paintEnabled.surfaceEnabled && "opacity-35")}
+              style={getDisplayStyle(effectiveColors.boxColor)}
+            />
+            <ChevronDown
+              size="0.875rem"
+              className={cn(
+                "ml-0.5 text-[var(--muted-foreground)] transition-transform duration-150",
+                collapsed && "-rotate-90",
+              )}
+            />
+          </div>
+          <p className="col-span-2 text-[0.625rem] text-[var(--muted-foreground)]">
+            {modeLabel}, {portraitStageBackgroundLabel.toLowerCase()} stage, finish M/G/C {finishSummary}.
+          </p>
+        </button>
+
+        {!collapsed && (
+          <div className="mt-2 space-y-2">
+            <div className="grid gap-1.5 rounded-lg bg-[var(--secondary)]/65 p-1.5 ring-1 ring-[var(--border)]/40">
+              <div className="grid min-w-0 gap-1">
+                <span className="px-0.5 text-[0.5625rem] font-semibold uppercase text-[var(--muted-foreground)]">
+                  Source
+                </span>
+                <div className="grid grid-cols-3 gap-0.5 rounded-md bg-[var(--background)]/35 p-0.5">
+                  {MODE_OPTIONS.map((option) => {
+                    const Icon = option.icon;
+                    const selected = option.mode === mode;
+                    return (
+                      <button
+                        key={option.mode}
+                        type="button"
+                        onClick={() => updateMode(option.mode)}
+                        disabled={disabled}
+                        className={cn(
+                          "flex min-h-6 min-w-0 items-center justify-center gap-1 rounded-sm px-1 text-[0.5625rem] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55",
+                          selected
+                            ? "bg-[var(--primary)]/12 text-[var(--primary)] ring-1 ring-[var(--primary)]/24"
+                            : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]/45 hover:text-[var(--foreground)]",
+                        )}
+                      >
+                        {selected ? <Check size="0.625rem" /> : <Icon size="0.625rem" />}
+                        <span className="truncate">{option.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid min-w-0 gap-1">
+                <span className="px-0.5 text-[0.5625rem] font-semibold uppercase text-[var(--muted-foreground)]">
+                  Stage
+                </span>
+                <div className="grid grid-cols-4 gap-0.5 rounded-md bg-[var(--background)]/35 p-0.5">
+                  {PORTRAIT_STAGE_BACKGROUND_OPTIONS.map((option) => {
+                    const Icon = option.icon;
+                    const selected = option.value === portraitStageBackground;
+
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        title={option.title}
+                        onClick={() => updatePortraitStageBackground(option.value)}
+                        disabled={disabled}
+                        className={cn(
+                          "flex min-h-6 min-w-0 items-center justify-center gap-1 rounded-sm px-1 text-[0.5625rem] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55",
+                          selected
+                            ? "bg-[var(--primary)]/12 text-[var(--primary)] ring-1 ring-[var(--primary)]/24"
+                            : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]/45 hover:text-[var(--foreground)]",
+                        )}
+                      >
+                        {selected ? <Check size="0.625rem" /> : <Icon size="0.625rem" />}
+                        <span className="truncate">{option.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-1.5 rounded-lg bg-[var(--secondary)]/65 p-1.5 ring-1 ring-[var(--border)]/40">
+              <div className="grid min-w-0 gap-1">
+                <span className="px-0.5 text-[0.5625rem] font-semibold uppercase text-[var(--muted-foreground)]">
+                  Finish
+                </span>
+                <div className="grid grid-cols-3 gap-0.5 rounded-md bg-[var(--background)]/35 p-0.5">
+                  {FINISH_PRESETS.map((preset) => {
+                    const selected =
+                      finish.materialBrightness === preset.finish.materialBrightness &&
+                      finish.glowIntensity === preset.finish.glowIntensity &&
+                      finish.contrastIntensity === preset.finish.contrastIntensity;
+
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        title={preset.title}
+                        onClick={() => updateFinishPreset(preset.finish)}
+                        disabled={disabled}
+                        className={cn(
+                          "min-h-6 rounded-sm px-1 text-[0.5625rem] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55",
+                          selected
+                            ? "bg-[var(--primary)]/12 text-[var(--primary)] ring-1 ring-[var(--primary)]/24"
+                            : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]/45 hover:text-[var(--foreground)]",
+                        )}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid min-w-0 gap-1">
+                {FINISH_OPTIONS.map((option) => {
+                  const value = finish[option.key];
+                  return (
+                    <label
+                      key={option.key}
+                      className="grid min-w-0 grid-cols-[3.45rem_minmax(0,1fr)_2rem] items-center gap-1.5 rounded-md bg-[var(--background)]/24 px-1.5 py-1 ring-1 ring-[var(--border)]/25"
+                      title={option.title}
+                    >
+                      <span className="truncate text-[0.5625rem] font-semibold text-[var(--foreground)]/80">
+                        {option.label}
+                      </span>
+                      <input
+                        type="range"
+                        aria-label={`${option.label}: ${option.title}`}
+                        title={option.title}
+                        min={0}
+                        max={100}
+                        value={value}
+                        onChange={(event) => updateFinish(option.key, Number(event.target.value))}
+                        disabled={disabled}
+                        className="h-1.5 w-full min-w-0 cursor-pointer accent-[var(--primary)]"
+                      />
+                      <span className="justify-self-end font-mono text-[0.5625rem] tabular-nums text-[var(--muted-foreground)]">
+                        {value}%
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {mode === "chat" && (
+              <div className="grid gap-1.5 rounded-lg bg-[var(--secondary)]/55 p-1.5 ring-1 ring-[var(--border)]/35">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[0.5625rem] font-semibold uppercase text-[var(--muted-foreground)]">
+                    Source strength
+                  </span>
+                  <span className="font-mono text-[0.5625rem] tabular-nums text-[var(--muted-foreground)]">
+                    {paintOpacitySummary}
+                  </span>
+                </div>
+                <div className="grid gap-1">
+                  {PAINT_OPACITY_OPTIONS.map((option) => {
+                    const value = paintOpacity[option.key];
+                    const channelEnabled = paintEnabled[option.enabledKey];
+                    const hasSourcePaint = hasPaintForChannel(effectiveColors, option.colorKey);
+                    const sliderEnabled = channelEnabled && hasSourcePaint;
+                    return (
+                      <div
+                        key={option.key}
+                        className="grid min-w-0 grid-cols-[minmax(5rem,auto)_minmax(0,1fr)_2.1rem] items-center gap-1 rounded-md bg-[var(--background)]/18 px-1 py-0.5"
+                        title={channelEnabled ? option.title : `${option.label} channel is off.`}
+                      >
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="min-w-0 truncate text-[0.5625rem] text-[var(--muted-foreground)]">
+                            {option.label}
+                          </span>
+                          <ChannelToggle
+                            checked={channelEnabled}
+                            disabled={disabled}
+                            label={option.label}
+                            onChange={(checked) => updatePaintEnabled(option.enabledKey, checked)}
+                          />
+                        </span>
+                        <input
+                          type="range"
+                          aria-label={`${option.label}: ${option.title}`}
+                          title={option.title}
+                          min={0}
+                          max={100}
+                          value={sliderEnabled ? value : 0}
+                          onChange={(event) => updatePaintOpacity(option.key, Number(event.target.value))}
+                          disabled={disabled || !sliderEnabled}
+                          className="h-1.5 w-full min-w-0 cursor-pointer accent-[var(--primary)]"
+                        />
+                        <span className="justify-self-end font-mono text-[0.5625rem] tabular-nums text-[var(--muted-foreground)]">
+                          {getChannelValueLabel(channelEnabled, hasSourcePaint, value)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {mode === "custom" && (
+              <div className="rounded-lg bg-[var(--secondary)]/55 p-1.5 ring-1 ring-[var(--border)]/35">
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <span className="text-[0.5625rem] font-semibold uppercase text-[var(--muted-foreground)]">
+                    Custom paint
+                  </span>
+                  <span className="font-mono text-[0.5625rem] tabular-nums text-[var(--muted-foreground)]">
+                    {paintOpacitySummary}
+                  </span>
+                </div>
+                <div className="grid gap-1.5">
+                  {PAINT_OPACITY_OPTIONS.map((option) => {
+                    const value = paintOpacity[option.key];
+                    const channelEnabled = paintEnabled[option.enabledKey];
+                    const hasCustomPaint = hasPaintForChannel(config, option.colorKey);
+                    const sliderEnabled = channelEnabled && hasCustomPaint;
+                    return (
+                      <div
+                        key={option.key}
+                        className={cn(
+                          "min-w-0 space-y-1.5 rounded-lg bg-[var(--background)]/25 p-1.5 ring-1 ring-[var(--border)]/30",
+                          !channelEnabled && "bg-[var(--background)]/12 ring-[var(--border)]/18",
+                          disabled && "pointer-events-none",
+                        )}
+                      >
+                        <ColorPicker
+                          value={config[option.colorKey] ?? ""}
+                          onChange={(color) => updateCustomColor(option.colorKey, color)}
+                          gradient
+                          compact
+                          label={option.label}
+                          emptyText={option.emptyText}
+                          helpText={option.title}
+                          headerAction={
+                            <ChannelToggle
+                              checked={channelEnabled}
+                              disabled={disabled}
+                              label={option.label}
+                              onChange={(checked) => updatePaintEnabled(option.enabledKey, checked)}
+                            />
+                          }
+                        />
+                        <label className="grid min-w-0 gap-1">
+                          <span className="flex min-w-0 items-center justify-between gap-2 text-[0.5625rem] text-[var(--muted-foreground)]">
+                            <span className="min-w-0 truncate">{option.label} strength</span>
+                            <span className="shrink-0 font-mono tabular-nums">
+                              {getChannelValueLabel(channelEnabled, hasCustomPaint, value)}
+                            </span>
+                          </span>
+                          <input
+                            type="range"
+                            aria-label={`${option.label}: ${option.title}`}
+                            title={option.title}
+                            min={0}
+                            max={100}
+                            value={sliderEnabled ? value : 0}
+                            onChange={(event) => updatePaintOpacity(option.key, Number(event.target.value))}
+                            disabled={disabled || !sliderEnabled}
+                            className="h-1.5 w-full min-w-0 cursor-pointer accent-[var(--primary)]"
+                          />
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={cn("rounded-xl border border-[var(--border)] bg-[var(--card)] p-2.5", disabled && "opacity-75")}>

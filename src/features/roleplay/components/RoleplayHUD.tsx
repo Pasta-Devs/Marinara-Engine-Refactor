@@ -4,7 +4,7 @@
 // a compact preview and expandable editable popover.
 // Supports top (horizontal) and left/right (vertical) layout.
 // ──────────────────────────────────────────────
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { cn } from "../../../shared/lib/utils";
 import { invokeTauri } from "../../../shared/api/tauri-client";
@@ -48,6 +48,24 @@ interface RoleplayHUDProps {
   /** Chat messages (chronological) — used to resolve cached prompt injections on the latest assistant reply */
   injectionSourceMessages?: Message[];
 }
+
+function useIsDesktopHudLayout() {
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(min-width: 768px)").matches : false,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const query = window.matchMedia("(min-width: 768px)");
+    const update = (event: MediaQueryListEvent) => setIsDesktop(event.matches);
+    setIsDesktop(query.matches);
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  return isDesktop;
+}
+
 export function RoleplayHUD({
   chatId,
   characterCount: _characterCount,
@@ -62,6 +80,7 @@ export function RoleplayHUD({
   injectionSourceMessages,
 }: RoleplayHUDProps & { mobileCompact?: boolean }) {
   const [agentsOpen, setAgentsOpen] = useState(false);
+  const isDesktopHudLayout = useIsDesktopHudLayout();
   const {
     gameState,
     playerStats,
@@ -121,6 +140,8 @@ export function RoleplayHUD({
 
   const isTrackerBusy = isAgentProcessing || isStreaming || gameStateRefreshing;
   const showHudTrackerWidgets = !gameStateRefreshing && !(trackerPanelEnabled && trackerPanelHideHudWidgets);
+  const showMobileTrackerWidgets = showHudTrackerWidgets && !isDesktopHudLayout;
+  const showDesktopTrackerWidgets = showHudTrackerWidgets && isDesktopHudLayout;
 
   const clearGameState = useCallback(() => {
     const cleared = {
@@ -210,7 +231,7 @@ export function RoleplayHUD({
       />
 
       {/* ── Mobile: combined widgets, centered ── */}
-      {showHudTrackerWidgets && (
+      {showMobileTrackerWidgets && (
         <div className={cn("flex items-center gap-0.5 md:hidden", mobileCompact && "flex-1 justify-center")}>
           {enabledAgentTypes.has(TRACKER_SECTION_AGENT_TYPES.world) && (
             <CombinedWorldWidget
@@ -275,7 +296,7 @@ export function RoleplayHUD({
       )}
 
       {/* ── Desktop: separate individual widgets ── */}
-      {showHudTrackerWidgets && (
+      {showDesktopTrackerWidgets && (
         <div className="hidden md:flex items-center gap-1.5">
           {enabledAgentTypes.has(TRACKER_SECTION_AGENT_TYPES.world) && (
             <CombinedWorldWidget

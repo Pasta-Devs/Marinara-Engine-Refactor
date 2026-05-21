@@ -608,6 +608,7 @@ export function TrackerCardColorSettings() {
               chatColors={selectedTarget.chatColors}
               entityLabel={selectedTarget.entityLabel}
               previewName={selectedTarget.name}
+              variant="compact"
               disabled={saveState === "saving"}
             />
           )}
