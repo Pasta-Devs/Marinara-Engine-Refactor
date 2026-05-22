@@ -1,4 +1,7 @@
-use super::super::shared::materialize_message_swipe_fields;
+use super::super::{
+    game_state_snapshots,
+    shared::{materialize_message_swipe_fields, non_negative_i64_value},
+};
 use super::assets::{normalize_legacy_profile_asset_paths, restore_legacy_profile_json_assets};
 use super::insert_profile_import_aliases;
 use crate::state::AppState;
@@ -40,6 +43,18 @@ const LEGACY_PROFILE_TABLES: &[(&str, &str)] = &[
     ("game_checkpoints", "game-checkpoints"),
 ];
 
+const LEGACY_GAME_STATE_ALIASES: &[(&str, &str)] = &[
+    ("chatId", "chat_id"),
+    ("messageId", "message_id"),
+    ("swipeIndex", "swipe_index"),
+    ("presentCharacters", "present_characters"),
+    ("recentEvents", "recent_events"),
+    ("playerStats", "player_stats"),
+    ("personaStats", "persona_stats"),
+    ("manualOverrides", "manual_overrides"),
+    ("createdAt", "created_at"),
+];
+
 pub(super) fn import_legacy_profile_tables(
     state: &AppState,
     data: &Map<String, Value>,
@@ -62,6 +77,7 @@ pub(super) fn import_legacy_profile_tables_with_restored_assets(
             "lorebooks" => add_legacy_lorebook_links(&mut rows, tables),
             "chats" => add_legacy_chat_memories(&mut rows, tables),
             "messages" => add_legacy_message_swipes(&mut rows, tables),
+            "game-state-snapshots" => normalize_legacy_game_state_snapshots(&mut rows),
             _ => {}
         }
         for row in &mut rows {
@@ -203,5 +219,123 @@ fn add_legacy_message_swipes(rows: &mut [Value], tables: &Map<String, Value>) {
         message_swipes.sort_by_key(|swipe| swipe.get("index").and_then(Value::as_i64).unwrap_or(0));
         object.insert("swipes".to_string(), Value::Array(message_swipes));
         materialize_message_swipe_fields(row);
+    }
+}
+
+fn normalize_legacy_game_state_snapshots(rows: &mut [Value]) {
+    for row in rows {
+        let Some(snapshot) = normalize_legacy_game_state_snapshot(row) else {
+            continue;
+        };
+        *row = snapshot;
+    }
+}
+
+fn normalize_legacy_game_state_snapshot(row: &Value) -> Option<Value> {
+    let object = row.as_object()?;
+    let mut incoming = object.clone();
+    for (target, legacy) in LEGACY_GAME_STATE_ALIASES {
+        move_legacy_alias(&mut incoming, target, legacy);
+    }
+    incoming
+        .entry("messageId".to_string())
+        .or_insert_with(|| Value::String(String::new()));
+    incoming.insert(
+        "swipeIndex".to_string(),
+        json!(non_negative_i64_value(incoming.get("swipeIndex")).unwrap_or(0)),
+    );
+
+    let chat_id = trimmed_string(incoming.get("chatId"))?;
+    let id = incoming.get("id").cloned();
+    let mut snapshot =
+        game_state_snapshots::normalize_tracker_snapshot(&chat_id, Value::Object(incoming)).ok()?;
+    if let Some(id) = id {
+        snapshot.insert("id".to_string(), id);
+    }
+    Some(Value::Object(snapshot))
+}
+
+fn move_legacy_alias(object: &mut Map<String, Value>, target: &str, legacy: &str) {
+    let legacy_value = object.remove(legacy);
+    if !object.contains_key(target) {
+        if let Some(value) = legacy_value {
+            object.insert(target.to_string(), value);
+        }
+    }
+}
+
+fn trimmed_string(value: Option<&Value>) -> Option<String> {
+    value
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn legacy_game_state_snapshot_maps_sqlite_field_names_to_tracker_rows() {
+        let snapshot = normalize_legacy_game_state_snapshot(&json!({
+            "id": "snapshot-1",
+            "chat_id": "chat-1",
+            "message_id": "message-1",
+            "swipe_index": "2",
+            "created_at": "2026-05-20T08:30:00-04:00",
+            "location": { "name": "Harbor" },
+            "present_characters": "[{\"name\":\"Mari\"}]",
+            "recent_events": "[\"Arrived at the harbor\"]",
+            "player_stats": "{\"status\":\"ready\"}",
+            "persona_stats": "[{\"name\":\"Focus\",\"value\":4}]",
+            "manual_overrides": "{\"location\":\"Harbor\"}",
+            "committed": 1
+        }))
+        .expect("legacy tracker snapshot should normalize");
+
+        let object = snapshot.as_object().expect("snapshot should be an object");
+        assert_eq!(object["id"], "snapshot-1");
+        assert_eq!(object["kind"], "tracker");
+        assert_eq!(object["chatId"], "chat-1");
+        assert_eq!(object["messageId"], "message-1");
+        assert_eq!(object["swipeIndex"], json!(2));
+        assert_eq!(object["createdAt"], "2026-05-20T12:30:00+00:00");
+        assert_eq!(object["location"], "Harbor");
+        assert!(object["presentCharacters"].is_array());
+        assert!(object["recentEvents"].is_array());
+        assert!(object["playerStats"].is_object());
+        assert!(object["personaStats"].is_array());
+        assert!(object["manualOverrides"].is_object());
+        assert_eq!(object["committed"], true);
+        assert!(!object.contains_key("chat_id"));
+        assert!(!object.contains_key("present_characters"));
+    }
+
+    #[test]
+    fn legacy_game_state_snapshot_defaults_missing_target_to_bootstrap() {
+        let snapshot = normalize_legacy_game_state_snapshot(&json!({
+            "id": "snapshot-1",
+            "chatId": "chat-1",
+            "swipeIndex": "not-a-number",
+            "presentCharacters": [{ "name": "Mari" }]
+        }))
+        .expect("bootstrap tracker snapshot should normalize");
+
+        assert_eq!(snapshot["kind"], "tracker");
+        assert_eq!(snapshot["chatId"], "chat-1");
+        assert_eq!(snapshot["messageId"], "");
+        assert_eq!(snapshot["swipeIndex"], json!(0));
+        assert!(snapshot["presentCharacters"].is_array());
+    }
+
+    #[test]
+    fn legacy_game_state_snapshot_skips_rows_without_chat_id() {
+        let snapshot = normalize_legacy_game_state_snapshot(&json!({
+            "id": "snapshot-1",
+            "messageId": "message-1"
+        }));
+
+        assert!(snapshot.is_none());
     }
 }
