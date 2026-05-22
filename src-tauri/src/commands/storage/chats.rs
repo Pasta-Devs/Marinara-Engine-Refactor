@@ -69,25 +69,7 @@ fn is_hidden_from_ai(message: &Value) -> bool {
 }
 
 fn active_swipe_index(message: &Value) -> i64 {
-    let fallback = message
-        .get("swipeCount")
-        .and_then(Value::as_u64)
-        .map(|count| count.saturating_sub(1) as i64)
-        .unwrap_or(0);
-    match message.get("activeSwipeIndex") {
-        Some(Value::Number(number)) => number
-            .as_i64()
-            .or_else(|| number.as_u64().map(|value| value as i64))
-            .map(|value| value.max(0))
-            .unwrap_or(fallback),
-        Some(Value::String(raw)) => raw
-            .trim()
-            .parse::<i64>()
-            .ok()
-            .map(|value| value.max(0))
-            .unwrap_or(fallback),
-        _ => fallback,
-    }
+    swipe_index_value(message)
 }
 
 fn merge_chat_metadata(

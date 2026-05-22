@@ -11,7 +11,7 @@ import type {
   RPGAttributes,
 } from "../contracts/types/game-state";
 import { preserveTrackerCharacterUiFields } from "./generate-route-utils";
-import { boolish, isRecord, nowIso, parseRecord, readNumber, readString } from "./runtime-records";
+import { boolish, isRecord, nowIso, parseRecord, readNonNegativeInteger, readNumber, readString } from "./runtime-records";
 
 export interface TrackerSnapshotTurnTarget {
   messageId: string;
@@ -72,11 +72,6 @@ function readNullableString(value: unknown): string | null {
   }
   if (typeof value === "number" || typeof value === "bigint") return String(value);
   return null;
-}
-
-function readNonNegativeInteger(value: unknown, fallback: number): number {
-  const parsed = readNumber(value, fallback);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
 function parseStat(value: unknown): CharacterStat | null {
@@ -492,7 +487,12 @@ export async function copyTrackerSnapshotsForRebasedMessages(
       messageId: targetMessageId,
     };
     delete next.id;
-    await storage.create("game-state-snapshots", next);
+    try {
+      await storage.create("game-state-snapshots", next);
+    } catch (error) {
+      console.warn("[tracker-snapshots] Failed to copy rebased tracker snapshot", error);
+      continue;
+    }
     const rebasedTarget = rebasedAssistantTargets.get(sourceTarget.messageId);
     if (rebasedTarget?.messageId === targetMessageId && rebasedTarget.swipeIndex === sourceTarget.swipeIndex) {
       copiedVisibleTargetKeys.add(`${rebasedTarget.messageId}\u0000${rebasedTarget.swipeIndex}`);

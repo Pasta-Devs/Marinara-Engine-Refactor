@@ -3,6 +3,7 @@ import { generationParametersSchema } from "../contracts/schemas/prompt.schema";
 import type { GameState } from "../contracts/types/game-state";
 import type { GenerationParameters } from "../contracts/types/prompt";
 import { wrapContent } from "../generation-core/prompt/format-engine.js";
+import { readNonNegativeInteger } from "./runtime-records";
 
 export type SimpleMessage = { role: "system" | "user" | "assistant"; content: string };
 export type StoredGenerationParameters = Partial<GenerationParameters>;
@@ -136,10 +137,6 @@ export function resolveRegenerationGameStateFallbackMessageIds(
     }
   }
   return Array.from(targets.values());
-}
-
-function readNonNegativeInteger(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : fallback;
 }
 
 export function getAttachmentFilename(attachment: PromptAttachment): string {

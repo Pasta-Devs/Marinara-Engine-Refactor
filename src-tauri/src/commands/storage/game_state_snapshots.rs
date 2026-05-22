@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use marinara_core::{ensure_object, AppError, AppResult};
 use serde_json::{json, Map, Value};
 
-use super::shared::materialize_message_swipe_fields;
+use super::shared::{materialize_message_swipe_fields, non_negative_i64_value, swipe_index_value};
 
 const SNAPSHOT_COLLECTION: &str = "game-state-snapshots";
 const TRACKER_KIND: &str = "tracker";
@@ -132,7 +132,7 @@ pub(crate) fn delete_tracker_snapshot_swipe(
         let Some(id) = non_empty_string(&row, "id").map(ToOwned::to_owned) else {
             continue;
         };
-        let Some(swipe_index) = swipe_index_value(row.get("swipeIndex")) else {
+        let Some(swipe_index) = non_negative_i64_value(row.get("swipeIndex")) else {
             continue;
         };
         if swipe_index == deleted_swipe_index {
@@ -288,7 +288,7 @@ fn tracker_snapshots_for_target(
         .list_where(SNAPSHOT_COLLECTION, &filters)?
         .into_iter()
         .filter(|row| is_tracker_snapshot(row))
-        .filter(|row| swipe_index_value(row.get("swipeIndex")) == Some(swipe_index))
+        .filter(|row| non_negative_i64_value(row.get("swipeIndex")) == Some(swipe_index))
         .collect())
 }
 
@@ -312,7 +312,7 @@ fn visible_tracker_snapshot(state: &AppState, chat_id: &str) -> AppResult<Option
         let Some(message_id) = non_empty_string(&message, "id") else {
             continue;
         };
-        let swipe_index = active_swipe_index(&message);
+        let swipe_index = swipe_index_value(&message);
         if let Some(snapshot) =
             tracker_snapshot_for_target(state, chat_id, message_id, swipe_index)?
         {
@@ -411,26 +411,6 @@ fn non_empty_string<'a>(row: &'a Value, key: &str) -> Option<&'a str> {
 
 fn string_value(row: &Map<String, Value>, key: &str) -> Option<String> {
     row.get(key).and_then(Value::as_str).map(ToOwned::to_owned)
-}
-
-fn swipe_index_value(value: Option<&Value>) -> Option<i64> {
-    match value {
-        Some(Value::Number(number)) => number
-            .as_i64()
-            .or_else(|| number.as_u64().map(|value| value as i64))
-            .map(|value| value.max(0)),
-        Some(Value::String(raw)) => raw.trim().parse::<i64>().ok().map(|value| value.max(0)),
-        _ => None,
-    }
-}
-
-fn active_swipe_index(message: &Value) -> i64 {
-    let fallback = message
-        .get("swipeCount")
-        .and_then(Value::as_u64)
-        .map(|count| count.saturating_sub(1) as i64)
-        .unwrap_or(0);
-    swipe_index_value(message.get("activeSwipeIndex")).unwrap_or(fallback)
 }
 
 fn parse_swipe_index(value: Option<&Value>) -> AppResult<i64> {
