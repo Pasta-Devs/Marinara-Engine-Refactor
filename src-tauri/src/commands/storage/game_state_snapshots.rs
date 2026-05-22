@@ -3,6 +3,8 @@ use chrono::{DateTime, Utc};
 use marinara_core::{ensure_object, AppError, AppResult};
 use serde_json::{json, Map, Value};
 
+use super::shared::materialize_message_swipe_fields;
+
 const SNAPSHOT_COLLECTION: &str = "game-state-snapshots";
 const TRACKER_KIND: &str = "tracker";
 const TEXT_FIELDS: [&str; 5] = ["date", "time", "location", "weather", "temperature"];
@@ -90,6 +92,37 @@ pub(crate) fn delete_tracker_snapshot_swipe(
     }
 
     Ok(())
+}
+
+pub(crate) fn delete_tracker_snapshots_for_message(
+    state: &AppState,
+    chat_id: &str,
+    message_id: &str,
+) -> AppResult<usize> {
+    let rows = tracker_snapshots_for_message(state, chat_id, message_id)?;
+    let mut deleted = 0;
+    for row in rows {
+        let Some(id) = non_empty_string(&row, "id").map(ToOwned::to_owned) else {
+            continue;
+        };
+        if state.storage.delete(SNAPSHOT_COLLECTION, &id)? {
+            deleted += 1;
+        }
+    }
+    Ok(deleted)
+}
+
+pub(crate) fn sync_chat_game_state_to_visible_tracker(
+    state: &AppState,
+    chat_id: &str,
+) -> AppResult<Option<Value>> {
+    let visible = visible_tracker_snapshot(state, chat_id)?;
+    state.storage.patch(
+        "chats",
+        chat_id,
+        json!({ "gameState": visible.clone().unwrap_or(Value::Null) }),
+    )?;
+    Ok(visible)
 }
 
 pub(crate) fn save_tracker_snapshot(
@@ -187,6 +220,43 @@ fn tracker_snapshots_for_target(
         .collect())
 }
 
+fn visible_tracker_snapshot(state: &AppState, chat_id: &str) -> AppResult<Option<Value>> {
+    let chat_id = required_chat_id(chat_id)?;
+    let mut filters = Map::new();
+    filters.insert("chatId".to_string(), Value::String(chat_id.to_string()));
+    let mut messages = state.storage.list_where("messages", &filters)?;
+    messages.sort_by(|a, b| {
+        let a_time = a.get("createdAt").and_then(Value::as_str).unwrap_or("");
+        let b_time = b.get("createdAt").and_then(Value::as_str).unwrap_or("");
+        a_time.cmp(b_time)
+    });
+    for message in &mut messages {
+        materialize_message_swipe_fields(message);
+    }
+    for message in messages.into_iter().rev() {
+        if message.get("role").and_then(Value::as_str) != Some("assistant") {
+            continue;
+        }
+        let Some(message_id) = non_empty_string(&message, "id") else {
+            continue;
+        };
+        let swipe_index = active_swipe_index(&message);
+        if let Some(snapshot) =
+            tracker_snapshot_for_target(state, chat_id, message_id, swipe_index)?
+        {
+            return Ok(Some(snapshot));
+        }
+    }
+    Ok(latest_tracker_snapshot(state, chat_id)?.filter(|snapshot| {
+        snapshot
+            .get("messageId")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .unwrap_or_default()
+            .is_empty()
+    }))
+}
+
 fn normalize_tracker_snapshot(chat_id: &str, body: Value) -> AppResult<Map<String, Value>> {
     let chat_id = required_chat_id(chat_id)?;
     let incoming = ensure_object(body)?;
@@ -279,6 +349,15 @@ fn swipe_index_value(value: Option<&Value>) -> Option<i64> {
         Some(Value::String(raw)) => raw.trim().parse::<i64>().ok().map(|value| value.max(0)),
         _ => None,
     }
+}
+
+fn active_swipe_index(message: &Value) -> i64 {
+    let fallback = message
+        .get("swipeCount")
+        .and_then(Value::as_u64)
+        .map(|count| count.saturating_sub(1) as i64)
+        .unwrap_or(0);
+    swipe_index_value(message.get("activeSwipeIndex")).unwrap_or(fallback)
 }
 
 fn parse_swipe_index(value: Option<&Value>) -> AppResult<i64> {

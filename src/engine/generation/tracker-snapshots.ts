@@ -456,18 +456,20 @@ export async function copyTrackerSnapshotsForRebasedMessages(
   if (!sourceChatId || !targetChatId || messages.length === 0) return null;
 
   const messageIdMap = new Map<string, string>();
-  let visibleTarget: TrackerSnapshotTurnTarget | null = null;
+  const rebasedAssistantTargets = new Map<string, TrackerSnapshotTurnTarget>();
   for (const message of messages) {
     const sourceMessageId = readString(message.sourceMessageId).trim();
     const targetMessageId = readString(message.targetMessageId).trim();
     if (!sourceMessageId || !targetMessageId) continue;
     messageIdMap.set(sourceMessageId, targetMessageId);
-    visibleTarget = trackerSnapshotTargetFromRebasedMessage(message) ?? visibleTarget;
+    const rebasedTarget = trackerSnapshotTargetFromRebasedMessage(message);
+    if (rebasedTarget) rebasedAssistantTargets.set(sourceMessageId, rebasedTarget);
   }
 
   if (messageIdMap.size === 0) return null;
 
   let copied = false;
+  const copiedVisibleTargetKeys = new Set<string>();
   const rows = await listTrackerSnapshotRows(storage, sourceChatId);
   for (const row of rows) {
     const sourceTarget = trackerSnapshotTargetFromRecord(row);
@@ -480,10 +482,23 @@ export async function copyTrackerSnapshotsForRebasedMessages(
     };
     delete next.id;
     await storage.create("game-state-snapshots", next);
+    const rebasedTarget = rebasedAssistantTargets.get(sourceTarget.messageId);
+    if (rebasedTarget?.messageId === targetMessageId && rebasedTarget.swipeIndex === sourceTarget.swipeIndex) {
+      copiedVisibleTargetKeys.add(`${rebasedTarget.messageId}\u0000${rebasedTarget.swipeIndex}`);
+    }
     copied = true;
   }
 
-  return copied ? getTrackerSnapshotForTarget(storage, targetChatId, visibleTarget) : null;
+  if (!copied) return null;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const sourceMessageId = readString(messages[index]?.sourceMessageId).trim();
+    const rebasedTarget = rebasedAssistantTargets.get(sourceMessageId);
+    if (!rebasedTarget) continue;
+    if (copiedVisibleTargetKeys.has(`${rebasedTarget.messageId}\u0000${rebasedTarget.swipeIndex}`)) {
+      return getTrackerSnapshotForTarget(storage, targetChatId, rebasedTarget);
+    }
+  }
+  return null;
 }
 
 export async function selectTrackerSnapshotForGeneration(
