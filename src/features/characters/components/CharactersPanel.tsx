@@ -49,6 +49,7 @@ import {
 import { getCharacterTitle } from "../../../shared/lib/character-display";
 import { useUIStore } from "../../../shared/stores/ui.store";
 import { cn, getAvatarCropStyle, type AvatarCrop } from "../../../shared/lib/utils";
+import { getCharacterAvatarLoadingMode } from "../lib/character-avatar-loading";
 import { ExportFormatDialog, type ExportFormatChoice } from "../../../shared/components/ui/ExportFormatDialog";
 
 type CharacterRow = {
@@ -949,7 +950,7 @@ export function CharactersPanel() {
                                 <img
                                   src={member.avatarPath}
                                   alt={member.name}
-                                  loading="lazy"
+                                  loading={getCharacterAvatarLoadingMode(member.avatarPath)}
                                   className="h-full w-full object-cover"
                                 />
                               ) : (
