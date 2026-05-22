@@ -43,20 +43,6 @@ Closes #
 - [ ] Checked relevant edge cases and failure paths
 - [ ] No generated-by lines, AI co-author trailers, or private local paths were added
 
-## Failure Path Checks
-
-<!-- Mark only what applies and describe the specific cases in manual verification notes. -->
-
-- [ ] Missing, empty, stale, or malformed persisted records considered
-- [ ] Missing, moved, invalid, oversized, or permission-blocked files/assets considered
-- [ ] Provider, network, timeout, cancellation, or empty-response behavior considered
-- [ ] Tauri command, dialog, filesystem, asset protocol, or native-window-only behavior considered
-- [ ] Import/export, duplicate ID, old-shape data, or invalid JSON behavior considered
-- [ ] Loading, empty, disabled, and error UI states considered
-- [ ] Light/dark mode, small viewport, long text, and content overflow considered
-- [ ] Chat/roleplay/game mode boundary risk considered when shared code changed
-- [ ] Remaining unverified failure paths are called out below
-
 ## Validation
 
 <!-- Check only what you personally ran or verified. -->

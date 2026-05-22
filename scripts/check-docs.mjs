@@ -99,8 +99,6 @@ for (const expected of [
   "docs/developer/modules.html",
   "docs/developer/impact-areas.html",
   "AI-Assisted Contribution Rules",
-  "Failure Path Checks",
-  "Missing, empty, stale, or malformed persisted records",
 ]) {
   if (!contributing.includes(expected)) {
     throw new Error(`CONTRIBUTING.md is missing expected guidance: ${expected}.`);
@@ -120,13 +118,7 @@ for (const staleLegacyTerm of [
 }
 
 const pullRequestTemplate = await readFile(".github/pull_request_template.md", "utf8");
-for (const expected of [
-  "Owner And Impact",
-  "Architecture And AI-Assisted Review",
-  "Failure Path Checks",
-  "Remaining unverified failure paths",
-  "CONTRIBUTING.md",
-]) {
+for (const expected of ["Owner And Impact", "Architecture And AI-Assisted Review", "CONTRIBUTING.md"]) {
   if (!pullRequestTemplate.includes(expected)) {
     throw new Error(`Pull request template is missing expected guidance: ${expected}.`);
   }

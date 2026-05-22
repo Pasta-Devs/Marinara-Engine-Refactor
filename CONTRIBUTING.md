@@ -121,24 +121,6 @@ Before accepting generated or AI-assisted code:
 
 If an AI agent ticks PR checklist boxes, treat those boxes as a to-do list, not proof. Verify each item yourself and untick anything you have not personally confirmed.
 
-## Failure Path Checks
-
-Happy-path behavior is not enough for a PR to be reviewable. Before opening or updating a PR, identify the failure paths that apply to the changed owner and write down which ones were tested, inspected, or left for follow-up.
-
-Common ME-Refactor failure paths:
-
-- Missing, empty, stale, or malformed persisted records.
-- Missing, moved, invalid, oversized, or permission-blocked local files and assets.
-- Provider failures, invalid credentials, offline network behavior, timeouts, aborted streams, and empty model responses.
-- Tauri command failures, rejected dialogs, denied filesystem access, asset protocol issues, and native-window-only behavior.
-- Import/export records from older app shapes, partial imports, duplicate IDs, and invalid JSON.
-- Cancelled, retried, regenerated, or interrupted generation flows.
-- Loading, empty, disabled, and error UI states.
-- Light/dark mode, small viewport, long text, and content overflow for UI changes.
-- Mode boundary risk between chat, roleplay, and game when shared helpers, generation, prompts, storage, assets, or visual primitives change.
-
-You do not need to exhaustively test unrelated paths. Do state what you checked, what you only reviewed by code, and what still needs human or native-app QA.
-
 ## Validation
 
 Run the checks that match the changed area:
