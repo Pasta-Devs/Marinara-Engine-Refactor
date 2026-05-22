@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Color Picker — supports single colors & gradients
 // ──────────────────────────────────────────────
-import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
+import { useState, useRef, useCallback, useEffect, useId, type ReactNode } from "react";
 import { Pipette, Sparkles, X, Plus, Trash2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -99,6 +99,7 @@ export function ColorPicker({
   const [expanded, setExpanded] = useState(false);
   const nativeRef = useRef<HTMLInputElement>(null);
   const activeStopRef = useRef<number>(0);
+  const pickerId = useId();
 
   // Sync value → local state when value changes externally
   useEffect(() => {
@@ -207,6 +208,9 @@ export function ColorPicker({
           if (!disabled) setExpanded(!expanded);
         }}
         disabled={disabled}
+        aria-expanded={expanded}
+        aria-controls={expanded ? pickerId : undefined}
+        aria-label={`${label}: ${value || emptyText}`}
         className={cn(
           "flex w-full items-center rounded-xl border border-[var(--border)] bg-[var(--secondary)] transition-all hover:border-[var(--primary)]/30",
           compact ? "gap-2 rounded-lg p-1.5" : "gap-3 p-2.5",
@@ -233,6 +237,7 @@ export function ColorPicker({
       {/* Expanded picker */}
       {expanded && (
         <div
+          id={pickerId}
           className={cn(
             "rounded-xl border border-[var(--border)] bg-[var(--card)] animate-in slide-in-from-top-2 duration-200",
             compact ? "space-y-2 p-2" : "space-y-3 p-3",
@@ -328,6 +333,7 @@ export function ColorPicker({
                       type="button"
                       onClick={() => handleSolidChange(color)}
                       disabled={disabled}
+                      aria-label={`Use ${color} for ${label}`}
                       className={cn(
                         "h-6 w-6 rounded-md ring-1 ring-[var(--border)] transition-all hover:scale-110 hover:ring-2 hover:ring-[var(--primary)]/50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:ring-1",
                         value === color && "ring-2 ring-[var(--primary)] scale-110",
@@ -367,6 +373,7 @@ export function ColorPicker({
                   <div key={i} className="flex items-center gap-2">
                     <input
                       type="color"
+                      aria-label={`${label} gradient stop ${i + 1} color`}
                       value={stop}
                       onChange={(e) => {
                         activeStopRef.current = i;
@@ -377,6 +384,7 @@ export function ColorPicker({
                     />
                     <input
                       value={stop}
+                      aria-label={`${label} gradient stop ${i + 1} CSS color`}
                       onChange={(e) => handleGradientStopChange(i, e.target.value)}
                       disabled={disabled}
                       className="flex-1 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 font-mono text-[0.6875rem] outline-none focus:border-[var(--primary)]/40"
@@ -386,6 +394,7 @@ export function ColorPicker({
                         type="button"
                         onClick={() => removeStop(i)}
                         disabled={disabled}
+                        aria-label={`Remove ${label} gradient stop ${i + 1}`}
                         className="rounded-md p-1 text-[var(--muted-foreground)] hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:cursor-not-allowed disabled:opacity-55"
                       >
                         <Trash2 size="0.6875rem" />
@@ -419,7 +428,7 @@ export function ColorPicker({
               <div>
                 <p className="mb-1.5 text-[0.625rem] text-[var(--muted-foreground)]">Presets</p>
                 <div className="grid grid-cols-4 gap-1.5">
-                  {GRADIENT_PRESETS.map((g) => (
+                  {GRADIENT_PRESETS.map((g, index) => (
                     <button
                       key={g}
                       type="button"
@@ -431,6 +440,7 @@ export function ColorPicker({
                         onChange(g);
                       }}
                       disabled={disabled}
+                      aria-label={`Use gradient preset ${index + 1} for ${label}`}
                       className={cn(
                         "h-6 rounded-md ring-1 ring-[var(--border)] transition-all hover:scale-105 hover:ring-2 hover:ring-[var(--primary)]/50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:ring-1",
                         value === g && "ring-2 ring-[var(--primary)] scale-105",
