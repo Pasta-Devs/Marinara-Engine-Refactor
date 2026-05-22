@@ -232,7 +232,10 @@ fn normalize_legacy_game_state_snapshots(rows: &mut [Value]) {
 }
 
 fn normalize_legacy_game_state_snapshot(row: &Value) -> Option<Value> {
-    let object = row.as_object()?;
+    let Some(object) = row.as_object() else {
+        log::trace!("skipping legacy game_state_snapshots row because it is not an object");
+        return None;
+    };
     let mut incoming = object.clone();
     for (target, legacy) in LEGACY_GAME_STATE_ALIASES {
         move_legacy_alias(&mut incoming, target, legacy);
@@ -245,14 +248,29 @@ fn normalize_legacy_game_state_snapshot(row: &Value) -> Option<Value> {
         json!(non_negative_i64_value(incoming.get("swipeIndex")).unwrap_or(0)),
     );
 
-    let chat_id = trimmed_string(incoming.get("chatId"))?;
     let id = incoming.get("id").cloned();
-    let mut snapshot =
-        game_state_snapshots::normalize_tracker_snapshot(&chat_id, Value::Object(incoming)).ok()?;
-    if let Some(id) = id {
-        snapshot.insert("id".to_string(), id);
+    let row_id = diagnostic_string(id.as_ref());
+    let Some(chat_id) = trimmed_string(incoming.get("chatId")) else {
+        log::trace!(
+            "skipping legacy game_state_snapshots row id={row_id} because chatId is missing"
+        );
+        return None;
+    };
+
+    match game_state_snapshots::normalize_tracker_snapshot(&chat_id, Value::Object(incoming)) {
+        Ok(mut snapshot) => {
+            if let Some(id) = id {
+                snapshot.insert("id".to_string(), id);
+            }
+            Some(Value::Object(snapshot))
+        }
+        Err(error) => {
+            log::trace!(
+                "skipping legacy game_state_snapshots row id={row_id} chatId={chat_id} because tracker snapshot normalization failed: {error}"
+            );
+            None
+        }
     }
-    Some(Value::Object(snapshot))
 }
 
 fn move_legacy_alias(object: &mut Map<String, Value>, target: &str, legacy: &str) {
@@ -270,6 +288,10 @@ fn trimmed_string(value: Option<&Value>) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
+}
+
+fn diagnostic_string(value: Option<&Value>) -> String {
+    trimmed_string(value).unwrap_or_else(|| "<missing>".to_string())
 }
 
 #[cfg(test)]
