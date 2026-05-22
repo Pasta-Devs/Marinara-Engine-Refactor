@@ -117,19 +117,29 @@ export function resolveRegenerationGameStateAnchor(
 }
 
 export function resolveRegenerationGameStateFallbackMessageIds(
-  messages: Array<{ role?: unknown; id?: unknown }>,
+  messages: Array<{ role?: unknown; id?: unknown; activeSwipeIndex?: unknown; swipeIndex?: unknown }>,
   regenerateMessageId: string | null | undefined,
-): string[] | null {
+): Array<{ messageId: string; swipeIndex: number }> | null {
   if (!regenerateMessageId) return null;
   const targetIndex = messages.findIndex((message) => message.id === regenerateMessageId);
   const boundedMessages = targetIndex >= 0 ? messages.slice(0, targetIndex) : messages;
-  const ids = new Set<string>([""]);
+  const targets = new Map<string, { messageId: string; swipeIndex: number }>();
+  const addTarget = (target: { messageId: string; swipeIndex: number }) =>
+    targets.set(`${target.messageId}\u0000${target.swipeIndex}`, target);
+  addTarget({ messageId: "", swipeIndex: 0 });
   for (const message of boundedMessages) {
-    if (message.role === "assistant" && typeof message.id === "string") {
-      ids.add(message.id);
+    if (message.role === "assistant" && typeof message.id === "string" && message.id.trim()) {
+      addTarget({
+        messageId: message.id.trim(),
+        swipeIndex: readNonNegativeInteger(message.activeSwipeIndex ?? message.swipeIndex, 0),
+      });
     }
   }
-  return Array.from(ids);
+  return Array.from(targets.values());
+}
+
+function readNonNegativeInteger(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : fallback;
 }
 
 export function getAttachmentFilename(attachment: PromptAttachment): string {

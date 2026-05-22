@@ -398,7 +398,7 @@ async function selectGenerationTrackerBaseline(
     }),
     visibleAnchor,
     excludeMessageId: regenerateMessageId || null,
-    fallbackMessageIds:
+    fallbackTargets:
       resolveRegenerationGameStateFallbackMessageIds(storedMessages, regenerateMessageId) ??
       resolveVisibleGameStateFallbackMessageIds(storedMessages),
   });
@@ -427,7 +427,7 @@ export async function retryGenerationAgents(
       preferLatestVisible: true,
       visibleAnchor: targetTrackerTarget,
       excludeMessageId: targetTrackerTarget?.messageId ?? null,
-      fallbackMessageIds: resolveRegenerationGameStateFallbackMessageIds(
+      fallbackTargets: resolveRegenerationGameStateFallbackMessageIds(
         storedMessages,
         targetTrackerTarget?.messageId,
       ),

@@ -15,6 +15,15 @@ pub(crate) fn latest_tracker_snapshot(state: &AppState, chat_id: &str) -> AppRes
     Ok(rows.into_iter().next())
 }
 
+pub(crate) fn bootstrap_tracker_snapshot(
+    state: &AppState,
+    chat_id: &str,
+) -> AppResult<Option<Value>> {
+    let mut rows = tracker_snapshots_for_chat(state, chat_id)?;
+    sort_newest_first(&mut rows);
+    Ok(rows.into_iter().find(is_bootstrap_tracker_snapshot))
+}
+
 pub(crate) fn tracker_snapshot_for_target(
     state: &AppState,
     chat_id: &str,
@@ -64,6 +73,52 @@ pub(crate) fn copy_tracker_snapshots_for_message(
     Ok(copied)
 }
 
+pub(crate) fn copy_bootstrap_tracker_snapshot(
+    state: &AppState,
+    source_chat_id: &str,
+    target_chat_id: &str,
+) -> AppResult<Option<Value>> {
+    let source_chat_id = required_chat_id(source_chat_id)?;
+    let target_chat_id = required_chat_id(target_chat_id)?;
+    let snapshot_source = match bootstrap_tracker_snapshot(state, source_chat_id)? {
+        Some(row) => row,
+        None => {
+            let Some(chat) = state.storage.get("chats", source_chat_id)? else {
+                return Ok(None);
+            };
+            let Some(game_state) = chat.get("gameState") else {
+                return Ok(None);
+            };
+            if !is_bootstrap_tracker_snapshot(game_state) {
+                return Ok(None);
+            }
+            game_state.clone()
+        }
+    };
+    let Some(object) = snapshot_source.as_object() else {
+        return Ok(None);
+    };
+    if object.is_empty() {
+        return Ok(None);
+    }
+    let mut snapshot = object.clone();
+    snapshot.remove("id");
+    snapshot.insert("kind".to_string(), Value::String(TRACKER_KIND.to_string()));
+    snapshot.insert(
+        "chatId".to_string(),
+        Value::String(target_chat_id.to_string()),
+    );
+    snapshot.insert("messageId".to_string(), Value::String(String::new()));
+    snapshot
+        .entry("swipeIndex".to_string())
+        .or_insert_with(|| json!(0));
+    Ok(Some(
+        state
+            .storage
+            .create(SNAPSHOT_COLLECTION, Value::Object(snapshot))?,
+    ))
+}
+
 pub(crate) fn delete_tracker_snapshot_swipe(
     state: &AppState,
     chat_id: &str,
@@ -100,6 +155,23 @@ pub(crate) fn delete_tracker_snapshots_for_message(
     message_id: &str,
 ) -> AppResult<usize> {
     let rows = tracker_snapshots_for_message(state, chat_id, message_id)?;
+    let mut deleted = 0;
+    for row in rows {
+        let Some(id) = non_empty_string(&row, "id").map(ToOwned::to_owned) else {
+            continue;
+        };
+        if state.storage.delete(SNAPSHOT_COLLECTION, &id)? {
+            deleted += 1;
+        }
+    }
+    Ok(deleted)
+}
+
+pub(crate) fn delete_tracker_snapshots_for_chat(
+    state: &AppState,
+    chat_id: &str,
+) -> AppResult<usize> {
+    let rows = tracker_snapshots_for_chat(state, chat_id)?;
     let mut deleted = 0;
     for row in rows {
         let Some(id) = non_empty_string(&row, "id").map(ToOwned::to_owned) else {
@@ -247,14 +319,7 @@ fn visible_tracker_snapshot(state: &AppState, chat_id: &str) -> AppResult<Option
             return Ok(Some(snapshot));
         }
     }
-    Ok(latest_tracker_snapshot(state, chat_id)?.filter(|snapshot| {
-        snapshot
-            .get("messageId")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .unwrap_or_default()
-            .is_empty()
-    }))
+    bootstrap_tracker_snapshot(state, chat_id)
 }
 
 fn normalize_tracker_snapshot(chat_id: &str, body: Value) -> AppResult<Map<String, Value>> {
@@ -313,6 +378,14 @@ fn normalize_tracker_snapshot(chat_id: &str, body: Value) -> AppResult<Map<Strin
 
 fn is_tracker_snapshot(row: &Value) -> bool {
     row.get("kind").and_then(Value::as_str) == Some(TRACKER_KIND)
+}
+
+fn is_bootstrap_tracker_snapshot(row: &Value) -> bool {
+    row.get("messageId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default()
+        .is_empty()
 }
 
 fn required_chat_id(chat_id: &str) -> AppResult<&str> {

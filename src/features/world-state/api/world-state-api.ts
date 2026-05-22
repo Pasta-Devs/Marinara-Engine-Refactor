@@ -119,7 +119,7 @@ function canUseChatGameStateFallback(
   const exact = stateTarget.messageId === target.messageId && stateTarget.swipeIndex === target.swipeIndex;
   if (options.requestedTarget) return exact;
   if (exact && options.hasVisibleTarget) return true;
-  return options.activeTargetKeys?.has(targetKey(stateTarget)) ?? false;
+  return exact && (options.activeTargetKeys?.has(targetKey(stateTarget)) ?? false);
 }
 
 async function visibleTargetContext(chatId: string): Promise<{

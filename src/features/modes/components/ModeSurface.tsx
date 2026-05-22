@@ -823,9 +823,6 @@ export function ModeSurface() {
 
   const handleBulkDelete = useCallback(() => {
     const messageIds = [...selectedMessageIds];
-    setMultiSelectMode(false);
-    setSelectedMessageIds(new Set());
-    setSelectionAnchorIndex(null);
     if (messageIds.length === 0) return;
     const actionId = ++swipeActionSeq.current;
     const refreshChatId = activeChatId;
@@ -845,6 +842,10 @@ export function ModeSurface() {
         await deleteMessages.mutateAsync(messageIds);
         if (swipeActionSeq.current !== actionId) return;
         await refreshVisibleGameState();
+        if (swipeActionSeq.current !== actionId) return;
+        setMultiSelectMode(false);
+        setSelectedMessageIds(new Set());
+        setSelectionAnchorIndex(null);
       } catch {
         if (swipeActionSeq.current !== actionId) return;
         toast.error("Could not delete messages.");

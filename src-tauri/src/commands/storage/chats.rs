@@ -585,6 +585,14 @@ pub(crate) fn branch_chat(state: &AppState, chat_id: &str, body: Value) -> AppRe
                 state
                     .storage
                     .patch("chats", &new_chat_id, json!({ "gameState": Value::Null }))?;
+        } else if let Some(bootstrap_game_state) =
+            game_state_snapshots::copy_bootstrap_tracker_snapshot(state, chat_id, &new_chat_id)?
+        {
+            new_chat = state.storage.patch(
+                "chats",
+                &new_chat_id,
+                json!({ "gameState": bootstrap_game_state }),
+            )?;
         }
     }
     Ok(new_chat)
@@ -596,9 +604,9 @@ pub(crate) fn delete_chat_with_messages(state: &AppState, chat_id: &str) -> AppR
             "Built-in Professor Mari cannot be deleted",
         ));
     }
+    game_state_snapshots::delete_tracker_snapshots_for_chat(state, chat_id)?;
     for message in messages_for_chat(state, chat_id)? {
         if let Some(id) = message.get("id").and_then(Value::as_str) {
-            game_state_snapshots::delete_tracker_snapshots_for_message(state, chat_id, id)?;
             state.storage.delete("messages", id)?;
         }
     }

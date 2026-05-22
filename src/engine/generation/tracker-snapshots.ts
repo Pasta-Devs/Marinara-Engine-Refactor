@@ -22,7 +22,7 @@ export interface TrackerSnapshotSelectionOptions {
   preferLatestVisible?: boolean;
   visibleAnchor?: TrackerSnapshotTurnTarget | null;
   excludeMessageId?: string | null;
-  fallbackMessageIds?: string[] | null;
+  fallbackTargets?: TrackerSnapshotTurnTarget[] | null;
 }
 
 export interface TrackerSnapshotReadContext {
@@ -387,14 +387,25 @@ function trackerSnapshotTargetFromRebasedMessage(
   };
 }
 
-export function resolveVisibleGameStateFallbackMessageIds(messages: Array<{ role?: unknown; id?: unknown }>): string[] {
-  const ids = new Set<string>([""]);
+function trackerTargetKey(target: TrackerSnapshotTurnTarget): string {
+  return `${target.messageId}\u0000${target.swipeIndex}`;
+}
+
+export function resolveVisibleGameStateFallbackMessageIds(
+  messages: Array<{ role?: unknown; id?: unknown; activeSwipeIndex?: unknown; swipeIndex?: unknown }>,
+): TrackerSnapshotTurnTarget[] {
+  const targets = new Map<string, TrackerSnapshotTurnTarget>();
+  const addTarget = (target: TrackerSnapshotTurnTarget) => targets.set(trackerTargetKey(target), target);
+  addTarget({ messageId: "", swipeIndex: 0 });
   for (const message of messages) {
     if (message.role === "assistant" && typeof message.id === "string" && message.id.trim()) {
-      ids.add(message.id.trim());
+      addTarget({
+        messageId: message.id.trim(),
+        swipeIndex: readNonNegativeInteger(message.activeSwipeIndex ?? message.swipeIndex, 0),
+      });
     }
   }
-  return Array.from(ids);
+  return Array.from(targets.values());
 }
 
 async function listTrackerSnapshotRows(storage: StorageGateway, chatId: string): Promise<Array<Record<string, unknown>>> {
@@ -508,15 +519,15 @@ export async function selectTrackerSnapshotForGeneration(
   context?: TrackerSnapshotReadContext,
 ): Promise<GameState | null> {
   const rows = context?.rows ?? (await listTrackerSnapshotRows(storage, chatId));
-  const fallbackMessageIds = new Set(
-    (options.fallbackMessageIds ?? []).filter((messageId): messageId is string => typeof messageId === "string"),
+  const fallbackTargets = new Set(
+    (options.fallbackTargets ?? []).filter((target) => target?.messageId !== undefined).map(trackerTargetKey),
   );
-  const hasFallbacks = fallbackMessageIds.size > 0;
+  const hasFallbacks = fallbackTargets.size > 0;
   const excludeMessageId = readString(options.excludeMessageId).trim();
   const eligible = (row: Record<string, unknown>) => {
     const target = trackerSnapshotTargetFromRecord(row);
     if (!target) return false;
-    if (hasFallbacks) return fallbackMessageIds.has(target.messageId);
+    if (hasFallbacks) return fallbackTargets.has(trackerTargetKey(target));
     if (excludeMessageId) return target.messageId !== excludeMessageId;
     return true;
   };
