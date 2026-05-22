@@ -252,7 +252,7 @@ function WorldForecastTile({
             value={temperature}
             onSave={onSaveTemperature}
             placeholder="Set temp"
-            className="flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-[3px] bg-transparent px-0 pb-0.5 pt-0.5 text-center shadow-none hover:!bg-transparent @min-[10rem]:justify-end @min-[10rem]:gap-1 @min-[10rem]:pt-0"
+            className="flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-[3px] bg-transparent px-0 pb-0.5 pt-0.5 text-center shadow-none hover:bg-transparent! @min-[10rem]:justify-end @min-[10rem]:gap-1 @min-[10rem]:pt-0"
             inputClassName="text-center text-[0.625rem]"
           >
             <span className="flex h-7 w-full min-w-0 items-center justify-center overflow-visible @min-[10rem]:h-7 @min-[14rem]:h-8">
