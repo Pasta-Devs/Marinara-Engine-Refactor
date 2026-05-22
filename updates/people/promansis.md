@@ -2,6 +2,14 @@
 
 ## Current Work
 
+- Multi-PNG lazy-load warning
+  - Status: Fixed locally
+  - Impact area: UI
+  - Branch: `bug/37-multi-png-lazy-load-warning`
+  - Worktree: `/tmp/marinara-issue37`
+  - Next step: Manual smoke multi-PNG import in the app and confirm the browser console stays clear of the lazy-load warning.
+  - Blockers: None.
+
 - Message translation failures leave no visible error
   - Status: Fixed locally on `fix/bug-19-translation-errors`
   - Impact area: UI, shared/api, Rust capability error surface
