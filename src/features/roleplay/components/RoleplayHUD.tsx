@@ -16,9 +16,9 @@ import { useChat } from "../../chats/hooks/use-chats";
 import { useTrackerStateController } from "../../world-state/hooks/use-tracker-state-controller";
 import { discardPendingGameStatePatch } from "../../world-state/hooks/use-world-state-patcher";
 import {
+  mergeNamedTrackerListUpdate,
   mergePresentCharacterListUpdate,
   mergeQuestProgressListUpdate,
-  mergeTrackerListUpdate,
 } from "../../world-state/lib/tracker-state-edits";
 import { TRACKER_SECTION_AGENT_TYPES, type TrackerPanelSection } from "../../world-state/lib/tracker-state-display";
 import { useUIStore } from "../../../shared/stores/ui.store";
@@ -183,7 +183,7 @@ export function RoleplayHUD({
   const personaStatus = playerStats?.status ?? "";
   const updatePersonaStats = useCallback(
     (bars: CharacterStat[]) => {
-      patchField("personaStats", mergeTrackerListUpdate(personaStatBars, getSnapshot().personaStats, bars));
+      patchField("personaStats", mergeNamedTrackerListUpdate(personaStatBars, getSnapshot().personaStats, bars));
     },
     [getSnapshot, patchField, personaStatBars],
   );
@@ -198,7 +198,7 @@ export function RoleplayHUD({
   );
   const updateInventory = useCallback(
     (items: InventoryItem[]) => {
-      patchPlayerStats("inventory", mergeTrackerListUpdate(inventory, getSnapshot().inventory, items));
+      patchPlayerStats("inventory", mergeNamedTrackerListUpdate(inventory, getSnapshot().inventory, items));
     },
     [getSnapshot, inventory, patchPlayerStats],
   );
@@ -212,7 +212,7 @@ export function RoleplayHUD({
     (fields: CustomTrackerField[]) => {
       patchPlayerStats(
         "customTrackerFields",
-        mergeTrackerListUpdate(customTrackerFields, getSnapshot().customTrackerFields, fields),
+        mergeNamedTrackerListUpdate(customTrackerFields, getSnapshot().customTrackerFields, fields),
       );
     },
     [customTrackerFields, getSnapshot, patchPlayerStats],
