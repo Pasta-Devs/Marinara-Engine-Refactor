@@ -222,13 +222,12 @@ fn add_legacy_message_swipes(rows: &mut [Value], tables: &Map<String, Value>) {
     }
 }
 
-fn normalize_legacy_game_state_snapshots(rows: &mut [Value]) {
-    for row in rows {
-        let Some(snapshot) = normalize_legacy_game_state_snapshot(row) else {
-            continue;
-        };
-        *row = snapshot;
-    }
+fn normalize_legacy_game_state_snapshots(rows: &mut Vec<Value>) {
+    let normalized = rows
+        .iter()
+        .filter_map(normalize_legacy_game_state_snapshot)
+        .collect::<Vec<_>>();
+    *rows = normalized;
 }
 
 fn normalize_legacy_game_state_snapshot(row: &Value) -> Option<Value> {
@@ -359,5 +358,27 @@ mod tests {
         }));
 
         assert!(snapshot.is_none());
+    }
+
+    #[test]
+    fn legacy_game_state_snapshot_batch_filters_invalid_rows() {
+        let mut rows = vec![
+            json!({
+                "id": "snapshot-1",
+                "chatId": "chat-1",
+                "presentCharacters": [{ "name": "Mari" }]
+            }),
+            json!({
+                "id": "snapshot-2",
+                "messageId": "message-1",
+                "presentCharacters": [{ "name": "Dropped" }]
+            }),
+        ];
+
+        normalize_legacy_game_state_snapshots(&mut rows);
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], "snapshot-1");
+        assert_eq!(rows[0]["chatId"], "chat-1");
     }
 }
