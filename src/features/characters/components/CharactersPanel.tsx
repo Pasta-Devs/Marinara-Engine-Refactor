@@ -182,9 +182,17 @@ export function CharactersPanel() {
   }, [characters]) as ParsedCharacterRow[];
 
   const charMap = useMemo(() => {
-    const map = new Map<string, { name: string; comment?: string | null; avatarPath: string | null }>();
+    const map = new Map<
+      string,
+      { name: string; comment?: string | null; avatarPath: string | null; avatarCrop?: unknown }
+    >();
     for (const c of parsedCharacters) {
-      map.set(c.id, { name: c.parsed.name ?? "Unknown", comment: c.comment, avatarPath: c.avatarPath });
+      map.set(c.id, {
+        name: c.parsed.name ?? "Unknown",
+        comment: c.comment,
+        avatarPath: c.avatarPath,
+        avatarCrop: c.parsed.extensions?.avatarCrop,
+      });
     }
     return map;
   }, [parsedCharacters]);
@@ -945,9 +953,13 @@ export function CharactersPanel() {
                             }}
                             className="group/member flex cursor-pointer items-center gap-2 rounded-lg p-1.5 transition-all hover:bg-[var(--sidebar-accent)]"
                           >
-                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg overflow-hidden bg-gradient-to-br from-pink-400 to-rose-500 text-white">
+                            <div className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-pink-400 to-rose-500 text-white">
                               {member.avatarPath ? (
-                                <CharacterAvatarImage src={member.avatarPath} alt={member.name} />
+                                <CharacterAvatarImage
+                                  src={member.avatarPath}
+                                  alt={member.name}
+                                  crop={member.avatarCrop}
+                                />
                               ) : (
                                 <User size="0.75rem" />
                               )}
