@@ -28,8 +28,213 @@
         <h1>Dependency direction is the main guardrail.</h1>
         <p class="lead">
           The app is layered so product behavior stays readable and privileged
-          local work stays behind Tauri and Rust capability boundaries.
+          local work stays behind Tauri and Rust capability boundaries. The
+          refactor is now organized around separate app shell, feature UI,
+          shared frontend utilities, React-free engine modules, typed Tauri
+          adapters, thin commands, and focused Rust capability crates.
         </p>
+
+        <h2>Full Refactor Module Map</h2>
+        <pre class="mermaid">
+flowchart TB
+  User[User]
+
+  subgraph AppLayer[src/app]
+    AppRoot[App.tsx and main.tsx<br/>React bootstrap]
+    AppProviders[providers<br/>theme and extension injection]
+    AppShell[shell<br/>titlebar, sidebar, panels, routes]
+    AppStartup[startup<br/>browser startup sync]
+  end
+
+  subgraph FeatureLayer[src/features]
+    ModeRouter[modes<br/>ModeSurface]
+    ChatUI[chats<br/>conversation UI, chat hooks, message surfaces]
+    RoleplayUI[roleplay<br/>scene UI, HUD, choices, encounters]
+    GameUI[game<br/>game surface, hooks, stores, API facade]
+    GameAssetsUI[game-assets<br/>asset browser and editors]
+    MariUI[mari<br/>Professor Mari surface]
+    VisualsUI[visuals<br/>sprites, weather, pinned images, world info]
+    TrackerUI[tracker<br/>character, persona, quest, world panels]
+    WorldStateUI[world-state<br/>world state API, store, patching]
+    AgentsUI[agents<br/>agent configuration and debug UI]
+    LibraryUI[characters, personas, lorebooks,<br/>presets, chat-presets]
+    ConnectionsUI[connections and settings<br/>providers, themes, profile, TTS]
+    UtilityFeatures[imports, knowledge, bot-browser,<br/>gallery, spotify, onboarding, hooks]
+  end
+
+  subgraph SharedLayer[src/shared]
+    SharedComponents[components<br/>generic atoms, modals, widgets]
+    SharedHooks[hooks<br/>TTS, translation, activity, regex]
+    SharedLib[lib<br/>display, parsing, browser helpers]
+    SharedStores[stores<br/>UI and session state]
+    SharedTypes[types/generated<br/>Rust boundary bindings]
+    SharedApi[api<br/>typed Tauri wrappers]
+  end
+
+  subgraph EngineLayer[src/engine]
+    Contracts[contracts<br/>schemas, types, constants]
+    Core[core<br/>ids, clock, result, JSON]
+    CapPorts[capabilities<br/>storage, LLM, assets, events, integrations ports]
+    EngineShared[shared<br/>pure text, regex, scoring, parser helpers]
+    Repositories[repositories<br/>capability-backed data access]
+    GenCore[generation-core<br/>prompt, lorebook, regex, LLM DTOs]
+    AgentsRuntime[agents-runtime<br/>executor, knowledge, pipeline]
+    Generation[generation<br/>assembly, streaming, replay, persistence]
+    MariEngine[mari<br/>Professor Mari entry contract]
+    ChatEngine[modes/chat<br/>autonomous, schedules, summaries, commands]
+    RoleplayEngine[modes/roleplay<br/>scenes, encounters, scene analysis]
+    GameEngine[modes/game<br/>turns, prompts, mechanics, world, state]
+  end
+
+  subgraph TauriLayer[src-tauri/src]
+    TauriApp[app, state, lib<br/>builder, managed state, invoke handler]
+    CommandFacades[commands/storage/commands<br/>thin public Tauri commands]
+    CommandImpl[commands/storage<br/>focused capability implementations]
+  end
+
+  subgraph RustCrates[src-tauri/crates]
+    CoreCrate[core<br/>errors, ids, time]
+    SecurityCrate[security<br/>path safety, outbound policy]
+    StorageCrate[storage<br/>records, manifests, atomic writes]
+    AssetsCrate[assets<br/>managed media and asset IO]
+    LlmCrate[llm<br/>provider transport and streaming]
+    IntegrationsCrate[integrations<br/>Spotify, TTS, haptics, utilities]
+  end
+
+  User --> AppShell
+  AppRoot --> AppProviders
+  AppProviders --> AppShell
+  AppStartup --> AppRoot
+  AppShell --> ModeRouter
+  AppShell --> MariUI
+
+  ModeRouter --> ChatUI
+  ModeRouter --> RoleplayUI
+  ModeRouter --> GameUI
+  ChatUI -. current UI bridge .-> RoleplayUI
+  ChatUI -. current UI bridge .-> GameUI
+  RoleplayUI -. reuses chat message UI .-> ChatUI
+  GameUI -. reuses chat hooks and gallery .-> ChatUI
+
+  ChatUI --> SharedComponents
+  RoleplayUI --> SharedComponents
+  GameUI --> SharedComponents
+  MariUI --> SharedComponents
+  GameAssetsUI --> SharedApi
+  LibraryUI --> SharedApi
+  ConnectionsUI --> SharedApi
+  UtilityFeatures --> SharedApi
+  TrackerUI --> WorldStateUI
+  VisualsUI --> SharedLib
+  AgentsUI --> SharedStores
+  ChatUI --> SharedStores
+  RoleplayUI --> SharedStores
+  GameUI --> SharedStores
+
+  ChatUI --> ChatEngine
+  RoleplayUI --> RoleplayEngine
+  GameUI --> GameEngine
+  MariUI --> MariEngine
+  ChatUI --> SharedApi
+  RoleplayUI --> SharedApi
+  GameUI --> SharedApi
+  MariUI --> SharedApi
+
+  ChatEngine --> Generation
+  RoleplayEngine --> Generation
+  GameEngine --> Generation
+  Generation --> AgentsRuntime
+  Generation --> GenCore
+  AgentsRuntime --> GenCore
+  GenCore --> Repositories
+  GenCore --> EngineShared
+  Repositories --> CapPorts
+  CapPorts --> Contracts
+  EngineShared --> Contracts
+  Core --> Contracts
+  MariEngine --> Contracts
+  GameEngine --> EngineShared
+  RoleplayEngine --> EngineShared
+  ChatEngine --> EngineShared
+  CapPorts -. implemented at app edge by .-> SharedApi
+
+  SharedApi --> CommandFacades
+  TauriApp --> CommandFacades
+  CommandFacades --> CommandImpl
+  CommandImpl --> StorageCrate
+  CommandImpl --> AssetsCrate
+  CommandImpl --> LlmCrate
+  CommandImpl --> IntegrationsCrate
+  CommandImpl --> SecurityCrate
+  StorageCrate --> CoreCrate
+  AssetsCrate --> StorageCrate
+  AssetsCrate --> SecurityCrate
+  LlmCrate --> SecurityCrate
+  IntegrationsCrate --> CoreCrate
+  SecurityCrate --> CoreCrate
+        </pre>
+
+        <h2>UI Layer Detail</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>UI module</th>
+              <th>Owns</th>
+              <th>Important dependencies</th>
+              <th>Boundary note</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>src/app/shell</code></td>
+              <td>Application chrome, titlebar actions, sidebars, right panel, detail route registry, and the active surface slot.</td>
+              <td>Feature surfaces, shared stores, generic UI components.</td>
+              <td>Routes between product areas but should not own product rules.</td>
+            </tr>
+            <tr>
+              <td><code>features/modes</code></td>
+              <td>The mode router that chooses conversation, roleplay, or game surface for the active chat.</td>
+              <td><code>features/chats</code>, <code>features/roleplay</code>, <code>features/game</code>.</td>
+              <td>This is the intentional UI composition point for the three modes.</td>
+            </tr>
+            <tr>
+              <td><code>features/chats</code></td>
+              <td>Conversation surface, chat input, message rendering, setup, settings, summaries, swipes, branches, galleries, and normal chat hooks.</td>
+              <td>Chat engine services, generation hook, shared API adapters, shared stores.</td>
+              <td>Owns conversation UI; currently also hosts reusable message pieces used by roleplay and game.</td>
+            </tr>
+            <tr>
+              <td><code>features/roleplay</code></td>
+              <td>Roleplay surface, scene HUD, scene lifecycle controls, choices, encounters, and roleplay panels.</td>
+              <td>Roleplay engine services, chat hooks/message components, visuals, storage and LLM adapters.</td>
+              <td>Product behavior is roleplay-owned; UI still reuses chat message/input components.</td>
+            </tr>
+            <tr>
+              <td><code>features/game</code></td>
+              <td>Game surface, setup, party UI, narration, maps, combat, inventory, journal, sessions, audio, game stores, and game API facade.</td>
+              <td>Game engine services, shared API adapters, game assets, chat hooks/types for session messages.</td>
+              <td>Game rules are separate; UI still reuses chat hooks and gallery/message types.</td>
+            </tr>
+            <tr>
+              <td><code>features/mari</code></td>
+              <td>Professor Mari standalone assistant surface, local conversation state, connection/persona selectors, attachments, and Mari send flow.</td>
+              <td><code>engine/mari</code>, <code>shared/api/mari-api</code>, chat message component, connections/personas hooks.</td>
+              <td>Not a chat, roleplay, or game mode; it is a shell-level assistant path.</td>
+            </tr>
+            <tr>
+              <td><code>features/game-assets</code>, <code>features/visuals</code>, <code>features/tracker</code>, <code>features/world-state</code></td>
+              <td>Mode-adjacent UI for assets, sprites/weather/world display, trackers, and world state persistence.</td>
+              <td>Shared API adapters, shared stores, game and roleplay surfaces.</td>
+              <td>These are shared UI support areas; changes can affect more than one mode.</td>
+            </tr>
+            <tr>
+              <td>Library, provider, import, and integration features</td>
+              <td>Characters, personas, lorebooks, presets, chat presets, connections, settings, imports, knowledge, gallery, Spotify, bot browser, onboarding.</td>
+              <td>Storage/import/export/LLM/integration APIs, engine contracts, shared UI.</td>
+              <td>They should expose feature hooks or facades instead of being reached through private component internals.</td>
+            </tr>
+          </tbody>
+        </table>
 
         <h2>Layer Diagram</h2>
         <pre class="mermaid">
@@ -64,6 +269,7 @@ flowchart BT
   GenCore[generation-core<br/>prompt, lorebook, regex, LLM DTOs]
   Agents[agents-runtime<br/>agents, tools, knowledge]
   Generation[generation<br/>streaming lifecycle and persistence]
+  Mari[mari<br/>Professor Mari entry contract]
   Modes[modes<br/>chat, roleplay, game]
 
   Capabilities --> Contracts
@@ -75,6 +281,7 @@ flowchart BT
   Agents --> GenCore
   Generation --> Agents
   Generation --> GenCore
+  Mari --> Contracts
   Modes --> Generation
   Modes --> Repositories
         </pre>
@@ -132,6 +339,329 @@ flowchart LR
   Roleplay -. no imports .- Game
   Game -. no imports .- Chat
         </pre>
+
+        <h2>Mode Separation Status</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Area checked</th>
+              <th>Status</th>
+              <th>What is shared</th>
+              <th>What to watch</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>engine/modes/chat</code></td>
+              <td>Separated from roleplay and game at the product-rule layer. No direct sibling-mode imports were found.</td>
+              <td>Contracts, engine shared helpers, generation/generation-core, repositories, and capability ports.</td>
+              <td>Do not move roleplay scene lifecycle or game turn logic into chat services.</td>
+            </tr>
+            <tr>
+              <td><code>engine/modes/roleplay</code></td>
+              <td>Separated from chat and game at the product-rule layer. No direct sibling-mode imports were found.</td>
+              <td>Contracts, storage/LLM capability ports, generation, deterministic helpers, and visual asset helpers through UI layers.</td>
+              <td>Scene orchestration stays here; shared transcript or parser helpers belong below modes.</td>
+            </tr>
+            <tr>
+              <td><code>engine/modes/game</code></td>
+              <td>Separated from chat and roleplay at the product-rule layer. No direct sibling-mode imports were found.</td>
+              <td>Contracts, generation, generation-core, repositories, shared parsers/scoring/text helpers, and capability ports.</td>
+              <td>Game turns, game prompts, state repair, maps, mechanics, weather, time, and sessions stay game-owned.</td>
+            </tr>
+            <tr>
+              <td><code>features/chats</code></td>
+              <td>Dedicated conversation UI, but not fully UI-isolated.</td>
+              <td>Imports the roleplay scene banner for active scene controls and the game mode store for notification bubbles.</td>
+              <td>These are UI bridge points. If they grow, move the shared contract into <code>features/modes</code> or <code>src/shared</code>.</td>
+            </tr>
+            <tr>
+              <td><code>features/roleplay</code></td>
+              <td>Dedicated roleplay UI, but it reuses chat UI pieces.</td>
+              <td>Uses chat hooks plus chat message, input, branch selector, overlays, echo chamber, summary popover, and chat-area types.</td>
+              <td>This is component reuse, not roleplay using the chat engine. Reusable message primitives are candidates for a shared UI owner later.</td>
+            </tr>
+            <tr>
+              <td><code>features/game</code></td>
+              <td>Dedicated game UI, but it reuses chat session hooks and message/gallery types.</td>
+              <td>Uses chat hooks for session messages, chat-area types for shared display data, and the chat gallery drawer.</td>
+              <td>Game rules remain in <code>engine/modes/game</code>. UI reuse should not become shared game/chat orchestration.</td>
+            </tr>
+            <tr>
+              <td><code>features/modes</code></td>
+              <td>Intentionally coupled to all three mode surfaces.</td>
+              <td>Imports chat, roleplay, and game surfaces because it is the UI router.</td>
+              <td>Keep routing here; do not add prompt rules or mode state machines to the router.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout">
+          Current answer: conversation, roleplay, and game are separated in the
+          TypeScript engine where product behavior lives. They are not fully
+          separated at the React UI component layer because roleplay and game
+          reuse chat message/session UI, and chat has small roleplay/game bridge
+          imports. Treat those as UI composition points, not permission to share
+          mode orchestration.
+        </div>
+
+        <h2>Standalone Professor Mari Boundary</h2>
+        <pre class="mermaid">
+flowchart LR
+  Shell[src/app shell<br/>titlebar and surface routing]
+  MariUI[features/mari<br/>ProfessorMariSurface]
+  MariEngine[engine/mari<br/>entry request contract]
+  MariApi[shared/api/mari-api<br/>typed Tauri wrapper]
+  MariCommand[src-tauri commands<br/>professor_mari_prompt]
+  RustMari[Rust Mari service<br/>AutoAgents, read-only library tool]
+  RustLLM[crates/llm<br/>provider transport]
+  RustStorage[crates/storage<br/>creative library snapshot]
+
+  Shell --> MariUI
+  MariUI --> MariEngine
+  MariUI --> MariApi
+  MariApi --> MariCommand
+  MariCommand --> RustMari
+  RustMari --> RustLLM
+  RustMari --> RustStorage
+        </pre>
+        <p>
+          Professor Mari is a standalone assistant path, not a chat,
+          roleplay, or game mode. The TypeScript entry normalizes request
+          shape, the shared API invokes a single Tauri command, and Rust owns
+          the tool-enabled agent plus read-only creative library access.
+        </p>
+
+        <h2>Possible Docker Web Deployment</h2>
+        <p>
+          A VPS-hosted browser build is plausible, but it is not supported by
+          the current tree as a first-class runtime. The main architecture
+          conflict is not React or the TypeScript engine; it is that frontend
+          capability access currently assumes Tauri <code>invoke</code>,
+          Tauri channels, Tauri file URL conversion, and desktop plugins. A
+          Docker web mode should be added as a second host adapter, not as
+          browser-only conditionals scattered through feature code.
+        </p>
+
+        <pre class="mermaid">
+flowchart TB
+  subgraph SharedProduct[Shared product code]
+    UI[React app and features]
+    Engine[TypeScript engine<br/>contracts, generation, modes, Mari]
+    ApiModules[src/shared/api modules<br/>storage, LLM, assets, imports, integrations]
+  end
+
+  subgraph DesktopHost[Tauri desktop host]
+    TauriTransport[Tauri transport<br/>invoke, Channel, convertFileSrc]
+    TauriCommands[Tauri command facades]
+    TauriPlugins[dialog, opener, window-state,<br/>asset protocol]
+  end
+
+  subgraph WebHost[Proposed Docker web host]
+    WebTransport[Web transport<br/>fetch, SSE or WebSocket, upload forms]
+    HttpRoutes[Axum HTTP API routes<br/>same DTOs as Tauri commands]
+    StaticFiles[Serve Vite dist<br/>same origin static files]
+    BrowserFallbacks[Browser fallbacks<br/>file input, no native titlebar,<br/>HTTP asset URLs]
+  end
+
+  subgraph RustServices[Reusable Rust capability services]
+    Storage[storage crate]
+    Assets[assets crate]
+    LLM[llm crate]
+    Integrations[integrations crate]
+    Security[security crate]
+  end
+
+  UI --> Engine
+  UI --> ApiModules
+  Engine --> ApiModules
+  ApiModules --> TauriTransport
+  ApiModules --> WebTransport
+  TauriTransport --> TauriCommands
+  TauriCommands --> Storage
+  TauriCommands --> Assets
+  TauriCommands --> LLM
+  TauriCommands --> Integrations
+  TauriPlugins --> TauriTransport
+  WebTransport --> HttpRoutes
+  HttpRoutes --> Storage
+  HttpRoutes --> Assets
+  HttpRoutes --> LLM
+  HttpRoutes --> Integrations
+  HttpRoutes --> Security
+  StaticFiles --> UI
+  BrowserFallbacks --> WebTransport
+        </pre>
+
+        <h3>What Works With The Current Re-org</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Area</th>
+              <th>Assessment</th>
+              <th>Why</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>React feature surfaces</td>
+              <td>Mostly reusable.</td>
+              <td>Most UI already depends on feature hooks, shared UI, and <code>src/shared/api</code> rather than importing Rust or Tauri directly.</td>
+            </tr>
+            <tr>
+              <td>TypeScript engine</td>
+              <td>Reusable.</td>
+              <td>The engine is React-free and receives capability objects for storage, LLM, integrations, and events. This is the right shape for both desktop and web hosts.</td>
+            </tr>
+            <tr>
+              <td>Rust capability crates</td>
+              <td>Reusable.</td>
+              <td>Storage, assets, LLM transport, security, and integrations are already below Tauri command facades, so an HTTP host can call the same lower services.</td>
+            </tr>
+            <tr>
+              <td>Tauri command facades</td>
+              <td>Not directly reusable as web routes.</td>
+              <td>They are shaped as <code>#[tauri::command]</code> handlers. The shared service code below them should be reused, while HTTP routes should be thin sibling facades.</td>
+            </tr>
+            <tr>
+              <td>Frontend API transport</td>
+              <td>Needs re-org.</td>
+              <td><code>src/shared/api/tauri-client.ts</code> is currently the single command transport. Browser mode needs a parallel fetch/SSE/WebSocket transport selected by runtime target.</td>
+            </tr>
+            <tr>
+              <td>Desktop plugins and local files</td>
+              <td>Needs explicit browser fallbacks.</td>
+              <td>File dialogs, window titlebar controls, opener behavior, asset protocol URLs, and local file paths have different browser semantics.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Required Modular Seams</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Seam</th>
+              <th>Target shape</th>
+              <th>Do not do</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Runtime target</td>
+              <td>Add one host selector such as <code>VITE_TARGET=tauri</code> and <code>VITE_TARGET=web</code>, exposed through a small <code>runtime-env</code> helper.</td>
+              <td>Do not test <code>window.__TAURI__</code> inside every feature component.</td>
+            </tr>
+            <tr>
+              <td>Command transport</td>
+              <td>Split command execution behind a transport interface: Tauri uses <code>invoke</code>; web uses same-origin HTTP.</td>
+              <td>Do not duplicate <code>storage-api.ts</code>, <code>llm-api.ts</code>, and other adapters into separate web copies.</td>
+            </tr>
+            <tr>
+              <td>Streaming</td>
+              <td>Keep <code>llm-api.ts</code> provider-neutral and adapt Tauri <code>Channel</code> to web SSE or WebSocket events.</td>
+              <td>Do not make generation code know whether tokens came from Tauri channels or browser streams.</td>
+            </tr>
+            <tr>
+              <td>Local assets</td>
+              <td>Move asset URL resolution behind an asset URL adapter. Tauri can keep <code>convertFileSrc</code>; web should return authenticated or scoped HTTP URLs.</td>
+              <td>Do not leak server filesystem paths to the browser.</td>
+            </tr>
+            <tr>
+              <td>File picking and uploads</td>
+              <td>Use browser <code>&lt;input type="file"&gt;</code> and multipart/upload endpoints in web mode; keep Tauri dialog paths for desktop imports where needed.</td>
+              <td>Do not make browser mode accept arbitrary client filesystem paths.</td>
+            </tr>
+            <tr>
+              <td>Desktop-only UI</td>
+              <td>Wrap titlebar controls, folder openers, and OS window behavior in small host adapters with no-op or browser equivalents.</td>
+              <td>Do not let desktop window commands throw during normal browser rendering.</td>
+            </tr>
+            <tr>
+              <td>Rust host</td>
+              <td>Add a web/server binary that serves <code>dist/</code> and exposes HTTP routes calling the same Rust capability services as Tauri commands.</td>
+              <td>Do not put product behavior into the HTTP routes; keep them thin like Tauri commands.</td>
+            </tr>
+            <tr>
+              <td>Build and CI</td>
+              <td>Build both targets: Tauri desktop and Docker web. Add a web typecheck/build path so browser-only regressions are caught.</td>
+              <td>Do not rely on desktop CI to prove browser mode still works.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Browser Mode Conflict Areas</h3>
+        <div class="grid">
+          <div class="panel">
+            <h3>Tauri invoke</h3>
+            <p>
+              Most persistence, imports, exports, LLM calls, integrations,
+              Professor Mari, and media commands currently enter through
+              <code>invokeTauri</code>. Browser mode needs a transport swap at
+              that layer.
+            </p>
+          </div>
+          <div class="panel">
+            <h3>Streaming channels</h3>
+            <p>
+              LLM streaming currently uses Tauri channels. Web mode needs SSE or
+              WebSocket events with the same frontend event contract.
+            </p>
+          </div>
+          <div class="panel">
+            <h3>Local asset URLs</h3>
+            <p>
+              Desktop can convert local paths with Tauri. Web mode must serve
+              managed assets through HTTP URLs and should never expose raw server
+              paths.
+            </p>
+          </div>
+          <div class="panel">
+            <h3>File dialogs</h3>
+            <p>
+              Tauri dialog paths do not exist in a remote browser. Imports and
+              uploads need browser file inputs and upload endpoints.
+            </p>
+          </div>
+          <div class="panel">
+            <h3>Window and opener plugins</h3>
+            <p>
+              Titlebar controls, folder openers, and native window behavior need
+              browser-safe no-ops or equivalents.
+            </p>
+          </div>
+          <div class="panel">
+            <h3>Local integrations</h3>
+            <p>
+              Haptics, Spotify OAuth callbacks, TTS, and bot/browser utilities
+              need per-integration decisions because the server may be remote
+              while the device is local.
+            </p>
+          </div>
+        </div>
+
+        <h3>Recommendation</h3>
+        <p>
+          The feature can fit the current architecture if the next step is a
+          host-adapter re-org, not a feature-by-feature patch. The first useful
+          cut is a web runtime that supports storage, LLM generation,
+          chat/roleplay/game, managed asset reads, imports through browser
+          uploads, and Professor Mari. Desktop-only behavior can be marked
+          unsupported or degraded until each integration gets a web contract.
+        </p>
+        <p>
+          That means no broad product re-org is needed in <code>src/engine</code>.
+          The needed modularity is mostly at <code>src/shared/api</code>,
+          <code>src/shared/api/local-file-api.ts</code>, desktop plugin call
+          sites, and Rust command facades. If those seams are added cleanly, a
+          Docker deployment can serve the Vite build and Rust API from one
+          process without changing the chat, roleplay, or game engine owners.
+        </p>
+        <div class="callout">
+          Honest cost: every future PR touching Tauri APIs, asset URLs, uploads,
+          streaming, or native integrations needs a browser-mode review. CI
+          should build both desktop and web targets, or web regressions will
+          slip through.
+        </div>
 
         <h2>When To Add A Module</h2>
         <ol>

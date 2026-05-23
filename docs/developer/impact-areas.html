@@ -45,21 +45,28 @@ Checks planned:</code></pre>
         <pre class="mermaid">
 flowchart LR
   ChatUI[features/chats]
+  GenerationHook[features/generation<br/>use-generate]
   ChatMode[engine/modes/chat]
   Generation[engine/generation]
   GenCore[engine/generation-core]
   Agents[engine/agents-runtime]
+  Capabilities[engine/capabilities<br/>storage, llm, integrations]
   LLMApi[shared/api/llm-api]
   StorageApi[shared/api/storage-api]
+  IntegrationApi[shared/api/integration-gateway]
   RustLLM[src-tauri crates/llm]
   RustStorage[src-tauri crates/storage]
 
-  ChatUI --> ChatMode
+  ChatUI --> GenerationHook
+  GenerationHook --> ChatMode
+  GenerationHook --> Generation
+  GenerationHook --> LLMApi
+  GenerationHook --> StorageApi
+  GenerationHook --> IntegrationApi
   ChatMode --> Generation
+  Generation --> Capabilities
   Generation --> GenCore
   Generation --> Agents
-  Generation --> LLMApi
-  Generation --> StorageApi
   LLMApi --> RustLLM
   StorageApi --> RustStorage
         </pre>
@@ -78,16 +85,20 @@ flowchart LR
   Visuals[features/visuals]
   RoleplayMode[engine/modes/roleplay]
   Generation[engine/generation]
+  Capabilities[engine/capabilities<br/>storage and llm ports]
   Assets[shared/api/assets-api]
   Storage[shared/api/storage-api]
+  LLM[shared/api/llm-api]
   RustAssets[src-tauri crates/assets]
   RustStorage[src-tauri crates/storage]
 
   RoleplayUI --> RoleplayMode
   RoleplayUI --> Visuals
+  RoleplayUI --> Storage
+  RoleplayUI --> LLM
+  RoleplayMode --> Capabilities
   RoleplayMode --> Generation
-  RoleplayMode --> Assets
-  RoleplayMode --> Storage
+  RoleplayUI --> Assets
   Assets --> RustAssets
   Storage --> RustStorage
         </pre>
@@ -103,9 +114,11 @@ flowchart LR
         <pre class="mermaid">
 flowchart LR
   GameUI[features/game]
+  GameApi[features/game/api]
   GameAssetsUI[features/game-assets]
   GameMode[engine/modes/game]
   Generation[engine/generation]
+  Capabilities[engine/capabilities<br/>storage, llm, assets, integrations]
   StorageApi[shared/api/storage-api]
   AssetsApi[shared/api/assets-api]
   IntegrationApi[shared/api/integration-gateway]
@@ -113,12 +126,14 @@ flowchart LR
   RustAssets[src-tauri crates/assets]
   RustIntegrations[src-tauri crates/integrations]
 
-  GameUI --> GameMode
+  GameUI --> GameApi
+  GameApi --> GameMode
+  GameApi --> StorageApi
+  GameApi --> AssetsApi
+  GameApi --> IntegrationApi
   GameAssetsUI --> AssetsApi
+  GameMode --> Capabilities
   GameMode --> Generation
-  GameMode --> StorageApi
-  GameMode --> AssetsApi
-  GameMode --> IntegrationApi
   StorageApi --> RustStorage
   AssetsApi --> RustAssets
   IntegrationApi --> RustIntegrations
@@ -128,6 +143,34 @@ flowchart LR
             <tr><th>Touching</th><td>Game turns, retries, setup, GM prompts, party prompts, combat, dice, maps, weather, journal, sessions, checkpoints, assets, music.</td></tr>
             <tr><th>Review</th><td>Game hooks, game mode store, generation guide source, game state persistence, game asset browser, integration side effects.</td></tr>
             <tr><th>Verify</th><td><code>pnpm typecheck</code> and usually <code>pnpm build</code>; add Rust check when storage/assets/integrations changed.</td></tr>
+          </tbody>
+        </table>
+
+        <h2>Professor Mari</h2>
+        <pre class="mermaid">
+flowchart LR
+  Shell[src/app shell]
+  MariUI[features/mari]
+  MariEngine[engine/mari]
+  MariApi[shared/api/mari-api]
+  MariCommand[src-tauri professor_mari_prompt]
+  MariRust[src-tauri commands/storage/mari.rs]
+  LLM[src-tauri crates/llm]
+  Storage[src-tauri crates/storage]
+
+  Shell --> MariUI
+  MariUI --> MariEngine
+  MariUI --> MariApi
+  MariApi --> MariCommand
+  MariCommand --> MariRust
+  MariRust --> LLM
+  MariRust --> Storage
+        </pre>
+        <table>
+          <tbody>
+            <tr><th>Touching</th><td>Professor Mari shell entry, standalone chat surface, connection/persona context, attachments, read-only creative library tool, native tool calling, or Mari provider errors.</td></tr>
+            <tr><th>Review</th><td>App shell routing, <code>features/mari</code>, <code>engine/mari</code>, <code>shared/api/mari-api</code>, Rust Mari command, LLM connection support, storage snapshot scope.</td></tr>
+            <tr><th>Verify</th><td><code>pnpm typecheck</code>; add <code>cargo check --manifest-path src-tauri/Cargo.toml</code> when the command, AutoAgents bridge, storage snapshot, or provider transport changed.</td></tr>
           </tbody>
         </table>
 
@@ -188,6 +231,36 @@ flowchart LR
           </tbody>
         </table>
 
+        <h2>Browser And Docker Runtime</h2>
+        <pre class="mermaid">
+flowchart LR
+  Feature[Feature or shared UI]
+  SharedApi[src/shared/api]
+  RuntimeTransport[Runtime transport<br/>Tauri invoke or web HTTP]
+  NativePlugin[Tauri plugins<br/>dialog, opener, window, asset URLs]
+  BrowserFallback[Browser fallback<br/>file input, HTTP assets, no-op window controls]
+  RustApi[Rust API facade<br/>Tauri commands or HTTP routes]
+  RustServices[Rust capability crates]
+  Docker[Docker web host<br/>static Vite build plus Rust API]
+
+  Feature --> SharedApi
+  SharedApi --> RuntimeTransport
+  RuntimeTransport --> RustApi
+  NativePlugin --> RuntimeTransport
+  BrowserFallback --> RuntimeTransport
+  RustApi --> RustServices
+  Docker --> RustApi
+  Docker --> Feature
+        </pre>
+        <table>
+          <tbody>
+            <tr><th>Touching</th><td><code>invokeTauri</code>, <code>llm-api</code> streaming, <code>local-file-api</code>, Tauri plugins, file dialogs, managed asset URLs, imports/uploads, native window/titlebar behavior, opener behavior, haptics, Spotify OAuth, TTS, or Docker/server build files.</td></tr>
+            <tr><th>Review</th><td>Does the feature require desktop-only native access, or can it run through a host adapter? Are DTOs shared between Tauri commands and proposed HTTP routes? Does browser mode avoid raw server filesystem paths?</td></tr>
+            <tr><th>Verify</th><td>Today: <code>pnpm typecheck</code>, <code>pnpm build</code>, and Rust checks when touching command/capability code. After web mode exists: add a web build and Docker/API smoke check to CI.</td></tr>
+            <tr><th>Decision</th><td>If browser behavior cannot be equivalent, document the degraded behavior explicitly instead of adding silent fallbacks.</td></tr>
+          </tbody>
+        </table>
+
         <h2>Shared Change Risk</h2>
         <div class="grid">
           <div class="panel">
@@ -201,6 +274,14 @@ flowchart LR
           <div class="panel">
             <h3><code>src/shared/api</code></h3>
             <p>Review all features calling the adapter and the matching Tauri command DTO.</p>
+          </div>
+          <div class="panel">
+            <h3>Browser host seams</h3>
+            <p>Review runtime transport, asset URL resolution, uploads, streaming, and native-plugin fallbacks.</p>
+          </div>
+          <div class="panel">
+            <h3><code>engine/mari</code></h3>
+            <p>Review Professor Mari UI, Mari API wrapper, Rust command request shape, and provider/tool support.</p>
           </div>
           <div class="panel">
             <h3><code>src/shared/components</code></h3>

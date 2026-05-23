@@ -76,6 +76,78 @@
           </article>
         </section>
 
+        <h2>Current Tech Stack</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Area</th>
+              <th>Stack</th>
+              <th>Current refactor role</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Webview UI</td>
+              <td>React 19, TypeScript 5, Vite 7, Tailwind CSS 4, lucide-react, framer-motion, sonner, DOMPurify.</td>
+              <td><code>src/app</code>, <code>src/features</code>, and <code>src/shared</code> are split so shell, feature screens, and reusable UI/browser helpers have separate owners.</td>
+            </tr>
+            <tr>
+              <td>Client state and data loading</td>
+              <td>TanStack Query, Zustand, typed hooks, narrow feature API facades.</td>
+              <td>Feature hooks own cache invalidation and UI state. Engine services receive capability objects instead of importing Tauri adapters directly.</td>
+            </tr>
+            <tr>
+              <td>Product engine</td>
+              <td>React-free TypeScript modules, Zod schemas, deterministic helpers, provider-neutral generation DTOs.</td>
+              <td><code>src/engine</code> now separates contracts, capabilities, shared helpers, repositories, generation-core, agents-runtime, generation lifecycle, Professor Mari, and mode engines.</td>
+            </tr>
+            <tr>
+              <td>Desktop and local capabilities</td>
+              <td>Tauri 2, Rust 2021, serde, reqwest with rustls, tokio, image, zip, pdf-extract, AutoAgents, Tauri dialog/opener/window-state plugins.</td>
+              <td>Rust owns native storage, path safety, managed assets, provider transport, imports/exports, integrations, and Professor Mari's tool-enabled command execution.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>Refactor Coverage</h2>
+        <div class="grid">
+          <div class="panel">
+            <h3>Shell and feature split</h3>
+            <p>
+              The app shell lives under <code>src/app</code>. Product surfaces
+              live under <code>src/features</code>, including chat, roleplay,
+              game, assets, libraries, settings, integrations, onboarding, and
+              Professor Mari.
+            </p>
+          </div>
+          <div class="panel">
+            <h3>Engine split</h3>
+            <p>
+              Engine code is separated into contracts, capabilities, pure
+              helpers, repositories, generation building blocks, agent runtime,
+              generation lifecycle, standalone Mari entry, and mode-owned
+              services.
+            </p>
+          </div>
+          <div class="panel">
+            <h3>Professor Mari path</h3>
+            <p>
+              Professor Mari is not hidden inside chat. The shell opens
+              <code>features/mari</code>, which calls <code>engine/mari</code>,
+              <code>shared/api/mari-api</code>, and the Rust
+              <code>professor_mari_prompt</code> command.
+            </p>
+          </div>
+          <div class="panel">
+            <h3>Native capability split</h3>
+            <p>
+              <code>src-tauri</code> is split into thin command facades plus
+              focused crates for core helpers, security, storage, assets, LLM
+              transport, and integrations.
+            </p>
+          </div>
+        </div>
+
         <h2>Core Shape</h2>
         <pre class="mermaid">
 flowchart LR
