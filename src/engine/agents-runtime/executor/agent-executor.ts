@@ -318,7 +318,7 @@ async function executeAgentWithTools(
         level: "info",
         phase: config.phase,
         message: "tool-call",
-        toolCall: { name: tc.function.name, arguments: tc.function.arguments, allowed: true },
+        toolCall: { name: tc.function.name, arguments: formatToolPayloadForLog(tc.function.arguments), allowed: true },
       });
       if (debugAgentsEnabled) {
         logger.debug("[agent-tools] %s args: %s", config.type, formatToolPayloadForLog(tc.function.arguments));
@@ -335,7 +335,7 @@ async function executeAgentWithTools(
         level: "info",
         phase: config.phase,
         message: "tool-result",
-        toolResult: { name: tc.function.name, result: toolResult, success: true },
+        toolResult: { name: tc.function.name, result: formatToolPayloadForLog(toolResult), success: true },
       });
       if (debugAgentsEnabled) {
         logger.debug("[agent-tools] %s result: %s", config.type, formatToolPayloadForLog(toolResult));
