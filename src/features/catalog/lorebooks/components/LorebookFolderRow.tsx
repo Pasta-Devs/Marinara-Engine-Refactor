@@ -37,9 +37,7 @@ interface Props {
   // act as drop targets when dragging an entry across containers.
   draggable: boolean;
   isDragging: boolean;
-  isDragReady: boolean;
   onDragHandleMouseDown: () => void;
-  onDragHandleMouseUp: () => void;
   onDragStart: (e: ReactDragEvent<HTMLDivElement>) => void;
   onDragOver: (e: ReactDragEvent<HTMLDivElement>) => void;
   onDrop: (e: ReactDragEvent<HTMLDivElement>) => void;
@@ -54,9 +52,7 @@ export function LorebookFolderRow({
   onToggleCollapse,
   draggable,
   isDragging,
-  isDragReady,
   onDragHandleMouseDown,
-  onDragHandleMouseUp,
   onDragStart,
   onDragOver,
   onDrop,
@@ -147,7 +143,7 @@ export function LorebookFolderRow({
         !isCollapsed && "ring-amber-400/30",
         isDragging && "opacity-40",
       )}
-      draggable={draggable && isDragReady}
+      draggable={draggable}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}
@@ -168,10 +164,6 @@ export function LorebookFolderRow({
           onMouseDown={(e) => {
             e.stopPropagation();
             if (draggable) onDragHandleMouseDown();
-          }}
-          onMouseUp={(e) => {
-            e.stopPropagation();
-            onDragHandleMouseUp();
           }}
         >
           <GripVertical size="0.875rem" />

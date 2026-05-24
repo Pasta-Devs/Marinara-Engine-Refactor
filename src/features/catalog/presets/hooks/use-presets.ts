@@ -4,7 +4,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { previewGenerationPrompt } from "../../../../engine/generation/prompt-preview";
 import { storageApi } from "../../../../shared/api/storage-api";
-import { invokeTauri } from "../../../../shared/api/tauri-client";
+import { storageCommandsApi } from "../../../../shared/api/storage-commands-api";
 import type { PromptPreset, PromptGroup, PromptSection, ChoiceBlock, GenerationParameters, ChatMLMessage } from "../../../../engine/contracts/types/prompt";
 
 // ── Query Keys ──
@@ -36,6 +36,32 @@ const promptOrderField: Record<PromptNestedKind, string> = {
   variables: "variableOrder",
 };
 
+const presetOrderQueues = new Map<string, Promise<void>>();
+
+function parseOrderIds(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((id): id is string => typeof id === "string");
+  if (typeof value !== "string" || !value.trim()) return [];
+  const parsed = JSON.parse(value) as unknown;
+  return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
+}
+
+async function runPresetOrderUpdate<T>(presetId: string, task: () => Promise<T>): Promise<T> {
+  const previous = presetOrderQueues.get(presetId) ?? Promise.resolve();
+  let release: () => void = () => undefined;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const tail = previous.then(() => current);
+  presetOrderQueues.set(presetId, tail);
+  await previous;
+  try {
+    return await task();
+  } finally {
+    release();
+    if (presetOrderQueues.get(presetId) === tail) presetOrderQueues.delete(presetId);
+  }
+}
+
 async function listPromptNested<T>(presetId: string, kind: PromptNestedKind): Promise<T[]> {
   return storageApi.list<T>(promptNestedEntity[kind], { filters: { presetId } });
 }
@@ -45,7 +71,28 @@ async function createPromptNested<T>(
   kind: PromptNestedKind,
   data: Record<string, unknown>,
 ): Promise<T> {
-  return storageApi.create<T>(promptNestedEntity[kind], { ...data, presetId });
+  const created = await storageApi.create<T>(promptNestedEntity[kind], { ...data, presetId });
+  const newId = (created as Record<string, unknown>).id as string | undefined;
+  if (newId) {
+    await runPresetOrderUpdate(presetId, async () => {
+      const preset = await storageApi.get<Record<string, unknown>>("prompts", presetId);
+      if (!preset) return;
+      const orderField = promptOrderField[kind];
+      let currentOrder: string[] = [];
+      try {
+        currentOrder = parseOrderIds(preset[orderField]);
+      } catch (error) {
+        console.warn(`[presets] Ignoring invalid ${orderField} order for preset ${presetId}`, error);
+        currentOrder = [];
+      }
+      if (!currentOrder.includes(newId)) {
+        await storageApi.update("prompts", presetId, {
+          [orderField]: [...currentOrder, newId],
+        });
+      }
+    });
+  }
+  return created;
 }
 
 async function updatePromptNested<T>(
@@ -164,7 +211,7 @@ export function useDeletePreset() {
 export function useDuplicatePreset() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => invokeTauri<PromptPreset>("storage_duplicate", { entity: "prompts", id }),
+    mutationFn: (id: string) => storageCommandsApi.duplicate<PromptPreset>("prompts", id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: presetKeys.list() });
     },
