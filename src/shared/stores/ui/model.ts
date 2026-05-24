@@ -324,6 +324,8 @@ export interface UIState {
   speechToTextEnabled: boolean;
   /** When true, show the global Spotify mini player in the app chrome. */
   spotifyPlayerEnabled: boolean;
+  /** Optional remote Rust runtime URL. Blank uses the embedded Tauri backend. */
+  remoteRuntimeUrl: string;
   /** Mobile Spotify widget collapsed state. */
   spotifyMobileWidgetCollapsed: boolean;
   /** Mobile Spotify widget position in viewport pixels. */
@@ -522,6 +524,7 @@ export interface UIState {
   setTrimIncompleteModelOutput: (v: boolean) => void;
   setSpeechToTextEnabled: (v: boolean) => void;
   setSpotifyPlayerEnabled: (v: boolean) => void;
+  setRemoteRuntimeUrl: (v: string) => void;
   setSpotifyMobileWidgetCollapsed: (v: boolean) => void;
   setSpotifyMobileWidgetPosition: (position: FloatingWidgetPosition) => void;
   setIntuitiveSwipeNavigation: (v: boolean) => void;

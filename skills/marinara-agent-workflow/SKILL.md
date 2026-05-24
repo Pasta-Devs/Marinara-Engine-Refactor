@@ -24,7 +24,7 @@ When this workflow conflicts with a repo rule, keep the repo rule. When it makes
 
 ## Load With
 
-- Load `skills/marinara-architecture-guard/SKILL.md` for imports, file layout, shared modules, Tauri adapters, Rust capabilities, repositories, or cross-feature boundaries.
+- Load `skills/marinara-architecture-guard/SKILL.md` for imports, file layout, shared modules, runtime adapters, Tauri/HTTP boundaries, Rust capabilities, repositories, or cross-feature boundaries.
 - Load `skills/marinara-mode-separation/SKILL.md` for chat, roleplay, game, prompt assembly, generation routing, scene logic, autonomous flows, or mode UI.
 - Load `skills/marinara-bugfix-discipline/SKILL.md` for regressions, broken UI actions, failing checks, provider/storage/import/generation problems, or root-cause repairs.
 
@@ -56,9 +56,10 @@ Use Marinara's module rules while applying the gate:
 
 - React feature code stays in `src/features` and calls feature APIs, hooks, engine entrypoints, or `src/shared/api` wrappers.
 - Product behavior stays in `src/engine`; engine code must not import React, Zustand stores, Tauri APIs, feature internals, or concrete `src/shared/api` adapters.
-- Tauri wrappers stay in `src/shared/api`.
+- Runtime wrappers stay in `src/shared/api`; they may route to embedded Tauri or the configured hostable Rust HTTP runtime.
 - Engine services receive `src/engine/capabilities` ports; feature/runtime/app-edge code binds those ports to shared API wrappers.
 - New or touched feature code should not call `invokeTauri` directly from `tauri-client.ts`; add or use a focused shared API wrapper.
+- Remote-capable hostable runtime behavior must flow through `src/shared/api/remote-runtime.ts`, `/api/invoke` or a dedicated HTTP route, and an explicit `src-tauri/src/http_dispatch.rs` handler.
 - Privileged storage, path safety, secrets, provider transport, and local integrations stay in Rust capabilities and thin Tauri commands.
 - Chat, roleplay, and game keep separate top-level mode owners; shared code must be a lower-layer primitive, not a generic mode flag or catch-all orchestrator.
 

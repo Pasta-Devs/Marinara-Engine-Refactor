@@ -11,7 +11,7 @@ mod admin;
 #[path = "storage/agents.rs"]
 mod agents;
 #[path = "storage/avatars.rs"]
-mod avatars;
+pub(crate) mod avatars;
 #[path = "storage/backgrounds.rs"]
 mod backgrounds;
 #[path = "storage/bot_browser.rs"]
@@ -19,7 +19,7 @@ mod bot_browser;
 #[path = "storage/characters.rs"]
 mod characters;
 #[path = "storage/chats.rs"]
-mod chats;
+pub(crate) mod chats;
 #[path = "storage/custom_tools.rs"]
 mod custom_tools;
 #[path = "storage/exports.rs"]
@@ -31,21 +31,21 @@ mod game_assets;
 #[path = "storage/game_state_snapshots.rs"]
 mod game_state_snapshots;
 #[path = "storage/generation.rs"]
-mod generation;
+pub(crate) mod generation;
 #[path = "storage/http.rs"]
 mod http;
 #[path = "storage/images.rs"]
-mod images;
+pub(crate) mod images;
 #[path = "storage/imports.rs"]
-mod imports;
+pub(crate) mod imports;
 #[path = "storage/integrations.rs"]
 mod integrations;
 #[path = "storage/knowledge.rs"]
 mod knowledge;
 #[path = "storage/llm.rs"]
-mod llm;
+pub(crate) mod llm;
 #[path = "storage/lorebook_images.rs"]
-mod lorebook_images;
+pub(crate) mod lorebook_images;
 #[path = "storage/mari.rs"]
 mod mari;
 #[path = "storage/media_uploads.rs"]
@@ -55,7 +55,7 @@ mod profile;
 #[path = "storage/prompts.rs"]
 mod prompts;
 #[path = "storage/shared.rs"]
-mod shared;
+pub(crate) mod shared;
 #[path = "storage/sprites.rs"]
 mod sprites;
 #[path = "storage/translation.rs"]

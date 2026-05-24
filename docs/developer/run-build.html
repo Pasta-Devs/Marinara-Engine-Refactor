@@ -98,6 +98,38 @@
           <code>Marinara Engine</code>.
         </p>
 
+        <h2>Run The Remote Rust Runtime</h2>
+        <p>
+          The remote runtime hosts the Rust API only. It does not serve the
+          React UI. Desktop clients can point Settings &gt; Advanced &gt; Remote
+          Runtime URL at this server to route supported storage, import,
+          connection, model-list, and LLM calls through HTTP.
+        </p>
+        <pre><code>cargo run --manifest-path src-tauri/Cargo.toml --bin marinara-server</code></pre>
+        <p>By default it listens on:</p>
+        <pre><code>http://127.0.0.1:8787</code></pre>
+        <p>Check the server with:</p>
+        <pre><code>curl http://127.0.0.1:8787/health</code></pre>
+        <p>Override the bind address and data directory with:</p>
+        <pre><code>MARINARA_SERVER_ADDR=0.0.0.0:8787
+MARINARA_DATA_DIR=/path/to/data</code></pre>
+        <div class="callout">
+          Remote-capable features must use the shared API HTTP pipeline:
+          <code>src/shared/api</code> wrapper, <code>remote-runtime.ts</code>
+          allowlist, <code>/api/invoke</code> or a dedicated HTTP route, then
+          <code>src-tauri/src/http_dispatch.rs</code> and the focused Rust
+          module. Do not call the server directly from feature or engine code.
+        </div>
+
+        <h2>Run The Remote Runtime With Docker</h2>
+        <p>Build and start the Rust API server with Docker Compose:</p>
+        <pre><code>docker compose up --build</code></pre>
+        <p>The compose service exposes:</p>
+        <pre><code>http://127.0.0.1:8787</code></pre>
+        <p>To build directly from GitHub, use Docker's remote git context:</p>
+        <pre><code>docker build -t marinara-engine-server https://github.com/Pasta-Devs/Marinara-Engine-Refactor.git#main
+docker run --rm -p 8787:8787 -v marinara-server-data:/data marinara-engine-server</code></pre>
+
         <h2>Checks</h2>
         <table>
           <thead>
@@ -137,6 +169,7 @@ sequenceDiagram
   participant Tauri as pnpm tauri dev
   participant Vite as Vite dev server :1420
   participant Rust as Rust Tauri host
+  participant Remote as marinara-server HTTP runtime
   participant UI as React webview
 
   Dev->>Tauri: pnpm tauri dev
@@ -144,7 +177,8 @@ sequenceDiagram
   Tauri->>Rust: compile and launch
   Rust->>UI: create desktop window
   UI->>Vite: load app from devUrl
-  UI->>Rust: invoke typed Tauri commands
+  UI->>Rust: invoke embedded commands by default
+  UI->>Remote: route supported calls over HTTP when Remote Runtime URL is set
         </pre>
 
         <h2>Run These Docs</h2>

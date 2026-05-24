@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { ApiError } from "./api-errors";
+import { invokeRemote, isRemoteCommand, remoteRuntimeTarget } from "./remote-runtime";
 
 function normalize(error: unknown): ApiError {
   if (error instanceof ApiError) return error;
@@ -14,6 +15,9 @@ function normalize(error: unknown): ApiError {
 }
 
 export async function invokeTauri<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  if (remoteRuntimeTarget() && isRemoteCommand(command)) {
+    return invokeRemote<T>(command, args);
+  }
   try {
     return await invoke<T>(command, args);
   } catch (error) {

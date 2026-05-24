@@ -29,13 +29,13 @@ Explain this shape:
 - `src/app`: React bootstrap, shell, providers, startup effects.
 - `src/features`: user-facing React feature UI and hooks.
 - `src/shared`: reusable frontend components, hooks, stores, and browser helpers.
-- `src/shared/api`: typed Tauri adapters.
+- `src/shared/api`: typed runtime adapters for embedded Tauri commands and the configured hostable Rust HTTP runtime.
 - `src/engine`: React-free product engine.
 - `src/engine/capabilities`: ports passed into engine services and implemented at the feature/app edge.
 - `src/engine/modes/chat`: normal chat and autonomous conversation.
 - `src/engine/modes/roleplay`: roleplay scenes, encounters, and visual-novel behavior.
 - `src/engine/modes/game`: game turns, prompts, mechanics, world, state, and assets.
-- `src-tauri/src`: Tauri host and command registration.
+- `src-tauri/src`: Tauri host, command registration, hostable HTTP server/dispatch, and `marinara-server`.
 - `src-tauri/crates`: Rust local capabilities.
 
 ## 3. Run The App
@@ -55,6 +55,14 @@ pnpm build
 cargo check --manifest-path src-tauri/Cargo.toml
 pnpm check:docs
 ```
+
+The hostable Rust runtime can be run separately when testing remote-supported paths:
+
+```text
+cargo run --manifest-path src-tauri/Cargo.toml --bin marinara-server
+```
+
+Then set Settings -> Advanced -> Remote Runtime URL to `http://127.0.0.1:8787`.
 
 ## 4. First Manual Testing Pass
 
@@ -86,7 +94,7 @@ Then map the bug to an owner:
 
 - UI display/action issue: `src/features` or `src/shared/components`.
 - Product behavior issue: `src/engine`, usually the owning mode or generation layer.
-- Tauri boundary issue: `src/shared/api` plus matching command; engine code should receive a capability port, not import the adapter.
+- Runtime boundary issue: `src/shared/api` plus the matching embedded Tauri command or hostable HTTP dispatch; engine code should receive a capability port, not import the adapter.
 - Storage/assets/provider issue: `src-tauri` and Rust capability crates.
 
 ## 6. Fixing Mode

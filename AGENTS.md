@@ -1,12 +1,12 @@
 # Agent Instructions
 
-This repo is a Tauri application with a TypeScript product engine and Rust local capability layer. Maintain it as a clean, layered application. Every bug fix or feature should leave the code easier to reason about, not more tangled.
+This repo is a Tauri application with a TypeScript product engine, an embedded Rust capability layer, and a hostable Rust HTTP runtime for supported remote execution. Maintain it as a clean, layered application. Every bug fix or feature should leave the code easier to reason about, not more tangled.
 
 ## Repo Skills
 
 Load the relevant repo-local skill before editing code in that area:
 
-- `skills/marinara-architecture-guard/SKILL.md`: architecture, imports, file layout, shared modules, Tauri adapters, Rust capabilities, repositories, or cross-feature boundaries.
+- `skills/marinara-architecture-guard/SKILL.md`: architecture, imports, file layout, shared modules, runtime adapters, Tauri/HTTP boundaries, Rust capabilities, repositories, or cross-feature boundaries.
 - `skills/marinara-mode-separation/SKILL.md`: chat/conversation, roleplay, game, generation guides, prompt assembly, scene logic, autonomous flows, game turns, or mode UI.
 - `skills/marinara-bugfix-discipline/SKILL.md`: bugs, regressions, broken UI actions, failing checks, storage/provider/import/generation issues, or any fix with dependent callers.
 - `skills/marinara-getting-started/SKILL.md`: onboarding, "how do I get started?", repo tours, running docs, running the app, first testing paths, and guided bug-fixing flow.
@@ -68,7 +68,7 @@ When a user asks "how do I get started?", "onboard me", "teach me this repo", or
 2. Start the developer docs with `pnpm docs:dev` unless the user explicitly wants text only.
 3. Give the docs URL: `http://127.0.0.1:4174/`.
 4. Point them first to `docs/developer/getting-started.html`, then `run-build.html`, `architecture.html`, `modules.html`, and `impact-areas.html`.
-5. Explain the repo shape: React UI in `src/features`, product behavior in `src/engine`, Tauri adapters in `src/shared/api`, Rust capabilities in `src-tauri`.
+5. Explain the repo shape: React UI in `src/features`, product behavior in `src/engine`, runtime adapters in `src/shared/api`, embedded Tauri commands and the hostable Rust HTTP runtime in `src-tauri`.
 6. Instruct them to run the app with `pnpm install` and `pnpm tauri dev`.
 7. Guide manual testing through chat, roleplay, game, settings/providers, imports, exports, and assets.
 8. When they find a bug, ask for workflow, steps, expected result, actual result, mode/feature, data used, and any error output. Then switch to `skills/marinara-bugfix-discipline/SKILL.md` and fix the root cause.
@@ -102,10 +102,11 @@ React app/features
   -> TypeScript engine use cases
   -> engine capability ports
   -> shared/api-backed capability implementations at the feature/app edge
-  -> Rust Tauri commands
+  -> src/shared/api runtime adapters
+  -> embedded Tauri commands or hostable Rust HTTP endpoints
   -> Rust capability crates
 
-React app/features may also call typed shared/api Tauri adapters directly for
+React app/features may also call typed shared/api runtime adapters directly for
 UI-owned capability actions. Engine code never imports shared/api adapters.
 ```
 
@@ -115,9 +116,10 @@ TypeScript owns product behavior:
 - agents, prompt rules, generation orchestration, and mode state transitions
 - deterministic parsing, formatting, scoring, prompt-building, and UI-facing application flow
 
-Rust owns privileged local capabilities:
+Rust owns privileged local and hostable capabilities:
 
 - Tauri commands, events, and channels
+- the `marinara-server` binary, HTTP server, and explicit HTTP dispatch for supported remote runtime commands
 - storage, atomic writes, path safety, managed files, and assets
 - provider transport, secrets, OAuth, safe fetch, and native filesystem access
 - integrations such as Spotify, TTS, translation, haptics, imports, exports, and local file operations
@@ -128,7 +130,7 @@ Rust owns privileged local capabilities:
 - Import from owner files or explicit public feature APIs. Do not reach into another feature's private internals.
 - Avoid convenience barrels, one-line re-export shims, `legacy-*` aliases, and dumping-ground `utils` files.
 - Engine code must not import React, Zustand stores, `@tauri-apps/api`, or concrete `src/shared/api` adapters.
-- React components must not duplicate engine rules. They call feature hooks, feature APIs, shared API wrappers, or engine use cases through capability adapters.
+- React components must not duplicate engine rules. They call feature hooks, feature APIs, shared API runtime wrappers, or engine use cases through capability adapters.
 - Rust commands stay thin: validate inputs, call capability services, return DTOs/events.
 - Shared code is allowed only for genuinely mode-neutral primitives, generic UI atoms, deterministic helpers, capability ports, repositories, transport, and asset IO.
 
@@ -149,11 +151,13 @@ Editing one mode must not silently alter another mode. If a shared layer change 
 
 ## API And Capability Rules
 
-- Frontend code calls typed Tauri wrappers in `src/shared/api` or local TypeScript feature/engine APIs.
+- Frontend code calls typed runtime wrappers in `src/shared/api` or local TypeScript feature/engine APIs.
 - Engine code accepts capability interfaces from `src/engine/capabilities`; it does not invoke Tauri directly.
 - New or touched feature code should not import `invokeTauri` directly from `src/shared/api/tauri-client`; add or use a focused wrapper in `src/shared/api` first.
 - Rust Tauri commands are grouped by capability and backed by focused crates/modules.
-- Do not add generic string routers, fake local API bridges, server-shaped fallback paths, or browser fetches for local app behavior.
+- Remote-capable features on the hostable Rust runtime must follow the explicit HTTP pipeline: typed shared API wrapper -> `tauri-client.ts` / `remote-runtime.ts` allowlist -> `/api/invoke` or a dedicated route in `http_server.rs` -> explicit handler in `http_dispatch.rs` -> the focused Rust command/capability module.
+- Add a remote command only when the Rust implementation is safe to execute through the server data directory and JSON/SSE HTTP contract. Desktop-only native plugin behavior should remain embedded Tauri behavior and should fail visibly or be documented, not silently no-op remotely.
+- Do not add feature-level generic string routers, fake local API bridges, server-shaped fallback paths, or browser fetches for local app behavior. The hostable runtime dispatch is the boundary exception and must stay allowlisted and explicit.
 - Provider URL paths are allowed only inside the appropriate Rust transport or integration capability code.
 
 ## Bug Fix Workflow
@@ -235,7 +239,7 @@ Run checks that match the changed area:
 
 - TypeScript/UI/engine: `pnpm typecheck`
 - Build/import graph/bundling: `pnpm build`
-- Rust commands/capabilities/provider transport: `cargo check --manifest-path src-tauri/Cargo.toml`
+- Rust commands/capabilities/provider transport or hostable runtime changes: `cargo check --manifest-path src-tauri/Cargo.toml`
 - Docs/skills/agent guidance: `pnpm check:docs`
 
 Prefer the full set when touching shared contracts, generation, storage, provider transport, mode orchestration, or architecture boundaries. If a check cannot be run, say exactly why.

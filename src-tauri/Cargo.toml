@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Marinara Engine"
 authors = ["you"]
 edition = "2021"
+default-run = "marinara-engine"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -34,6 +35,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 autoagents = "0.3.7"
+axum = "0.7"
 base64 = "0.22"
 buttplug = "10.0.2"
 buttplug_core = "10.0.2"
@@ -49,7 +51,9 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
-tokio = { version = "1", features = ["sync", "time", "net", "io-util"] }
+tokio = { version = "1", features = ["sync", "time", "net", "io-util", "macros", "rt-multi-thread"] }
+tokio-stream = "0.1"
+tower-http = { version = "0.6", features = ["cors"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }
 marinara-core = { path = "crates/core" }
 marinara-security = { path = "crates/security" }

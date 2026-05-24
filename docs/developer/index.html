@@ -27,10 +27,11 @@
         <p class="eyebrow">Start here</p>
         <h1>How this repo is put together and how to work in it without widening impact.</h1>
         <p class="lead">
-          Marinara is a Tauri desktop app. React owns the user interface, the
-          TypeScript engine owns product behavior, and Rust owns privileged local
+          Marinara is a Tauri desktop app with a hostable Rust runtime for
+          supported remote execution. React owns the user interface, the
+          TypeScript engine owns product behavior, and Rust owns privileged
           capabilities such as storage, filesystem access, provider transport,
-          secrets, and integrations.
+          secrets, integrations, and the HTTP runtime facade.
         </p>
 
         <section class="grid" aria-label="Main docs">
@@ -46,15 +47,16 @@
             <h3>Run and build</h3>
             <p>
               Install dependencies, start the Tauri desktop app, run the web
-              shell, build installers, and run checks.
+              shell, start the hostable Rust runtime, build installers, and run checks.
             </p>
             <p><a href="./run-build.html">Open run guide</a></p>
           </article>
           <article class="panel">
             <h3>Architecture</h3>
             <p>
-              Review the dependency direction between React, shared adapters,
-              TypeScript engine layers, Tauri commands, and Rust crates.
+              Review the dependency direction between React, shared runtime
+              adapters, TypeScript engine layers, embedded Tauri commands, HTTP
+              dispatch, and Rust crates.
             </p>
             <p><a href="./architecture.html">Open architecture guide</a></p>
           </article>
@@ -94,7 +96,7 @@
             <tr>
               <td>Client state and data loading</td>
               <td>TanStack Query, Zustand, typed hooks, narrow feature API facades.</td>
-              <td>Feature hooks own cache invalidation and UI state. Engine services receive capability objects instead of importing Tauri adapters directly.</td>
+              <td>Feature hooks own cache invalidation and UI state. Engine services receive capability objects instead of importing runtime adapters directly.</td>
             </tr>
             <tr>
               <td>Product engine</td>
@@ -102,9 +104,9 @@
               <td><code>src/engine</code> now separates contracts, capabilities, shared helpers, repositories, generation-core, agents-runtime, generation lifecycle, Professor Mari, and mode engines.</td>
             </tr>
             <tr>
-              <td>Desktop and local capabilities</td>
-              <td>Tauri 2, Rust 2021, serde, reqwest with rustls, tokio, image, zip, pdf-extract, AutoAgents, Tauri dialog/opener/window-state plugins.</td>
-              <td>Rust owns native storage, path safety, managed assets, provider transport, imports/exports, integrations, and Professor Mari's tool-enabled command execution.</td>
+              <td>Desktop, local, and hostable capabilities</td>
+              <td>Tauri 2, Rust 2021, Axum, tower-http, serde, reqwest with rustls, tokio, image, zip, pdf-extract, AutoAgents, Tauri dialog/opener/window-state plugins.</td>
+              <td>Rust owns native storage, path safety, managed assets, provider transport, imports/exports, integrations, Professor Mari's tool-enabled command execution, and the hostable HTTP facade.</td>
             </tr>
           </tbody>
         </table>
@@ -143,7 +145,8 @@
             <p>
               <code>src-tauri</code> is split into thin command facades plus
               focused crates for core helpers, security, storage, assets, LLM
-              transport, and integrations.
+              transport, and integrations. The same focused Rust modules back
+              the embedded Tauri commands and hostable HTTP dispatch.
             </p>
           </div>
         </div>
@@ -152,10 +155,10 @@
         <pre class="mermaid">
 flowchart LR
   UI[React app and features]
-  API[shared/api Tauri adapters]
+  API[shared/api runtime adapters]
   Engine[TypeScript engine use cases]
   Ports[engine capability ports]
-  Commands[Rust Tauri commands]
+  Commands[Rust Tauri commands<br/>or HTTP dispatch]
   Crates[Rust capability crates]
 
   UI --> API
@@ -186,8 +189,8 @@ flowchart LR
             <h3>Explicit imports</h3>
             <p>
               Import owner modules and public feature APIs. Avoid deep imports
-              into another feature's private files, and keep Tauri invokes behind
-              shared API wrappers.
+              into another feature's private files, and keep embedded Tauri or
+              hostable HTTP calls behind shared API wrappers.
             </p>
           </div>
           <div class="panel">

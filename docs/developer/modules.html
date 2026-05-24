@@ -57,7 +57,7 @@
             <tr>
               <td><code>src/shared</code></td>
               <td>Frontend shared layer.</td>
-              <td>Generic UI, browser helpers, shared stores, Tauri adapters.</td>
+              <td>Generic UI, browser helpers, shared stores, runtime adapters.</td>
               <td>Every feature that imports the shared primitive.</td>
             </tr>
             <tr>
@@ -68,9 +68,9 @@
             </tr>
             <tr>
               <td><code>src-tauri</code></td>
-              <td>Tauri host and Rust capabilities.</td>
-              <td>Commands, state, storage, assets, provider transport, integrations.</td>
-              <td>Native execution, data persistence, provider calls, bundling.</td>
+              <td>Tauri host, hostable Rust runtime, and Rust capabilities.</td>
+              <td>Commands, HTTP server/dispatch, state, storage, assets, provider transport, integrations.</td>
+              <td>Native execution, remote runtime behavior, data persistence, provider calls, bundling.</td>
             </tr>
           </tbody>
         </table>
@@ -162,6 +162,7 @@
         <pre class="mermaid">
 flowchart LR
   Tauri[src-tauri/src<br/>lib, app, state]
+  Server[src-tauri/src<br/>bin/marinara-server, http_server, http_dispatch]
   Commands[src-tauri/src/commands<br/>command facades]
   Core[crates/core<br/>ids, paths, errors]
   Security[crates/security<br/>path and network policy]
@@ -171,6 +172,7 @@ flowchart LR
   Integrations[crates/integrations<br/>spotify, tts, translation, haptics]
 
   Tauri --> Commands
+  Server --> Commands
   Commands --> Storage
   Commands --> Assets
   Commands --> LLM
@@ -186,11 +188,12 @@ flowchart LR
         <h2>Shared API Modules</h2>
         <p>
           Files in <code>src/shared/api</code> are the bridge from frontend code
-          to Tauri commands. They should be typed and narrow. If business logic
-          starts to grow here, move it into the TypeScript engine or the owning
-          feature. New feature code should call these wrappers instead of
-          importing <code>tauri-client.ts</code> or <code>@tauri-apps/api</code>
-          directly.
+          to embedded Tauri commands and the configured hostable Rust HTTP
+          runtime. They should be typed and narrow. If business logic starts to
+          grow here, move it into the TypeScript engine or the owning feature.
+          New feature code should call these wrappers instead of importing
+          <code>tauri-client.ts</code>, <code>@tauri-apps/api</code>, or calling
+          the remote runtime with raw <code>fetch</code> directly.
         </p>
         <table>
           <thead>
@@ -214,7 +217,8 @@ flowchart LR
             <tr><td><code>profile-api.ts</code></td><td>Profile export/import and profile file operations.</td></tr>
             <tr><td><code>settings-assets-api.ts</code></td><td>Settings-facing background and font commands.</td></tr>
             <tr><td><code>storage-api.ts</code></td><td>Typed entity CRUD, duplication, chat helpers, and generic storage access.</td></tr>
-            <tr><td><code>tauri-client.ts</code></td><td>Single invoke/listen helper layer for Tauri calls.</td></tr>
+            <tr><td><code>remote-runtime.ts</code></td><td>Remote runtime URL parsing, command allowlist, JSON invoke fetch, SSE LLM streaming, and remote stream cancellation.</td></tr>
+            <tr><td><code>tauri-client.ts</code></td><td>Single invoke/listen helper layer that chooses embedded Tauri by default and remote HTTP for allowlisted commands when Remote Runtime URL is configured.</td></tr>
             <tr><td><code>tracker-snapshot-api.ts</code></td><td>Tracker snapshot save/read commands for game and roleplay state history.</td></tr>
           </tbody>
         </table>
@@ -224,6 +228,12 @@ flowchart LR
           <code>src-tauri/src/commands/storage.rs</code> registers focused
           implementation modules and thin command facades. Keep new commands in
           the closest capability group.
+        </p>
+        <p>
+          Hostable runtime support belongs in <code>http_dispatch.rs</code> for
+          JSON command reuse or <code>http_server.rs</code> for dedicated routes
+          such as LLM SSE streaming. Do not create a parallel command
+          implementation only for HTTP.
         </p>
         <table>
           <thead>

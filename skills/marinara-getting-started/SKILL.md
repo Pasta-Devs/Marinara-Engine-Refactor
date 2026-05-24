@@ -50,8 +50,8 @@ Repo tour:
 - React UI: src/features and src/app.
 - TypeScript engine: src/engine.
 - Capability ports: src/engine/capabilities.
-- Tauri adapters: src/shared/api, called by features or feature/app-edge capability implementations.
-- Rust capabilities: src-tauri.
+- Runtime adapters: src/shared/api, called by features or feature/app-edge capability implementations. They route to embedded Tauri or the configured hostable Rust HTTP runtime.
+- Rust capabilities: src-tauri, including embedded Tauri commands and the marinara-server HTTP binary.
 
 When you find a bug, I’ll identify the owner, fix the root cause, and run the right checks.
 ```

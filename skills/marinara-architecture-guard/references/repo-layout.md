@@ -24,10 +24,10 @@ src/features/shell/
   App-level tools: settings, connections, spotify, onboarding, mari, bot-browser, imports, notifications.
 
 src/shared/
-  Reusable frontend-only components, hooks, lib helpers, UI stores, and Tauri adapters.
+  Reusable frontend-only components, hooks, lib helpers, UI stores, and runtime adapters.
 
 src/shared/api/
-  Typed wrappers around Tauri commands and channels. Feature code may call these. Engine code may not.
+  Typed runtime wrappers around embedded Tauri commands/channels and the configured hostable Rust HTTP runtime. Feature code may call these. Engine code may not.
   Do not add new raw feature imports of tauri-client; add a focused wrapper here first.
 
 src/engine/
@@ -56,10 +56,13 @@ Engine capability ports are implemented by feature/runtime/app-edge adapter code
 
 ```text
 src-tauri/src/
-  lib.rs, state, app setup, command facades.
+  lib.rs, state, app setup, command facades, HTTP server/dispatch, and the hostable marinara-server binary.
 
 src-tauri/src/commands/
   Thin Tauri command modules grouped by capability.
+
+src-tauri/src/http_dispatch.rs and http_server.rs
+  Hostable Rust runtime facade. Remote-capable JSON commands go through the explicit dispatch allowlist; streaming routes use dedicated HTTP handlers.
 
 src-tauri/crates/core/
   errors, IDs, paths, timestamps, basic foundations.
@@ -81,6 +84,17 @@ src-tauri/crates/integrations/
 ```
 
 Rust owns capability execution. TypeScript owns product meaning.
+
+Hostable runtime flow:
+
+```text
+src/shared/api typed wrapper
+  -> tauri-client.ts
+  -> remote-runtime.ts allowlist when remoteRuntimeUrl is configured
+  -> /api/invoke or /api/llm/stream
+  -> src-tauri/src/http_dispatch.rs or http_server.rs
+  -> existing focused Rust command/capability module
+```
 
 ## UI Feature Layers
 

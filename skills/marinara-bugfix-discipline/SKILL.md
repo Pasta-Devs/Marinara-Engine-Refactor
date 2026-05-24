@@ -39,9 +39,9 @@ Do not solve bugs by adding:
 - duplicate helpers copied into another feature
 - UI-only guards that leave invalid engine or storage state
 - broad defaults that hide missing persisted data
-- direct Tauri calls from engine code
+- direct Tauri or hostable-runtime HTTP calls from engine code
 - new direct `invokeTauri` calls in feature code when a typed `src/shared/api` wrapper should own the command boundary
-- generic local API routers
+- feature-level generic local API routers or raw remote-runtime fetches
 
 Fix the root: owner, contract, persistence shape, mode orchestrator, adapter, command, or capability.
 
@@ -59,5 +59,5 @@ Use the smallest checks that prove the local fix, but escalate when shared paths
 
 - TypeScript/shared UI/engine: `pnpm typecheck`
 - Build behavior or import graph changes: `pnpm build`
-- Rust commands/capabilities/provider transport: `cargo check --manifest-path src-tauri/Cargo.toml`
+- Rust commands/capabilities/provider transport or hostable runtime: `cargo check --manifest-path src-tauri/Cargo.toml`
 - Docs/agent guidance/checklist changes: `pnpm check:docs`

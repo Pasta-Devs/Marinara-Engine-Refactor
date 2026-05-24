@@ -1,6 +1,7 @@
 import type { LlmChunk, LlmGateway, LlmRequest } from "../../engine/capabilities/llm";
 import { Channel } from "@tauri-apps/api/core";
 import { invokeTauri } from "./tauri-client";
+import { cancelRemoteLlmStream, remoteRuntimeTarget, streamRemoteLlm } from "./remote-runtime";
 
 function createStreamId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -14,6 +15,17 @@ export const llmApi: LlmGateway = {
     }),
   stream: async function* (request: LlmRequest, signal?: AbortSignal): AsyncGenerator<LlmChunk> {
     const streamId = createStreamId();
+    if (remoteRuntimeTarget()) {
+      const abort = () => void cancelRemoteLlmStream(streamId);
+      if (signal?.aborted) abort();
+      signal?.addEventListener("abort", abort, { once: true });
+      try {
+        yield* streamRemoteLlm(streamId, request, signal);
+      } finally {
+        signal?.removeEventListener("abort", abort);
+      }
+      return;
+    }
     const queue: LlmChunk[] = [];
     let completed = false;
     let failure: unknown = null;

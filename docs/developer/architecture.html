@@ -28,8 +28,9 @@
         <h1>The current tree is layered by ownership, not by convenience.</h1>
         <p class="lead">
           Marinara is a Tauri desktop app with a React feature tree, a
-          React-free TypeScript product engine, typed frontend Tauri adapters,
-          thin Rust commands, and focused Rust capability crates. The current
+          React-free TypeScript product engine, typed frontend runtime adapters,
+          embedded Tauri commands, a hostable Rust HTTP runtime, and focused
+          Rust capability crates. The current
           feature tree is physically split into <code>catalog</code>,
           <code>runtime</code>, <code>modes</code>, and <code>shell</code>,
           with dependency direction enforced by <code>.dependency-cruiser.cjs</code>.
@@ -59,7 +60,7 @@ flowchart TB
     SharedHooks[hooks<br/>browser/UI hooks]
     SharedLib[lib<br/>frontend helpers]
     SharedStores[stores<br/>UI/session stores]
-    SharedApi[api<br/>typed Tauri wrappers]
+    SharedApi[api<br/>typed runtime wrappers]
     SharedTypes[types/generated<br/>Rust boundary bindings]
   end
 
@@ -78,6 +79,10 @@ flowchart TB
 
   subgraph Tauri[src-tauri]
     TauriApp[src/lib.rs and app/state<br/>Tauri host]
+    RuntimeTransport[tauri-client and remote-runtime<br/>embedded invoke or HTTP]
+    ServerBin[src/bin/marinara-server.rs<br/>hostable binary]
+    HttpServer[src/http_server.rs<br/>HTTP routes and SSE]
+    HttpDispatch[src/http_dispatch.rs<br/>allowlisted invoke dispatch]
     CommandFacades[src/commands/storage.rs<br/>public command groups]
     CommandImpl[src/commands/storage/*<br/>focused command implementations]
     RustCrates[crates<br/>core, security, storage,<br/>assets, llm, integrations]
@@ -120,7 +125,12 @@ flowchart TB
   EngineShared --> Contracts
   Core --> Contracts
 
-  SharedApi --> CommandFacades
+  SharedApi --> RuntimeTransport
+  RuntimeTransport --> TauriApp
+  RuntimeTransport --> HttpServer
+  ServerBin --> HttpServer
+  HttpServer --> HttpDispatch
+  HttpDispatch --> CommandImpl
   TauriApp --> CommandFacades
   CommandFacades --> CommandImpl
   CommandImpl --> RustCrates
@@ -427,30 +437,39 @@ flowchart TB
           <tbody>
             <tr><td><code>contracts</code> and <code>core</code></td><td>Types, schemas, constants, IDs, result helpers, time/JSON primitives.</td><td>Features, shared API adapters, React, Zustand, or Tauri runtime.</td></tr>
             <tr><td><code>capabilities</code></td><td>TypeScript ports for storage, LLM, assets, events, integrations, and local capabilities.</td><td>Concrete <code>src/shared/api</code> implementations.</td></tr>
-            <tr><td><code>shared</code></td><td>Pure deterministic helpers for text, regex, scoring, macros, and game-state text.</td><td>UI stores, Tauri adapters, storage writes, or provider calls.</td></tr>
+            <tr><td><code>shared</code></td><td>Pure deterministic helpers for text, regex, scoring, macros, and game-state text.</td><td>UI stores, runtime adapters, storage writes, or provider calls.</td></tr>
             <tr><td><code>repositories</code></td><td>Capability-backed data access wrappers.</td><td>React Query, Zustand, Tauri invoke calls.</td></tr>
             <tr><td><code>generation-core</code></td><td>Provider-neutral generation building blocks: prompt assembly, lorebook scanning, regex, and LLM DTOs.</td><td>Concrete mode turn/scene/autonomous ownership.</td></tr>
             <tr><td><code>agents-runtime</code></td><td>Agent executor, tools, knowledge, and pipeline behavior.</td><td>React UI or shell panels.</td></tr>
-            <tr><td><code>generation</code></td><td>Generation lifecycle, replay records, makers, active lorebooks, prompt preview, and prompt review.</td><td>Concrete Tauri adapters or native IO.</td></tr>
+            <tr><td><code>generation</code></td><td>Generation lifecycle, replay records, makers, active lorebooks, prompt preview, and prompt review.</td><td>Concrete runtime adapters or native IO.</td></tr>
             <tr><td><code>mari</code></td><td>Professor Mari request/response entry contract.</td><td>Rust tool execution or UI rendering.</td></tr>
             <tr><td><code>modes</code></td><td>Mode-owned product behavior for chat, roleplay, and game.</td><td>Sibling mode internals.</td></tr>
           </tbody>
         </table>
 
-        <h2>Tauri And Rust Boundary</h2>
+        <h2>Runtime And Rust Boundary</h2>
         <pre class="mermaid">
 flowchart TB
   FeatureCode[React app/features]
-  SharedApi[src/shared/api<br/>typed wrappers]
-  TauriClient[tauri-client.ts<br/>invoke/listen helper]
+  SharedApi[src/shared/api<br/>typed runtime wrappers]
+  TauriClient[tauri-client.ts<br/>embedded invoke or remote routing]
+  RemoteRuntime[remote-runtime.ts<br/>allowlist, fetch, SSE]
   Lib[src-tauri/src/lib.rs<br/>invoke handler registration]
+  Server[src/bin/marinara-server.rs<br/>hostable binary]
+  HttpServer[src-tauri/src/http_server.rs<br/>HTTP routes]
+  HttpDispatch[src-tauri/src/http_dispatch.rs<br/>explicit invoke dispatch]
   CommandGroups[src-tauri/src/commands/storage.rs<br/>public command modules]
   CommandImpl[src-tauri/src/commands/storage/*<br/>admin, agents, assets, chats,<br/>imports, integrations, media, profile]
   Crates[src-tauri/crates<br/>core, security, storage,<br/>assets, llm, integrations]
 
   FeatureCode --> SharedApi
   SharedApi --> TauriClient
+  TauriClient --> RemoteRuntime
   TauriClient --> Lib
+  RemoteRuntime --> HttpServer
+  Server --> HttpServer
+  HttpServer --> HttpDispatch
+  HttpDispatch --> CommandImpl
   Lib --> CommandGroups
   CommandGroups --> CommandImpl
   CommandImpl --> Crates
@@ -467,13 +486,18 @@ flowchart TB
           <tbody>
             <tr>
               <td>Frontend adapters</td>
-              <td><code>assets-api.ts</code>, <code>avatar-api.ts</code>, <code>export-api.ts</code>, <code>image-generation-api.ts</code>, <code>import-api.ts</code>, <code>integration-gateway.ts</code>, <code>integration-utility-api.ts</code>, <code>llm-api.ts</code>, <code>local-file-api.ts</code>, <code>mari-api.ts</code>, <code>profile-api.ts</code>, <code>settings-assets-api.ts</code>, <code>storage-api.ts</code>, <code>tracker-snapshot-api.ts</code>, and helpers.</td>
-              <td>Keep them typed and narrow. Product decisions belong in features or engine services. New feature code should call these wrappers, not <code>tauri-client.ts</code> directly.</td>
+              <td><code>assets-api.ts</code>, <code>avatar-api.ts</code>, <code>export-api.ts</code>, <code>image-generation-api.ts</code>, <code>import-api.ts</code>, <code>integration-gateway.ts</code>, <code>integration-utility-api.ts</code>, <code>llm-api.ts</code>, <code>local-file-api.ts</code>, <code>mari-api.ts</code>, <code>profile-api.ts</code>, <code>settings-assets-api.ts</code>, <code>storage-api.ts</code>, <code>tracker-snapshot-api.ts</code>, <code>remote-runtime.ts</code>, <code>tauri-client.ts</code>, and helpers.</td>
+              <td>Keep them typed and narrow. Product decisions belong in features or engine services. New feature code should call these wrappers, not <code>tauri-client.ts</code> directly. Remote-capable commands must be allowlisted in <code>remote-runtime.ts</code>.</td>
             </tr>
             <tr>
               <td>Tauri host</td>
               <td><code>src-tauri/src/lib.rs</code>, <code>app.rs</code>, <code>state.rs</code>, builtins/default seed modules, and the command registration list.</td>
               <td>Register host state and commands; do not add product workflows here.</td>
+            </tr>
+            <tr>
+              <td>Hostable HTTP runtime</td>
+              <td><code>src-tauri/src/bin/marinara-server.rs</code>, <code>http_server.rs</code>, and <code>http_dispatch.rs</code>.</td>
+              <td>Expose supported JSON commands through <code>/api/invoke</code> and streaming through dedicated routes such as <code>/api/llm/stream</code>. Reuse focused command/capability modules instead of adding parallel product behavior.</td>
             </tr>
             <tr>
               <td>Command facades</td>
@@ -512,38 +536,40 @@ flowchart TB
           </tbody>
         </table>
 
-        <h2>Desktop Host Scope</h2>
+        <h2>Runtime Host Scope</h2>
         <p>
-          The implemented host is Tauri desktop. The React app and TypeScript
-          engine are reusable in principle, but the current concrete frontend
-          transport assumes Tauri <code>invoke</code>, Tauri channels, Tauri file
-          URL conversion, and desktop plugins. A future Docker/web host should
-          be added as a parallel host adapter under <code>src/shared/api</code>
-          and Rust HTTP facades, not as scattered browser checks inside feature
-          components.
+          The implemented hosts are the embedded Tauri desktop runtime and the
+          hostable <code>marinara-server</code> Rust runtime. The shared API layer
+          owns the transport decision: when <code>remoteRuntimeUrl</code> is set,
+          supported storage/import/connection/LLM calls route through HTTP;
+          unsupported desktop-native actions stay on embedded Tauri and must not
+          grow silent browser fallbacks.
         </p>
         <pre class="mermaid">
 flowchart LR
   Product[React features and TypeScript engine]
-  CurrentApi[src/shared/api<br/>current Tauri transport]
+  RuntimeApi[src/shared/api<br/>typed runtime wrappers]
   TauriHost[Tauri desktop host]
+  RemoteTransport[remote-runtime.ts<br/>HTTP allowlist]
+  RustHttp[marinara-server<br/>HTTP API]
   RustServices[Rust capability services]
-  FutureWeb[Future web transport<br/>not implemented]
 
-  Product --> CurrentApi
-  CurrentApi --> TauriHost
+  Product --> RuntimeApi
+  RuntimeApi --> TauriHost
+  RuntimeApi --> RemoteTransport
+  RemoteTransport --> RustHttp
   TauriHost --> RustServices
-  Product -. would need adapter .-> FutureWeb
-  FutureWeb -. would call .-> RustServices
+  RustHttp --> RustServices
         </pre>
 
         <h2>When Adding Or Moving Code</h2>
         <ol>
-          <li>Start with the owner: catalog data, runtime system, concrete mode, shell workflow, shared UI/helper, engine service, shared API adapter, or Rust capability.</li>
+          <li>Start with the owner: catalog data, runtime system, concrete mode, shell workflow, shared UI/helper, engine service, shared API adapter, embedded Tauri command, hostable HTTP dispatch, or Rust capability.</li>
           <li>Use a package public entrypoint when crossing feature package boundaries.</li>
           <li>Move reusable mode UI to <code>features/modes/shared</code>; move reusable runtime systems to <code>features/runtime</code>; move generic UI to <code>src/shared/components</code>.</li>
           <li>Move product behavior to the owning engine mode or generation layer, not into React components.</li>
           <li>Move privileged local work to Rust commands/crates and expose a narrow shared API wrapper.</li>
+          <li>For hostable runtime support, add the focused shared API wrapper first, then route only supported commands through <code>remote-runtime.ts</code>, <code>http_server.rs</code>, and <code>http_dispatch.rs</code>.</li>
           <li>Implement engine capability ports at the feature/app edge with shared API wrappers; do not import shared API adapters into engine modules.</li>
           <li>Run <code>pnpm check:architecture</code> when imports or package structure change, and <code>pnpm check:docs</code> when these docs change.</li>
         </ol>

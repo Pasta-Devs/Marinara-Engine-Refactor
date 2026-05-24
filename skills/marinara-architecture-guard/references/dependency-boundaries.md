@@ -13,8 +13,9 @@ Allowed:
 - Engine higher layers import engine lower layers.
 - Engine repositories import capability ports.
 - Engine services receive capability ports from `src/engine/capabilities`; feature/runtime adapters bind those ports to `src/shared/api` wrappers.
-- `shared/api` imports Tauri invoke/listen helpers and contract DTOs.
+- `shared/api` imports Tauri invoke/listen helpers, remote-runtime HTTP helpers, and contract DTOs.
 - Rust command modules import Rust capability crates.
+- Hostable runtime routes call the same focused Rust modules as embedded Tauri commands through an explicit allowlist/dispatch layer.
 
 Forbidden:
 
@@ -31,6 +32,7 @@ Forbidden:
 - `features/modes/shared/**` importing concrete mode packages.
 - Feature code importing another package's private `components`, `hooks`, `stores`, `state`, `lib`, `api`, or `encounter` folders.
 - New or touched feature code importing `src/shared/api/tauri-client` or `@tauri-apps/api` directly instead of a focused shared API wrapper.
+- Feature, engine, or mode code calling the hostable Rust server with raw `fetch` instead of routing through `src/shared/api`.
 - Rust capability crates depending on TypeScript product concepts beyond opaque DTOs.
 
 ## Placement Questions
@@ -46,9 +48,10 @@ Ask these before adding a file:
 7. Does it coordinate product behavior? Put it in `engine`, usually a mode or generation layer.
 8. Does it perform privileged local work? Put it in Rust and expose a narrow command.
 9. Does it only define what TS needs from Rust? Put it in `engine/capabilities`.
-10. Is it a Tauri wrapper? Put it in `shared/api`.
+10. Is it a runtime wrapper for embedded Tauri or hostable HTTP? Put it in `shared/api`.
 11. Is it pure and reused by multiple modes? Put it in `engine/shared`, `engine/entities`, or `engine/generation-core`.
 12. Is it capability implementation glue for an engine service? Keep the port in `engine/capabilities` and the concrete shared API-backed implementation at the feature/app edge.
+13. Is it a remote-capable Rust command? Reuse the focused Rust implementation, add an explicit `http_dispatch.rs` handler, and add the command to `remote-runtime.ts` only after checking the JSON/SSE HTTP contract.
 
 ## File Splitting
 
