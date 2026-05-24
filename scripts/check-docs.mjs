@@ -95,6 +95,7 @@ if (packageJson.scripts?.docs) {
 const contributing = await readFile("CONTRIBUTING.md", "utf8");
 for (const expected of [
   "pnpm tauri dev",
+  "pnpm check:architecture",
   "docs/developer/architecture.html",
   "docs/developer/modules.html",
   "docs/developer/impact-areas.html",
@@ -118,7 +119,7 @@ for (const staleLegacyTerm of [
 }
 
 const pullRequestTemplate = await readFile(".github/pull_request_template.md", "utf8");
-for (const expected of ["Owner And Impact", "Architecture And AI-Assisted Review", "CONTRIBUTING.md"]) {
+for (const expected of ["Owner And Impact", "Architecture Notes", "pnpm check:architecture", "CONTRIBUTING.md"]) {
   if (!pullRequestTemplate.includes(expected)) {
     throw new Error(`Pull request template is missing expected guidance: ${expected}.`);
   }

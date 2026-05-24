@@ -119,7 +119,7 @@ Before accepting generated or AI-assisted code:
 - Explain the user problem and impact area in the PR, not just the file changes.
 - Do not add generated-by lines, AI self-attribution, AI co-author trailers, or private local paths.
 
-If an AI agent ticks PR checklist boxes, treat those boxes as a to-do list, not proof. Verify each item yourself and untick anything you have not personally confirmed.
+Human reviewers should verify checked PR checklist items before relying on them. Agents must not newly tick PR checklist boxes or untick boxes that were already checked; they should describe validation results and gaps in text instead.
 
 ## Validation
 
@@ -127,6 +127,7 @@ Run the checks that match the changed area:
 
 ```bash
 pnpm typecheck
+pnpm check:architecture
 pnpm check:rust
 pnpm check:docs
 pnpm build
@@ -136,6 +137,7 @@ pnpm check
 Use them this way:
 
 - `pnpm typecheck` for TypeScript, React, shared API, or engine changes.
+- `pnpm check:architecture` for import boundaries, layered ownership, shared modules, Rust command structure, or architecture-sensitive refactors.
 - `pnpm check:rust` for Rust commands, Tauri capabilities, provider transport, storage, assets, or integrations.
 - `pnpm check:docs` for docs, repo guidance, or repo-local skill changes.
 - `pnpm build` when imports, bundling, production frontend behavior, or app startup changed.
@@ -162,7 +164,8 @@ Manual verification matters. For UI and workflow changes, run the app and click 
 - Explain why the change matters to users or maintainers.
 - Fill out the owner and impact section in the PR template.
 - Keep PRs focused and reviewable.
-- Leave validation and manual verification checkboxes unchecked unless you personally completed them.
+- Human contributors may check validation and manual verification boxes only for items they personally completed.
+- Agents should leave PR checklist boxes in their existing state and summarize proof or remaining gaps in text.
 - Call out remaining risk or native/manual QA still needed.
 
 ## Documentation Rules

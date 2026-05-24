@@ -16,4 +16,4 @@ The docs cover getting started, local run/build commands, architecture, module o
 
 ## Contributing
 
-Read `CONTRIBUTING.md` before opening a pull request. It covers branch flow, architecture ownership, AI-assisted review expectations, and validation.
+Read `CONTRIBUTING.md` before opening a pull request. It covers branch flow, architecture ownership, AI-assisted contribution rules, and validation.

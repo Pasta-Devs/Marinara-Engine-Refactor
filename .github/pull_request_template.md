@@ -1,5 +1,6 @@
 <!-- Target branch: `main`. ME-Refactor uses `main` as the default integration branch. -->
 <!-- Open as a draft while implementation is still in progress. -->
+<!-- Agents: do not newly tick checklist boxes, and do not untick boxes that are already checked. Describe validation in text instead. -->
 
 ## Linked Issue
 
@@ -32,22 +33,17 @@ Closes #
 
 -
 
-## Architecture And AI-Assisted Review
+## Architecture Notes
 
-<!-- Especially useful for AI-assisted changes. Check only what you personally reviewed. -->
+<!-- Fill this out when imports, shared modules, feature boundaries, engine layers, shared/api adapters, Rust commands, capability crates, or mode boundaries changed. Use N/A for narrow docs/content-only changes. -->
 
-- [ ] Followed nearby repo patterns instead of adding broad helpers, barrels, routers, or compatibility shims
-- [ ] Confirmed the change lives in the owning layer/module
-- [ ] Avoided accidental leakage between chat, roleplay, and game paths
-- [ ] Removed obsolete fallback, placeholder, or fake-success code made unnecessary by the change
-- [ ] Checked relevant edge cases and failure paths
-- [ ] No generated-by lines, AI co-author trailers, or private local paths were added
+-
 
 ## Validation
 
-<!-- Check only what you personally ran or verified. -->
-<!-- If an AI agent filled out or ticked these boxes, treat them as a TODO list, not proof. -->
+<!-- Human contributors may check only what they personally ran or verified. Agents should preserve existing checkbox state. -->
 
+- [ ] `pnpm check:architecture` passes locally, if imports, file layout, feature boundaries, engine layers, shared APIs, or Rust command structure changed
 - [ ] `pnpm typecheck` passes locally
 - [ ] `pnpm check:rust` passes locally
 - [ ] `pnpm check:docs` passes locally
