@@ -10,8 +10,10 @@ Load the relevant repo-local skill before editing code in that area:
 - `skills/marinara-mode-separation/SKILL.md`: chat/conversation, roleplay, game, generation guides, prompt assembly, scene logic, autonomous flows, game turns, or mode UI.
 - `skills/marinara-bugfix-discipline/SKILL.md`: bugs, regressions, broken UI actions, failing checks, storage/provider/import/generation issues, or any fix with dependent callers.
 - `skills/marinara-getting-started/SKILL.md`: onboarding, "how do I get started?", repo tours, running docs, running the app, first testing paths, and guided bug-fixing flow.
+- `skills/marinara-agent-workflow/SKILL.md`: proof discipline, investigations, feature sizing, refactor handoffs, reviews, PR/issue workflow, risky-work evidence, debt notes, or final status reports.
 
 Keep these skills updated when architectural decisions change.
+Use `marinara-agent-workflow` as an overlay only. It never replaces this file, the architecture guard, the mode separation skill, or the bugfix discipline skill.
 
 ## User Docs
 
