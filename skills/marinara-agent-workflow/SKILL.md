@@ -52,18 +52,13 @@ Before nontrivial edits, scale the gate to risk:
 - Normal: owner, impact area, callers, contracts, affected modes/capabilities, checks.
 - Risky or cross-layer: boundary path, input/output/persistence/error behavior, dependency direction, shared-code justification, forbidden shortcuts avoided, docs/skills impact.
 
-Use Marinara's module rules while applying the gate:
+This workflow does not restate Marinara's architecture rules. For module ownership, import direction, mode boundaries, or hostable runtime details, load the specific owner skill:
 
-- React feature code stays in `src/features` and calls feature APIs, hooks, engine entrypoints, or `src/shared/api` wrappers.
-- Product behavior stays in `src/engine`; engine code must not import React, Zustand stores, Tauri APIs, feature internals, or concrete `src/shared/api` adapters.
-- Runtime wrappers stay in `src/shared/api`; they may route to embedded Tauri or the configured hostable Rust HTTP runtime.
-- Engine services receive `src/engine/capabilities` ports; feature/runtime/app-edge code binds those ports to shared API wrappers.
-- New or touched feature code should not call `invokeTauri` directly from `tauri-client.ts`; add or use a focused shared API wrapper.
-- Remote-capable hostable runtime behavior must flow through `src/shared/api/remote-runtime.ts`, `/api/invoke` or a dedicated HTTP route, and an explicit `src-tauri/src/http_dispatch.rs` handler.
-- Privileged storage, path safety, secrets, provider transport, and local integrations stay in Rust capabilities and thin Tauri commands.
-- Chat, roleplay, and game keep separate top-level mode owners; shared code must be a lower-layer primitive, not a generic mode flag or catch-all orchestrator.
+- `marinara-architecture-guard` for layer placement, shared API wrappers, Tauri/HTTP dispatch, Rust capabilities, and remote runtime allowlists.
+- `marinara-mode-separation` for chat, roleplay, game, prompt, generation, and mode UI boundaries.
+- `marinara-bugfix-discipline` for root-cause repair rules and anti-band-aid constraints.
 
-If ownership, callers, contract shape, or dependency direction cannot be named clearly, resolve that before editing.
+If ownership, callers, contract shape, or dependency direction cannot be named clearly after loading the owner skill, resolve that before editing.
 
 ## Core Loop
 

@@ -4,6 +4,15 @@ Use this reference for "how do I get started?" sessions.
 
 ## 1. Run The Docs
 
+Developer docs live in `docs/developer/`:
+
+- `index.html`: main entry
+- `getting-started.html`: first-session guide
+- `run-build.html`: run/build guide
+- `architecture.html`: architecture guide
+- `modules.html`: module guide
+- `impact-areas.html`: impact guide
+
 Start the static docs server:
 
 ```text
@@ -21,6 +30,8 @@ If port `4174` is busy, use:
 ```text
 pnpm exec vite docs/developer --host 127.0.0.1 --port <free-port>
 ```
+
+Do not tell users to run `pnpm docs`; that collides with pnpm/npm package documentation behavior in this environment.
 
 ## 2. Teach The Repo In One Pass
 
