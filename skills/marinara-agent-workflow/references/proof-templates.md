@@ -1,45 +1,16 @@
-# Marinara Proof Templates
+# Marinara Proof Template Index
 
 Use these templates only when they add clarity. Tiny tasks do not need ceremony.
 
-## Pre-Edit Gate
+## Pack-Derived Templates
 
-```text
-Owner:
-Impact area:
-Callers:
-Contracts:
-Affected modes/capabilities:
-Boundary path:
-Dependency direction:
-Shared-code justification:
-Forbidden shortcuts avoided:
-Checks planned:
-```
+- `templates/bugfix-verification.template.json`: structured bugfix proof ledger for risky fixes, UI regressions with screenshots, or PR-affecting bugs.
+- `templates/risk-claim-matrix.template.json`: claim-boundary proof rows for storage, import/export, user data, prompt/provider/parser, auth/secrets, destructive actions, compatibility, and new abstractions.
+- `templates/reviewer-thread-ledger.template.json`: PR inline review or automated review thread tracking.
+- `templates/pr-proof-block.md`: PR proof block for the final PR body or ready-for-review update.
+- `templates/status-snippets.md`: compact status, verdict, PR, debt, and mud-risk report shapes.
 
-For tiny edits, reduce this to `Owner`, `Impact`, `Modes/Capabilities`, and `Checks`.
-
-## Risk Claim Matrix
-
-Use for storage, import/export, user data, prompt/provider/parser, auth/secrets, destructive actions, compatibility, and new abstractions.
-
-```json
-{
-  "core_claim": "",
-  "risk_type": "",
-  "entrypoints": [],
-  "current_paths_or_formats": [],
-  "legacy_paths_or_formats": [],
-  "positive_rows_tested": [],
-  "negative_controls_tested": [],
-  "ground_truth_facts": [],
-  "user_facing_copy": "",
-  "manual_blockers": [],
-  "untested_paths": []
-}
-```
-
-## Manual Verification Script
+## Marinara Manual Verification
 
 Use when machine checks cannot prove the full claim.
 
@@ -53,18 +24,6 @@ Unverified coverage:
 ```
 
 Name unverified mode, provider, viewport, platform, data shape, or legacy path explicitly.
-
-## PR Proof Block
-
-```text
-Claim:
-Proof:
-User path not proven:
-Adjacent legacy/default path that could contradict the claim:
-Docs/changelog status:
-Ownership/coupling review:
-Manual verification:
-```
 
 ## Final Report
 
@@ -94,4 +53,4 @@ Ask before saying done:
 - What adjacent legacy or default path could contradict the claim?
 - Did the diff preserve Marinara's owner modules and dependency direction?
 - Did the diff add bloat, repeated conditionals, shotgun surgery, disposable code, or coupling?
-- Are docs, skills, updates, or changelog changes needed for the durable decision?
+- Are docs, skills, `updates/`, or repo-defined release notes needed for the durable decision?

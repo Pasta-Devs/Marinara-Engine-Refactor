@@ -1,6 +1,6 @@
 ---
 name: marinara-agent-workflow
-description: "Apply Marinara's repo-local version of the Chai agent workflow pack for proof discipline, investigations, feature sizing, refactor handoffs, reviews, PR readiness, issue drafting, risky-work evidence, debt notes, and final status reports. Use for nontrivial coding work, ambiguous symptoms, refactors, reviews, PR/issue workflows, or any task where an agent must prove claims while preserving Marinara's code separation and module ownership rules."
+description: "Apply Marinara's repo-local version of the Chai agent workflow pack for proof discipline, investigations, feature sizing, refactor handoffs, reviews, PR readiness, reviewer feedback iteration, issue drafting, UI/UX proof, security-sensitive checks, risky-work evidence, debt notes, and final status reports. Use for nontrivial coding work, ambiguous symptoms, refactors, reviews, PR/issue workflows, or any task where an agent must prove claims while preserving Marinara's code separation and module ownership rules."
 ---
 
 # Marinara Agent Workflow
@@ -28,7 +28,21 @@ When this workflow conflicts with a repo rule, keep the repo rule. When it makes
 - Load `skills/marinara-mode-separation/SKILL.md` for chat, roleplay, game, prompt assembly, generation routing, scene logic, autonomous flows, or mode UI.
 - Load `skills/marinara-bugfix-discipline/SKILL.md` for regressions, broken UI actions, failing checks, provider/storage/import/generation problems, or root-cause repairs.
 
-Read `references/workflow-cards.md` for the active lane. Read `references/proof-templates.md` when a task needs a risk matrix, PR proof block, manual verification script, debt note, or final done shape.
+Load only the workflow card that matches the current lane:
+
+- `references/workflows/investigate.md` for symptoms, logs, screenshots, confusing runtime behavior, or suspected regressions.
+- `references/workflows/bugfix.md` for broken behavior and root-cause fixes.
+- `references/workflows/feature-build.md` for new capability work.
+- `references/workflows/refactor-handoff.md` for refactor, cleanup, architecture, and modernization work.
+- `references/workflows/review-and-pr.md` for reviews, PR readiness, shipping, and reviewer feedback.
+- `references/workflows/issue-submission.md` for GitHub issue drafting or filing.
+- `references/workflows/durable-notes.md` for durable bug ownership, work status, reusable debugging lessons, or architecture decisions.
+
+Use `references/marinara-overrides.md` when auditing a source-pack assumption or deciding how to translate pack wording into this repo.
+
+Read `references/proof-templates.md` as the template index when a task needs a risk matrix, PR proof block, reviewer thread ledger, manual verification script, debt note, or final done shape. The concrete pack-derived templates live under `references/templates/`.
+
+Read `references/source-map.md` when auditing or updating this skill against `cha1latte/chai-agent-workflow-pack`.
 
 ## Repo Boundary Gate
 
@@ -66,6 +80,14 @@ If ownership, callers, contract shape, or dependency direction cannot be named c
 Treat these as risky: storage, migrations, import/export, installers, user data, prompt assembly, provider transport, auth/secrets, destructive actions, cross-entrypoint behavior, legacy compatibility, and new abstractions.
 
 Risky work needs claim-boundary proof: core claim, entrypoints, current and legacy paths, positive rows, negative controls, ground-truth facts, user-facing copy when relevant, manual blockers, and untested paths.
+
+Ground-truth facts for app-owned behavior must come from the app, artifact, fresh build/install, code path, or focused harness. Use external docs only for outside behavior such as third-party APIs, operating-system semantics, or tool behavior.
+
+Detection and destructive logic needs negative controls. If code decides that a file is user data, a path is safe, an import is valid, a provider response is parseable, or an action is safe to delete/overwrite, prove at least one realistic should-not-match row when the claim depends on it.
+
+User-data, backup, destructive-action, import/export, and migration warnings must name the exact files, folders, companion files, current/legacy layouts, and user action when those details affect safety.
+
+For security-sensitive work, check client-only trust, hardcoded secrets, leaked environment values, missing authorization, unsafe paths, unsafe import/export assumptions, destructive-action ambiguity, overbroad network/origin behavior, and should-not-match rows.
 
 For generation or memory work, trace the full path from input or persisted data through prompt assembly, model/provider call, parser/repair/validation, persistence, and UI/debug visibility. Do not conflate chat memory, roleplay scene memory, game state text, lorebook activation, summaries, knowledge retrieval, or autonomous memory.
 
