@@ -1,4 +1,8 @@
-import { getCharacterLookupAliases, type CharacterDisplayInfo } from "./character-display";
+import {
+  getCharacterLookupAliasCandidates,
+  type CharacterDisplayInfo,
+  type CharacterLookupAliasKind,
+} from "./character-display";
 
 export interface CharacterLookupDisplayRow {
   character: { id: string };
@@ -27,27 +31,79 @@ export function normalizeLookupText(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase();
 }
 
+const ALIAS_LOOKUP_KIND_ORDER: readonly CharacterLookupAliasKind[] = [
+  "fullTitle",
+  "explicitAlias",
+  "parenthetical",
+  "titleLead",
+];
+
+interface LookupCandidate {
+  characterId: string;
+  key: string;
+}
+
+function addUniqueLookupTier(candidates: readonly LookupCandidate[], idByLookupText: Map<string, string>) {
+  const idsByKey = new Map<string, Set<string>>();
+  const firstIdByKey = new Map<string, string>();
+
+  for (const candidate of candidates) {
+    if (!candidate.key || idByLookupText.has(candidate.key)) continue;
+
+    firstIdByKey.set(candidate.key, firstIdByKey.get(candidate.key) ?? candidate.characterId);
+
+    const ids = idsByKey.get(candidate.key) ?? new Set<string>();
+    ids.add(candidate.characterId);
+    idsByKey.set(candidate.key, ids);
+  }
+
+  for (const [key, ids] of idsByKey) {
+    if (ids.size !== 1 || idByLookupText.has(key)) continue;
+
+    const characterId = firstIdByKey.get(key);
+    if (characterId) idByLookupText.set(key, characterId);
+  }
+}
+
 export function addExactNameLookups(
   candidates: readonly CharacterLookupDisplayRow[],
   idByLookupText: Map<string, string>,
 ) {
-  for (const { character, display } of candidates) {
-    const nameKey = normalizeLookupText(display.name);
-    if (nameKey && !idByLookupText.has(nameKey)) idByLookupText.set(nameKey, character.id);
-  }
+  addUniqueLookupTier(
+    candidates.map(({ character, display }) => ({
+      characterId: character.id,
+      key: normalizeLookupText(display.name),
+    })),
+    idByLookupText,
+  );
 }
 
 export function addAliasLookups(
   candidates: readonly CharacterLookupDisplayRow[],
   idByLookupText: Map<string, string>,
 ) {
+  const aliasCandidatesByKind = new Map<CharacterLookupAliasKind, LookupCandidate[]>();
+
+  for (const kind of ALIAS_LOOKUP_KIND_ORDER) aliasCandidatesByKind.set(kind, []);
+
   for (const { character, display } of candidates) {
     const nameKey = normalizeLookupText(display.name);
-    for (const alias of getCharacterLookupAliases(display)) {
-      const aliasKey = normalizeLookupText(alias);
-      if (aliasKey && aliasKey !== nameKey && !idByLookupText.has(aliasKey)) {
-        idByLookupText.set(aliasKey, character.id);
+
+    for (const alias of getCharacterLookupAliasCandidates(display)) {
+      const aliasKey = normalizeLookupText(alias.text);
+      if (!aliasKey || aliasKey === nameKey) continue;
+
+      const tier = aliasCandidatesByKind.get(alias.kind);
+      if (tier) {
+        tier.push({
+          characterId: character.id,
+          key: aliasKey,
+        });
       }
     }
+  }
+
+  for (const kind of ALIAS_LOOKUP_KIND_ORDER) {
+    addUniqueLookupTier(aliasCandidatesByKind.get(kind) ?? [], idByLookupText);
   }
 }

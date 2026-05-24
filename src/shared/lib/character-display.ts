@@ -3,17 +3,26 @@ export interface CharacterDisplayInfo {
   comment?: string | null;
 }
 
-const CONNECTOR_ALIAS_PATTERN = /\s+(?:a\.?k\.?a\.?|also known as|alias(?:es)?|nickname(?:s)?)\s+/i;
+export type CharacterLookupAliasKind = "fullTitle" | "explicitAlias" | "parenthetical" | "titleLead";
+
+export interface CharacterLookupAliasCandidate {
+  text: string;
+  kind: CharacterLookupAliasKind;
+}
+
+const EXPLICIT_ALIAS_CONNECTOR_PATTERN =
+  /(?:^|\s+)(?:a\.?k\.?a\.?|also known as|alias(?:es)?|nickname(?:s)?)(?:\s*(?::|-)\s*|\s+)/gi;
 const LIST_ALIAS_PATTERN = /\s*(?:[|/;]|\r?\n)\s*/;
 const LEADING_TITLE_SEPARATOR_PATTERN = /^(.+?)\s+[-\u2013\u2014]\s+.+$/u;
 const PARENTHETICAL_ALIAS_PATTERN = /[\[(]([^\])]+)[\])]/g;
 const LOOKUP_TEXT_MAX_LENGTH = 96;
-const LOOKUP_ALIAS_EDGE_PUNCTUATION = /^[\s"'([{]+|[\s"')\]}.,:;]+$/g;
+const LOOKUP_ALIAS_EDGE_PUNCTUATION = /^[\s"']+|[\s"',.:;]+$/g;
+const WRAPPED_LOOKUP_ALIAS_PATTERN = /^[([{]\s*(.+?)\s*[\])}]$/;
 
 function cleanDisplayText(value: string | null | undefined): string {
-  return typeof value === "string"
-    ? value.replace(/\s+/g, " ").replace(LOOKUP_ALIAS_EDGE_PUNCTUATION, "").trim()
-    : "";
+  if (typeof value !== "string") return "";
+  const cleaned = value.replace(/\s+/g, " ").replace(LOOKUP_ALIAS_EDGE_PUNCTUATION, "").trim();
+  return cleaned.match(WRAPPED_LOOKUP_ALIAS_PATTERN)?.[1]?.trim() ?? cleaned;
 }
 
 function addCandidate(candidates: Set<string>, value: string | null | undefined) {
@@ -21,31 +30,99 @@ function addCandidate(candidates: Set<string>, value: string | null | undefined)
   if (cleaned && cleaned.length <= LOOKUP_TEXT_MAX_LENGTH) candidates.add(cleaned);
 }
 
-function addCommentAliasCandidates(candidates: Set<string>, comment: string | null | undefined) {
+function addAliasCandidate(
+  candidates: CharacterLookupAliasCandidate[],
+  seen: Set<string>,
+  kind: CharacterLookupAliasKind,
+  value: string | null | undefined,
+) {
+  const cleaned = cleanDisplayText(value);
+  if (!cleaned || cleaned.length > LOOKUP_TEXT_MAX_LENGTH) return;
+
+  const key = `${kind}\0${cleaned.toLowerCase()}`;
+  if (seen.has(key)) return;
+  seen.add(key);
+  candidates.push({ text: cleaned, kind });
+}
+
+function addParentheticalAliases(
+  candidates: CharacterLookupAliasCandidate[],
+  seen: Set<string>,
+  value: string,
+) {
+  PARENTHETICAL_ALIAS_PATTERN.lastIndex = 0;
+  for (const match of value.matchAll(PARENTHETICAL_ALIAS_PATTERN)) {
+    addAliasCandidate(candidates, seen, "parenthetical", match[1]);
+  }
+}
+
+function addAliasPayloadCandidates(
+  candidates: CharacterLookupAliasCandidate[],
+  seen: Set<string>,
+  payload: string,
+) {
+  for (const part of payload.split(LIST_ALIAS_PATTERN)) {
+    const cleaned = cleanDisplayText(part);
+    if (!cleaned) continue;
+
+    addAliasCandidate(candidates, seen, "explicitAlias", cleaned);
+
+    const withoutParentheticals = cleanDisplayText(cleaned.replace(PARENTHETICAL_ALIAS_PATTERN, " "));
+    if (withoutParentheticals !== cleaned) {
+      addAliasCandidate(candidates, seen, "explicitAlias", withoutParentheticals);
+    }
+
+    addParentheticalAliases(candidates, seen, cleaned);
+  }
+}
+
+function addCommentAliasCandidates(
+  candidates: CharacterLookupAliasCandidate[],
+  seen: Set<string>,
+  comment: string | null | undefined,
+) {
   const raw = typeof comment === "string" ? comment.trim() : "";
   const cleaned = cleanDisplayText(raw);
   if (!cleaned) return;
 
-  addCandidate(candidates, cleaned);
+  EXPLICIT_ALIAS_CONNECTOR_PATTERN.lastIndex = 0;
+  const explicitAliasConnectors = Array.from(cleaned.matchAll(EXPLICIT_ALIAS_CONNECTOR_PATTERN));
+  const firstConnectorIndex = explicitAliasConnectors[0]?.index;
+  const titleText =
+    explicitAliasConnectors.length > 0 && typeof firstConnectorIndex === "number"
+      ? cleanDisplayText(cleaned.slice(0, firstConnectorIndex))
+      : cleaned;
 
-  const leadingTitle = cleaned.match(LEADING_TITLE_SEPARATOR_PATTERN)?.[1];
-  addCandidate(candidates, leadingTitle);
+  addAliasCandidate(candidates, seen, "fullTitle", titleText);
+  addParentheticalAliases(candidates, seen, titleText);
 
-  for (const part of cleaned.split(CONNECTOR_ALIAS_PATTERN)) {
-    addCandidate(candidates, part);
+  const leadingTitle = titleText.match(LEADING_TITLE_SEPARATOR_PATTERN)?.[1];
+  addAliasCandidate(candidates, seen, "titleLead", leadingTitle);
+
+  for (let index = 0; index < explicitAliasConnectors.length; index += 1) {
+    const connector = explicitAliasConnectors[index];
+    if (!connector || typeof connector.index !== "number") continue;
+
+    const nextConnector = explicitAliasConnectors[index + 1];
+    const payloadStart = connector.index + connector[0].length;
+    const payloadEnd = typeof nextConnector?.index === "number" ? nextConnector.index : cleaned.length;
+    addAliasPayloadCandidates(candidates, seen, cleaned.slice(payloadStart, payloadEnd));
   }
 
-  for (const part of raw.split(LIST_ALIAS_PATTERN)) {
-    addCandidate(candidates, part);
+  if (explicitAliasConnectors.length === 0 && !leadingTitle) {
+    const listParts = cleaned.split(LIST_ALIAS_PATTERN);
+    if (listParts.length > 1) {
+      for (const part of listParts) addAliasPayloadCandidates(candidates, seen, part);
+    }
   }
+}
 
-  const withoutParentheticals = cleanDisplayText(cleaned.replace(PARENTHETICAL_ALIAS_PATTERN, " "));
-  addCandidate(candidates, withoutParentheticals);
-
-  PARENTHETICAL_ALIAS_PATTERN.lastIndex = 0;
-  for (const match of cleaned.matchAll(PARENTHETICAL_ALIAS_PATTERN)) {
-    addCandidate(candidates, match[1]);
-  }
+export function getCharacterLookupAliasCandidates(
+  character: CharacterDisplayInfo | null | undefined,
+): CharacterLookupAliasCandidate[] {
+  const candidates: CharacterLookupAliasCandidate[] = [];
+  addCommentAliasCandidates(candidates, new Set<string>(), character?.comment);
+  return candidates;
 }
 
 export function getCharacterTitle(character: CharacterDisplayInfo | null | undefined): string | null {
@@ -54,9 +131,9 @@ export function getCharacterTitle(character: CharacterDisplayInfo | null | undef
 }
 
 export function getCharacterLookupAliases(character: CharacterDisplayInfo | null | undefined): string[] {
-  const candidates = new Set<string>();
-  addCommentAliasCandidates(candidates, character?.comment);
-  return Array.from(candidates);
+  const aliases = new Set<string>();
+  for (const candidate of getCharacterLookupAliasCandidates(character)) addCandidate(aliases, candidate.text);
+  return Array.from(aliases);
 }
 
 export function getCharacterLookupTexts(character: CharacterDisplayInfo | null | undefined): string[] {
