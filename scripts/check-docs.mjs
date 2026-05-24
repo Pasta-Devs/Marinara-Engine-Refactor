@@ -1,10 +1,26 @@
-import { access, readFile } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
-const requiredDocs = [
+async function collectFiles(root) {
+  const entries = await readdir(root, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const path = `${root}/${entry.name}`;
+    if (entry.isDirectory()) {
+      files.push(...(await collectFiles(path)));
+    } else {
+      files.push(path);
+    }
+  }
+  return files;
+}
+
+const baseRequiredDocs = [
   "AGENTS.md",
   "README.md",
   "package.json",
+  "src/shared/README.md",
+  "src/shared/api/README.md",
   "docs/developer/index.html",
   "docs/developer/getting-started.html",
   "docs/developer/run-build.html",
@@ -13,11 +29,24 @@ const requiredDocs = [
   "docs/developer/impact-areas.html",
   "docs/developer/docs.css",
   "docs/developer/shared.js",
+];
+
+const expectedSkillFiles = [
   "skills/marinara-architecture-guard/SKILL.md",
   "skills/marinara-mode-separation/SKILL.md",
   "skills/marinara-bugfix-discipline/SKILL.md",
   "skills/marinara-getting-started/SKILL.md",
+  "skills/marinara-agent-workflow/SKILL.md",
 ];
+
+const skillDocs = (await collectFiles("skills")).filter(
+  (path) =>
+    path.endsWith("/SKILL.md") ||
+    path.endsWith("/agents/openai.yaml") ||
+    (path.includes("/references/") && path.endsWith(".md")),
+);
+
+const requiredDocs = [...new Set([...baseRequiredDocs, ...expectedSkillFiles, ...skillDocs])].sort();
 
 await Promise.all(requiredDocs.map((path) => access(path)));
 
@@ -75,11 +104,40 @@ const agents = await readFile("AGENTS.md", "utf8");
 if (!agents.includes("pnpm docs:dev") || !agents.includes("docs/developer/index.html")) {
   throw new Error("AGENTS.md must explain how to run the developer docs.");
 }
-if (
-  !agents.includes("skills/marinara-getting-started/SKILL.md") ||
-  !agents.includes("docs/developer/getting-started.html")
-) {
+for (const skillFile of expectedSkillFiles) {
+  if (!agents.includes(skillFile)) {
+    throw new Error(`AGENTS.md must mention repo skill ${skillFile}.`);
+  }
+}
+if (!agents.includes("docs/developer/getting-started.html")) {
   throw new Error("AGENTS.md must explain the getting-started agent workflow.");
+}
+
+const guidanceDocs = requiredDocs.filter((path) => path.endsWith(".md") || path.endsWith(".html"));
+const guidanceByPath = new Map(
+  await Promise.all(guidanceDocs.map(async (path) => [path, await readFile(path, "utf8")])),
+);
+const forbiddenGuidance = [
+  {
+    snippet: "Engine --> API",
+    reason: "engine code must receive capability ports instead of importing shared API adapters",
+  },
+  {
+    snippet: "Final-shape Tauri command wrappers live here once real commands exist.",
+    reason: "shared API wrappers are real architecture now, not a future placeholder",
+  },
+];
+for (const [path, text] of guidanceByPath) {
+  for (const { snippet, reason } of forbiddenGuidance) {
+    if (text.includes(snippet)) {
+      throw new Error(`${path} contains stale guidance "${snippet}": ${reason}.`);
+    }
+  }
+}
+
+const sharedApiReadme = guidanceByPath.get("src/shared/api/README.md") ?? "";
+if (!sharedApiReadme.includes("Engine code must not import this folder")) {
+  throw new Error("src/shared/api/README.md must state the engine/shared API boundary.");
 }
 
 const packageJson = JSON.parse(await readFile("package.json", "utf8"));

@@ -28,6 +28,7 @@ src/shared/
 
 src/shared/api/
   Typed wrappers around Tauri commands and channels. Feature code may call these. Engine code may not.
+  Do not add new raw feature imports of tauri-client; add a focused wrapper here first.
 
 src/engine/
   React-free product engine. Owns domain rules and orchestration.
@@ -49,6 +50,7 @@ engine/modes           Layer 8: chat, roleplay, game top-level mode engines
 ```
 
 Higher layers may import lower layers. Lower layers may not import higher layers.
+Engine capability ports are implemented by feature/runtime/app-edge adapter code that calls `src/shared/api`; the engine itself stays host-independent.
 
 ## Rust
 
@@ -99,3 +101,4 @@ Important feature owners:
 - `features/shell/settings`, `features/shell/connections`, `features/shell/spotify`, `features/shell/onboarding`, `features/shell/mari`, `features/shell/bot-browser`, `features/shell/imports`, `features/shell/notifications`: app-level tools and shell workflows.
 
 Cross-package imports should use curated public files such as `index.ts`, `shell.ts`, `query-keys.ts`, and `types.ts`. Shared UI belongs in `src/shared/components` only when it is genuinely generic across the app, not merely shared by concrete modes.
+Existing broad files such as mode composition surfaces are not precedent for new product behavior; move new logic to the owning mode, runtime, catalog, engine, or capability module.

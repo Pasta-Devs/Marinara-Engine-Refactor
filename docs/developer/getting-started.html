@@ -53,6 +53,7 @@ flowchart TB
   User[Developer testing the app]
   UI[src/features<br/>React feature UI]
   Engine[src/engine<br/>product behavior]
+  Ports[engine/capabilities<br/>ports]
   API[src/shared/api<br/>Tauri adapters]
   Rust[src-tauri<br/>local capabilities]
   Data[Local data, files, providers]
@@ -60,7 +61,8 @@ flowchart TB
   User --> UI
   UI --> Engine
   UI --> API
-  Engine --> API
+  Engine --> Ports
+  Ports -. implemented at feature edge .-> API
   API --> Rust
   Rust --> Data
         </pre>
@@ -76,6 +78,7 @@ flowchart TB
             <tr><td><code>src/app</code></td><td>App shell, providers, startup effects.</td></tr>
             <tr><td><code>src/features</code></td><td>React screens, components, hooks, user workflows.</td></tr>
             <tr><td><code>src/engine</code></td><td>React-free product rules and mode orchestration.</td></tr>
+            <tr><td><code>src/engine/capabilities</code></td><td>Ports accepted by engine services. Implement them at the feature/app edge.</td></tr>
             <tr><td><code>src/shared/api</code></td><td>Typed bridge to Tauri commands.</td></tr>
             <tr><td><code>src-tauri</code></td><td>Rust storage, assets, provider transport, integrations, native commands.</td></tr>
           </tbody>

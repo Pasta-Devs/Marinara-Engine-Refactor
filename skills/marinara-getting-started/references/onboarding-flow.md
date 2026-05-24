@@ -31,6 +31,7 @@ Explain this shape:
 - `src/shared`: reusable frontend components, hooks, stores, and browser helpers.
 - `src/shared/api`: typed Tauri adapters.
 - `src/engine`: React-free product engine.
+- `src/engine/capabilities`: ports passed into engine services and implemented at the feature/app edge.
 - `src/engine/modes/chat`: normal chat and autonomous conversation.
 - `src/engine/modes/roleplay`: roleplay scenes, encounters, and visual-novel behavior.
 - `src/engine/modes/game`: game turns, prompts, mechanics, world, state, and assets.
@@ -85,7 +86,7 @@ Then map the bug to an owner:
 
 - UI display/action issue: `src/features` or `src/shared/components`.
 - Product behavior issue: `src/engine`, usually the owning mode or generation layer.
-- Tauri boundary issue: `src/shared/api` plus matching command.
+- Tauri boundary issue: `src/shared/api` plus matching command; engine code should receive a capability port, not import the adapter.
 - Storage/assets/provider issue: `src-tauri` and Rust capability crates.
 
 ## 6. Fixing Mode

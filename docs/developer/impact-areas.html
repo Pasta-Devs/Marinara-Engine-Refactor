@@ -67,6 +67,9 @@ flowchart LR
   Generation --> Capabilities
   Generation --> GenCore
   Generation --> Agents
+  Capabilities -. implemented by feature adapter .-> LLMApi
+  Capabilities -. implemented by feature adapter .-> StorageApi
+  Capabilities -. implemented by feature adapter .-> IntegrationApi
   LLMApi --> RustLLM
   StorageApi --> RustStorage
         </pre>
@@ -98,6 +101,8 @@ flowchart LR
   RoleplayUI --> LLM
   RoleplayMode --> Capabilities
   RoleplayMode --> Generation
+  Capabilities -. implemented by roleplay feature adapter .-> Storage
+  Capabilities -. implemented by roleplay feature adapter .-> LLM
   RoleplayUI --> Assets
   Assets --> RustAssets
   Storage --> RustStorage
@@ -206,7 +211,9 @@ flowchart LR
         <pre class="mermaid">
 flowchart LR
   SettingsUI[features/shell/connections and shell/settings]
+  FeatureAdapter[feature/runtime adapter]
   Engine[engine/generation or mode service]
+  Ports[engine/capabilities]
   Api[shared/api llm and integrations]
   Commands[Tauri commands]
   LLM[crates/llm]
@@ -215,7 +222,9 @@ flowchart LR
   External[External provider APIs]
 
   SettingsUI --> Api
-  Engine --> Api
+  FeatureAdapter --> Engine
+  Engine --> Ports
+  Ports -. implemented by feature adapter .-> Api
   Api --> Commands
   Commands --> LLM
   Commands --> Integrations
@@ -226,7 +235,7 @@ flowchart LR
         <table>
           <tbody>
             <tr><th>Touching</th><td>LLM providers, connection tests, streaming, image generation transport, Spotify, TTS, translation, haptics.</td></tr>
-            <tr><th>Review</th><td>Secrets handling, request shaping, provider parameter compatibility, redaction, events/channels, UI error reporting.</td></tr>
+            <tr><th>Review</th><td>Secrets handling, request shaping, provider parameter compatibility, redaction, events/channels, UI error reporting, and whether engine services receive capability ports instead of importing shared API adapters.</td></tr>
             <tr><th>Verify</th><td>Rust check plus TypeScript typecheck when DTOs or adapters changed. Live-account QA may still be required.</td></tr>
           </tbody>
         </table>
@@ -238,7 +247,7 @@ flowchart LR
   SharedApi[src/shared/api]
   RuntimeTransport[Runtime transport<br/>Tauri invoke or web HTTP]
   NativePlugin[Tauri plugins<br/>dialog, opener, window, asset URLs]
-  BrowserFallback[Browser fallback<br/>file input, HTTP assets, no-op window controls]
+  BrowserFallback[Explicit degraded web behavior<br/>only after a host-adapter decision]
   RustApi[Rust API facade<br/>Tauri commands or HTTP routes]
   RustServices[Rust capability crates]
   Docker[Docker web host<br/>static Vite build plus Rust API]
@@ -255,7 +264,7 @@ flowchart LR
         <table>
           <tbody>
             <tr><th>Touching</th><td><code>invokeTauri</code>, <code>llm-api</code> streaming, <code>local-file-api</code>, Tauri plugins, file dialogs, managed asset URLs, imports/uploads, native window/titlebar behavior, opener behavior, haptics, Spotify OAuth, TTS, or Docker/server build files.</td></tr>
-            <tr><th>Review</th><td>Does the feature require desktop-only native access, or can it run through a host adapter? Are DTOs shared between Tauri commands and proposed HTTP routes? Does browser mode avoid raw server filesystem paths?</td></tr>
+            <tr><th>Review</th><td>Does the feature require desktop-only native access, or can it run through a host adapter? Are DTOs shared between Tauri commands and proposed HTTP routes? Does browser mode avoid raw server filesystem paths and silent no-op fallbacks?</td></tr>
             <tr><th>Verify</th><td>Today: <code>pnpm typecheck</code>, <code>pnpm build</code>, and Rust checks when touching command/capability code. After web mode exists: add a web build and Docker/API smoke check to CI.</td></tr>
             <tr><th>Decision</th><td>If browser behavior cannot be equivalent, document the degraded behavior explicitly instead of adding silent fallbacks.</td></tr>
           </tbody>

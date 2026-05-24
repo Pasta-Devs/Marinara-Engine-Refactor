@@ -40,6 +40,7 @@ Do not solve bugs by adding:
 - UI-only guards that leave invalid engine or storage state
 - broad defaults that hide missing persisted data
 - direct Tauri calls from engine code
+- new direct `invokeTauri` calls in feature code when a typed `src/shared/api` wrapper should own the command boundary
 - generic local API routers
 
 Fix the root: owner, contract, persistence shape, mode orchestrator, adapter, command, or capability.

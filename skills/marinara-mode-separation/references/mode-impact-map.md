@@ -85,6 +85,8 @@ Allowed shared homes:
 - `features/runtime/visuals`: shared visual primitives when roleplay and game both need them.
 - `features/runtime/generation`, `features/runtime/world-state`, `features/runtime/tracker`: shared runtime systems used by mode surfaces.
 
+Shared mode UI should stay mode-neutral. If a shared component needs a concrete mode action, pass that action in from the owning mode/router or move the component to the owning mode package. Do not grow `features/modes/shared` with new direct imports from `engine/modes/chat`, `engine/modes/roleplay`, `engine/modes/game`, or concrete mode feature packages.
+
 ## Impact Report Questions
 
 For every mode-related change, answer:

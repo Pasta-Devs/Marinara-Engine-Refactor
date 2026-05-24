@@ -188,7 +188,9 @@ flowchart LR
           Files in <code>src/shared/api</code> are the bridge from frontend code
           to Tauri commands. They should be typed and narrow. If business logic
           starts to grow here, move it into the TypeScript engine or the owning
-          feature.
+          feature. New feature code should call these wrappers instead of
+          importing <code>tauri-client.ts</code> or <code>@tauri-apps/api</code>
+          directly.
         </p>
         <table>
           <thead>

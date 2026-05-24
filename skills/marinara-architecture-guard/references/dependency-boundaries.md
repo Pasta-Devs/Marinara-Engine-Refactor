@@ -12,6 +12,7 @@ Allowed:
 - UI features import `src/shared`, `src/shared/api`, contracts, engine entrypoints, and feature public APIs.
 - Engine higher layers import engine lower layers.
 - Engine repositories import capability ports.
+- Engine services receive capability ports from `src/engine/capabilities`; feature/runtime adapters bind those ports to `src/shared/api` wrappers.
 - `shared/api` imports Tauri invoke/listen helpers and contract DTOs.
 - Rust command modules import Rust capability crates.
 
@@ -29,6 +30,7 @@ Forbidden:
 - Concrete feature modes importing each other directly: `features/modes/conversation`, `features/modes/roleplay`, and `features/modes/game` are composed only by `features/modes/router`.
 - `features/modes/shared/**` importing concrete mode packages.
 - Feature code importing another package's private `components`, `hooks`, `stores`, `state`, `lib`, `api`, or `encounter` folders.
+- New or touched feature code importing `src/shared/api/tauri-client` or `@tauri-apps/api` directly instead of a focused shared API wrapper.
 - Rust capability crates depending on TypeScript product concepts beyond opaque DTOs.
 
 ## Placement Questions
@@ -46,6 +48,7 @@ Ask these before adding a file:
 9. Does it only define what TS needs from Rust? Put it in `engine/capabilities`.
 10. Is it a Tauri wrapper? Put it in `shared/api`.
 11. Is it pure and reused by multiple modes? Put it in `engine/shared`, `engine/entities`, or `engine/generation-core`.
+12. Is it capability implementation glue for an engine service? Keep the port in `engine/capabilities` and the concrete shared API-backed implementation at the feature/app edge.
 
 ## File Splitting
 

@@ -468,7 +468,7 @@ flowchart TB
             <tr>
               <td>Frontend adapters</td>
               <td><code>assets-api.ts</code>, <code>avatar-api.ts</code>, <code>export-api.ts</code>, <code>image-generation-api.ts</code>, <code>import-api.ts</code>, <code>integration-gateway.ts</code>, <code>integration-utility-api.ts</code>, <code>llm-api.ts</code>, <code>local-file-api.ts</code>, <code>mari-api.ts</code>, <code>profile-api.ts</code>, <code>settings-assets-api.ts</code>, <code>storage-api.ts</code>, <code>tracker-snapshot-api.ts</code>, and helpers.</td>
-              <td>Keep them typed and narrow. Product decisions belong in features or engine services.</td>
+              <td>Keep them typed and narrow. Product decisions belong in features or engine services. New feature code should call these wrappers, not <code>tauri-client.ts</code> directly.</td>
             </tr>
             <tr>
               <td>Tauri host</td>
@@ -544,6 +544,7 @@ flowchart LR
           <li>Move reusable mode UI to <code>features/modes/shared</code>; move reusable runtime systems to <code>features/runtime</code>; move generic UI to <code>src/shared/components</code>.</li>
           <li>Move product behavior to the owning engine mode or generation layer, not into React components.</li>
           <li>Move privileged local work to Rust commands/crates and expose a narrow shared API wrapper.</li>
+          <li>Implement engine capability ports at the feature/app edge with shared API wrappers; do not import shared API adapters into engine modules.</li>
           <li>Run <code>pnpm check:architecture</code> when imports or package structure change, and <code>pnpm check:docs</code> when these docs change.</li>
         </ol>
 

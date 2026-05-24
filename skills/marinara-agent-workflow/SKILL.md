@@ -43,6 +43,8 @@ Use Marinara's module rules while applying the gate:
 - React feature code stays in `src/features` and calls feature APIs, hooks, engine entrypoints, or `src/shared/api` wrappers.
 - Product behavior stays in `src/engine`; engine code must not import React, Zustand stores, Tauri APIs, feature internals, or concrete `src/shared/api` adapters.
 - Tauri wrappers stay in `src/shared/api`.
+- Engine services receive `src/engine/capabilities` ports; feature/runtime/app-edge code binds those ports to shared API wrappers.
+- New or touched feature code should not call `invokeTauri` directly from `tauri-client.ts`; add or use a focused shared API wrapper.
 - Privileged storage, path safety, secrets, provider transport, and local integrations stay in Rust capabilities and thin Tauri commands.
 - Chat, roleplay, and game keep separate top-level mode owners; shared code must be a lower-layer primitive, not a generic mode flag or catch-all orchestrator.
 
@@ -92,3 +94,4 @@ For nontrivial work, name the main structural risk before coding and check it ag
 - Coupling: feature internals, cross-mode imports, wrong-layer dependencies, message chains.
 
 Escalate a smell to a blocker when it creates correctness, proof, data-safety, security, or shipping risk. Otherwise report it as a bounded review note or follow-up.
+Existing broad files and raw invoke sites in the repo are not permission to add more. When touching one, either contain the change inside the current owner or carve out the smallest owner module/wrapper needed for the current behavior.

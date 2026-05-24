@@ -27,7 +27,8 @@ Before editing:
 2. Identify the mode-owned entry point.
 3. Identify lower-layer helpers that are safe to share.
 4. Verify no top-level mode imports another top-level mode.
-5. State whether generation, prompt assembly, storage, assets, or UI are also impacted.
+5. Verify shared mode UI is receiving mode-owned callbacks or lower-layer data, not learning a concrete mode's orchestration.
+6. State whether generation, prompt assembly, storage, assets, or UI are also impacted.
 
 After editing:
 
@@ -41,6 +42,7 @@ After editing:
 - Do not share orchestration, prompts, memory semantics, state transitions, scene logic, or game turn logic across modes.
 - If two modes need similar behavior, extract a smaller lower-layer primitive and keep each mode's orchestration separate.
 - Do not add a mode flag to a generic function when a mode-owned service would make the behavior explicit.
+- If a shared mode UI file needs concrete chat, roleplay, or game behavior, move that UI to the owning mode or pass a mode-owned callback from the concrete mode/router. Do not add new concrete mode engine imports to shared UI as a shortcut.
 
 ## Rejection Rules
 

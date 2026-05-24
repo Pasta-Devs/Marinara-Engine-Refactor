@@ -23,10 +23,11 @@ Also keep the root `AGENTS.md` in force.
 1. Name the owner before editing: UI feature, TypeScript engine layer, shared API adapter, or Rust capability.
 2. List imports the changed module may use. If an import crosses a boundary, redesign before patching.
 3. Keep behavior in its owner. Move reusable logic down to a lower layer instead of sideways into another mode or feature.
-4. Prefer direct owner imports over barrels or compatibility shims.
-5. Split large mixed files when adding behavior would make the file broader.
-6. Update docs or skill references when a durable architecture decision changes.
-7. Report the impact area and dependent areas reviewed.
+4. If engine code needs local storage, LLM, assets, or integrations, pass a port from `src/engine/capabilities`; implement that port at the feature/app edge with `src/shared/api` wrappers.
+5. Prefer direct owner imports over barrels or compatibility shims.
+6. Split large mixed files when adding behavior would make the file broader.
+7. Update docs or skill references when a durable architecture decision changes.
+8. Report the impact area and dependent areas reviewed.
 
 ## Placement Rules
 
@@ -34,9 +35,10 @@ Also keep the root `AGENTS.md` in force.
 - React feature code lives in layered packages under `src/features/<layer>/<package>` and calls hooks, feature APIs, or shared API adapters through public entrypoints.
 - Generic UI and browser-only utilities live in `src/shared`.
 - Tauri invoke wrappers live in `src/shared/api`.
+- New or touched feature code should call typed wrappers in `src/shared/api`, not import `invokeTauri` from `tauri-client.ts` directly.
 - Privileged local IO, storage, secrets, provider transport, and native integrations live in Rust.
 - Mode-neutral deterministic helpers live below modes in `engine/shared`, `engine/entities`, or `engine/generation-core`.
 
 ## Stop Conditions
 
-Pause and re-evaluate if the change requires a generic router, a broad catch-all helper, cross-mode imports, direct Tauri calls from engine code, React imports from engine code, or a new fallback branch for old runtime shapes. Those are architecture smells in this repo.
+Pause and re-evaluate if the change requires a generic router, a broad catch-all helper, cross-mode imports, direct Tauri calls from engine code, React imports from engine code, a feature-level raw `invokeTauri` call, or a new fallback branch for old runtime shapes. Those are architecture smells in this repo.

@@ -99,11 +99,14 @@ Core flow:
 
 ```text
 React app/features
-  -> shared/api Tauri adapters
   -> TypeScript engine use cases
   -> engine capability ports
+  -> shared/api-backed capability implementations at the feature/app edge
   -> Rust Tauri commands
   -> Rust capability crates
+
+React app/features may also call typed shared/api Tauri adapters directly for
+UI-owned capability actions. Engine code never imports shared/api adapters.
 ```
 
 TypeScript owns product behavior:
@@ -125,7 +128,7 @@ Rust owns privileged local capabilities:
 - Import from owner files or explicit public feature APIs. Do not reach into another feature's private internals.
 - Avoid convenience barrels, one-line re-export shims, `legacy-*` aliases, and dumping-ground `utils` files.
 - Engine code must not import React, Zustand stores, `@tauri-apps/api`, or concrete `src/shared/api` adapters.
-- React components must not duplicate engine rules. They call feature hooks, feature APIs, or engine use cases through adapters.
+- React components must not duplicate engine rules. They call feature hooks, feature APIs, shared API wrappers, or engine use cases through capability adapters.
 - Rust commands stay thin: validate inputs, call capability services, return DTOs/events.
 - Shared code is allowed only for genuinely mode-neutral primitives, generic UI atoms, deterministic helpers, capability ports, repositories, transport, and asset IO.
 
@@ -148,6 +151,7 @@ Editing one mode must not silently alter another mode. If a shared layer change 
 
 - Frontend code calls typed Tauri wrappers in `src/shared/api` or local TypeScript feature/engine APIs.
 - Engine code accepts capability interfaces from `src/engine/capabilities`; it does not invoke Tauri directly.
+- New or touched feature code should not import `invokeTauri` directly from `src/shared/api/tauri-client`; add or use a focused wrapper in `src/shared/api` first.
 - Rust Tauri commands are grouped by capability and backed by focused crates/modules.
 - Do not add generic string routers, fake local API bridges, server-shaped fallback paths, or browser fetches for local app behavior.
 - Provider URL paths are allowed only inside the appropriate Rust transport or integration capability code.

@@ -49,7 +49,8 @@ Start here:
 Repo tour:
 - React UI: src/features and src/app.
 - TypeScript engine: src/engine.
-- Tauri adapters: src/shared/api.
+- Capability ports: src/engine/capabilities.
+- Tauri adapters: src/shared/api, called by features or feature/app-edge capability implementations.
 - Rust capabilities: src-tauri.
 
 When you find a bug, I’ll identify the owner, fix the root cause, and run the right checks.
