@@ -9,10 +9,24 @@
     "docs:dev": "vite docs/developer --host 127.0.0.1 --port 4174",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
+    "lint": "eslint .",
+    "check:architecture": "depcruise src --config .dependency-cruiser.cjs && node scripts/check-rust-structure.mjs",
     "check:frontend": "tsc -b",
     "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "check:rust:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets -- -D warnings",
+    "check:rust:test": "cargo test --manifest-path src-tauri/Cargo.toml --workspace",
+    "check:rust:nextest": "cargo nextest run --manifest-path src-tauri/Cargo.toml --workspace",
+    "check:rust:deny": "cargo deny --manifest-path src-tauri/Cargo.toml check",
+    "check:rust:deps": "cargo machete --manifest-path src-tauri/Cargo.toml",
     "check:docs": "node scripts/check-docs.mjs",
-    "check": "pnpm check:frontend && pnpm check:rust && pnpm check:docs",
+    "check:unused": "knip",
+    "check": "pnpm check:architecture && pnpm check:frontend && pnpm check:rust && pnpm check:docs",
+    "test": "vitest run --passWithNoTests",
+    "test:ui": "playwright test",
+    "bench:ts": "vitest bench",
+    "bench:rust": "cargo bench --manifest-path src-tauri/Cargo.toml --workspace",
+    "perf:lighthouse": "lhci autorun",
+    "perf:size": "size-limit",
     "preview": "vite preview",
     "tauri": "tauri"
   },
@@ -37,7 +51,10 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@lhci/cli": "^0.15.1",
+    "@playwright/test": "^1.60.0",
     "@rollup/wasm-node": "4.60.2",
+    "@size-limit/preset-app": "^12.1.0",
     "@tailwindcss/vite": "^4.2.4",
     "@tauri-apps/cli": "^2",
     "@types/node": "^25.8.0",
@@ -45,16 +62,34 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",
     "autoprefixer": "^10.5.0",
+    "dependency-cruiser": "^17.4.2",
     "eslint": "^9.39.4",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-boundaries": "^6.0.2",
+    "eslint-plugin-import-x": "^4.16.2",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "jsdom": "^29.1.1",
+    "knip": "^6.14.2",
+    "size-limit": "^12.1.0",
     "tailwindcss": "^4.2.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.1",
-    "vite": "^7.3.2"
+    "vite": "^7.3.2",
+    "vitest": "^4.1.7"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"
     ]
-  }
+  },
+  "size-limit": [
+    {
+      "path": "dist/assets/*.js",
+      "limit": "1.7 MB"
+    },
+    {
+      "path": "dist/assets/*.css",
+      "limit": "250 KB"
+    }
+  ]
 }

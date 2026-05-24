@@ -8,7 +8,7 @@
 // reaction rules.
 // ──────────────────────────────────────────────
 
-import type { StatusEffect } from "./combat.service.js";
+import type { StatusEffect } from "./status-effect.js";
 
 // ── Core types ──
 

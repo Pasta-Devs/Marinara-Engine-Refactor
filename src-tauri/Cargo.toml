@@ -60,3 +60,6 @@ marinara-llm = { path = "crates/llm" }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-window-state = "2"
+
+[dev-dependencies]
+criterion = "0.8.2"
