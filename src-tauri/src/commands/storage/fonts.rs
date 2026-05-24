@@ -185,7 +185,7 @@ async fn download_google_font(state: &AppState, body: Value) -> AppResult<Value>
         files.push(json!({
             "filename": filename,
             "family": family,
-            "url": format!("tauri-api:/fonts/file/{}", percent_encode_component(files.last().and_then(|_| Some("")).unwrap_or(""))),
+            "url": format!("tauri-api:/fonts/file/{}", percent_encode_component(files.last().map(|_| "").unwrap_or(""))),
             "weight": face.weight,
             "style": face.style,
             "unicodeRange": face.unicode_range
