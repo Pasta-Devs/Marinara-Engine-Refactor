@@ -23,7 +23,7 @@ import { buildGenerationReplay } from "./generation-replay";
 import { assembleGenerationPrompt } from "./prompt-assembly";
 import type { GenerationCharacterContext } from "./prompt-assembly";
 import { applyRuntimeRegexScripts } from "./regex-runtime";
-import { hiddenFromAi, isRecord, nowIso, readString, stringArray, type JsonRecord } from "./runtime-records";
+import { hiddenFromAi, isRecord, nowIso, parseRecord, readString, stringArray, type JsonRecord } from "./runtime-records";
 import {
   commitTrackerSnapshotForTarget,
   createTrackerSnapshotReadContext,
@@ -85,6 +85,14 @@ function inputUserMessage(input: StartGenerationInput): string {
 
 function inputAttachments(input: StartGenerationInput): PromptAttachment[] {
   return Array.isArray(input.attachments) ? input.attachments.filter(isRecord).map((attachment) => attachment as PromptAttachment) : [];
+}
+
+function assertChatCanGenerate(chat: JsonRecord) {
+  const mode = readString(chat.mode || chat.chatMode);
+  const metadata = parseRecord(chat.metadata);
+  if (mode === "roleplay" && metadata.sceneStatus === "concluded") {
+    throw new Error("This scene is concluded. Convert or reopen it before sending new messages.");
+  }
 }
 
 function imageAttachmentNotes(attachments: PromptAttachment[]): string {
@@ -415,6 +423,7 @@ export async function retryGenerationAgents(
     ? new Set(input.agentTypes.map((type) => readString(type).trim()).filter(Boolean))
     : new Set<string>();
   const chat = requireRecord(await deps.storage.get("chats", chatId), "Chat");
+  assertChatCanGenerate(chat);
   const connection = await resolveGenerationConnection(deps.storage, chat, input);
   const storedMessages = await loadChatMessages(deps.storage, chatId);
   const target = targetAssistantMessage(storedMessages, input.options);
@@ -487,6 +496,8 @@ export async function* startGeneration(
 ): AsyncGenerator<GenerationEvent> {
   const chatId = readString(input.chatId).trim();
   if (!chatId) throw new Error("chatId is required");
+  const chat = requireRecord(await deps.storage.get("chats", chatId), "Chat");
+  assertChatCanGenerate(chat);
 
   yield { type: "phase", data: "Saving message..." };
   const preparedUserInput = await prepareUserInput(deps.storage, input);
@@ -495,7 +506,6 @@ export async function* startGeneration(
   }
   const savedUserMessage = await saveUserMessage(deps.storage, input, preparedUserInput);
   if (savedUserMessage) yield { type: "user_message", data: savedUserMessage };
-  const chat = requireRecord(await deps.storage.get("chats", chatId), "Chat");
   const connection = await resolveGenerationConnection(deps.storage, chat, input);
   const storedMessages = await loadChatMessages(deps.storage, chatId);
   const generationMessages = messagesBeforeRegenerationTarget(storedMessages, input.regenerateMessageId);
