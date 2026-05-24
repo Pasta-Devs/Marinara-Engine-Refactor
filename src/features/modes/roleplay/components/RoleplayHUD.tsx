@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { cn } from "../../../../shared/lib/utils";
-import { invokeTauri } from "../../../../shared/api/tauri-client";
+import { agentApi } from "../../../../shared/api/agent-api";
 import { worldStateApi } from "../../../runtime/world-state/index";
 import { useGameStateStore } from "../../../runtime/world-state/index";
 import { useAgentStore } from "../../../../shared/stores/agent.store";
@@ -191,9 +191,13 @@ export function RoleplayHUD({
     }
     void discardPendingGameStatePatch(chatId)
       .then(() => worldStateApi.patch(chatId, { ...cleared, manual: true, clearOverrides: true }))
-      .catch(() => {});
+      .catch((error) => {
+        console.error("[RoleplayHUD] Failed to clear world state:", error);
+      });
     // Clear committed agent runs & memory from DB + reset client state
-    invokeTauri("agent_runs_clear_for_chat", { chatId }).catch(() => {});
+    agentApi.clearRunsForChat(chatId).catch((error) => {
+      console.error("[RoleplayHUD] Failed to clear agent runs:", error);
+    });
     resetAgentStore();
   }, [chatId, setGameState, resetAgentStore]);
 
