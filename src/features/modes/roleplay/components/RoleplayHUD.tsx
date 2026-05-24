@@ -149,6 +149,7 @@ export function RoleplayHUD({
   const trackerPanelEnabled = useUIStore((s) => s.trackerPanelEnabled);
   const trackerPanelOpen = useUIStore((s) => s.trackerPanelOpen);
   const trackerPanelHideHudWidgets = useUIStore((s) => s.trackerPanelHideHudWidgets);
+  const trackerTemperatureUnit = useUIStore((s) => s.trackerTemperatureUnit);
   const toggleTrackerPanel = useUIStore((s) => s.toggleTrackerPanel);
 
   const isTrackerBusy = isAgentProcessing || isStreaming || gameStateRefreshing;
@@ -289,6 +290,7 @@ export function RoleplayHUD({
               time={time ?? ""}
               weather={weather ?? ""}
               temperature={temperature ?? ""}
+              trackerTemperatureUnit={trackerTemperatureUnit}
               onSaveLocation={(v) => patchField("location", v)}
               onSaveDate={(v) => patchField("date", v)}
               onSaveTime={(v) => patchField("time", v)}
@@ -354,6 +356,7 @@ export function RoleplayHUD({
               time={time ?? ""}
               weather={weather ?? ""}
               temperature={temperature ?? ""}
+              trackerTemperatureUnit={trackerTemperatureUnit}
               onSaveLocation={(v) => patchField("location", v)}
               onSaveDate={(v) => patchField("date", v)}
               onSaveTime={(v) => patchField("time", v)}

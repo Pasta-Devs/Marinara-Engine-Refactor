@@ -385,10 +385,31 @@ export function wrapFields(
   return parts;
 }
 
+function trackerCharacterIdKey(character: Record<string, unknown>) {
+  return typeof character.characterId === "string" ? character.characterId.trim().toLowerCase() : "";
+}
+
+function trackerCharacterNameKey(character: Record<string, unknown>) {
+  return typeof character.name === "string" ? character.name.trim().toLowerCase() : "";
+}
+
 function trackerCharacterKey(character: Record<string, unknown>) {
-  const id = typeof character.characterId === "string" ? character.characterId.trim().toLowerCase() : "";
-  const name = typeof character.name === "string" ? character.name.trim().toLowerCase() : "";
-  return id || name || null;
+  return trackerCharacterIdKey(character) || trackerCharacterNameKey(character) || null;
+}
+
+export function isManualTrackerCharacterId(value: unknown): boolean {
+  return typeof value === "string" && value.trim().startsWith("manual-");
+}
+
+function canUseManualTrackerNameFallback(character: Record<string, unknown>) {
+  const id = trackerCharacterIdKey(character);
+  if (!id || isManualTrackerCharacterId(id)) return true;
+  const name = trackerCharacterNameKey(character);
+  return !!name && id === name;
+}
+
+function readTrackerAvatarPath(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 export function preserveTrackerCharacterUiFields(
@@ -396,17 +417,31 @@ export function preserveTrackerCharacterUiFields(
   previousCharacters: Array<Record<string, unknown>>,
 ): void {
   const previousByKey = new Map<string, Record<string, unknown>>();
+  const previousManualByName = new Map<string, Record<string, unknown>>();
+  const previousNameCounts = new Map<string, number>();
   for (const character of previousCharacters) {
     const key = trackerCharacterKey(character);
     if (key) previousByKey.set(key, character);
+    const name = trackerCharacterNameKey(character);
+    if (name) previousNameCounts.set(name, (previousNameCounts.get(name) ?? 0) + 1);
+    if (name && isManualTrackerCharacterId(character.characterId)) previousManualByName.set(name, character);
   }
 
   for (const character of nextCharacters) {
     const key = trackerCharacterKey(character);
-    const previous = key ? previousByKey.get(key) : null;
+    const name = trackerCharacterNameKey(character);
+    const previous =
+      (key ? previousByKey.get(key) : null) ??
+      (name && previousNameCounts.get(name) === 1 && canUseManualTrackerNameFallback(character)
+        ? previousManualByName.get(name)
+        : null);
     const previousPortraitFocusX = previous?.portraitFocusX;
     const previousPortraitFocusY = previous?.portraitFocusY;
     const previousPortraitZoom = previous?.portraitZoom;
+    const previousAvatarPath = readTrackerAvatarPath(previous?.avatarPath);
+    if (!readTrackerAvatarPath(character.avatarPath) && previousAvatarPath) {
+      character.avatarPath = previousAvatarPath;
+    }
     if (
       typeof character.portraitFocusX !== "number" &&
       typeof previousPortraitFocusX === "number" &&
