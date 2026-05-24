@@ -5,6 +5,7 @@ import type { PresentCharacter } from "../../../../engine/contracts/types/game-s
 import type { Persona } from "../../../../engine/contracts/types/persona";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { parseCharacterDisplayData } from "../../../../shared/lib/character-display";
+import { addAliasLookups, addExactNameLookups } from "../../../../shared/lib/tracker-metadata";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import type { TrackerPanelSizeProfile, TrackerPanelSide, TrackerTemperatureUnit, TrackerThoughtBubbleDisplay } from "../../../../shared/stores/ui.store";
@@ -151,24 +152,25 @@ export function useTrackerPanelModel(): TrackerPanelModel {
         : []
     ).filter((character) => typeof character.id === "string" && character.id.length > 0);
     const chatIdSet = new Set(chatCharacterIds);
-    const orderedRows = [
-      ...rows.filter((character) => chatIdSet.has(character.id)),
-      ...rows.filter((character) => !chatIdSet.has(character.id)),
-    ];
+    const displayRows = rows.map((character) => ({
+      character,
+      display: parseCharacterDisplayData(character),
+    }));
+    const chatDisplayRows = displayRows.filter(({ character }) => chatIdSet.has(character.id));
+    const fallbackDisplayRows = displayRows.filter(({ character }) => !chatIdSet.has(character.id));
     const knownIds = new Set(rows.map((character) => character.id));
     const idByName = new Map<string, string>();
     const pictureById: Record<string, string> = {};
     const profileColorsById: Record<string, TrackerProfileColors> = {};
-    for (const character of orderedRows) {
+    for (const { character } of displayRows) {
       if (character.avatarPath) pictureById[character.id] = character.avatarPath;
       const profileColors = getCharacterProfileColors(character.data);
       if (profileColors) profileColorsById[character.id] = profileColors;
-      const display = parseCharacterDisplayData(character);
-      const nameKey = normalizeLookupText(display.name);
-      if (nameKey && !idByName.has(nameKey)) idByName.set(nameKey, character.id);
-      const commentKey = normalizeLookupText(display.comment);
-      if (commentKey && !idByName.has(commentKey)) idByName.set(commentKey, character.id);
     }
+    addExactNameLookups(chatDisplayRows, idByName);
+    addAliasLookups(chatDisplayRows, idByName);
+    addExactNameLookups(fallbackDisplayRows, idByName);
+    addAliasLookups(fallbackDisplayRows, idByName);
     return { knownIds, idByName, pictureById, profileColorsById };
   }, [charactersData, chatCharacterIds]);
 

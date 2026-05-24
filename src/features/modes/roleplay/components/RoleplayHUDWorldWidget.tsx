@@ -1,6 +1,7 @@
 import { Suspense, lazy } from "react";
 import { MapPin } from "lucide-react";
 import { cn } from "../../../../shared/lib/utils";
+import type { TrackerTemperatureUnit } from "../../../../shared/stores/ui.store";
 import {
   getLocationPinColor,
   getTemperatureColor,
@@ -23,6 +24,7 @@ export function CombinedWorldWidget({
   time,
   weather,
   temperature,
+  trackerTemperatureUnit,
   onSaveLocation,
   onSaveDate,
   onSaveTime,
@@ -37,6 +39,7 @@ export function CombinedWorldWidget({
   time: string;
   weather: string;
   temperature: string;
+  trackerTemperatureUnit: TrackerTemperatureUnit;
   onSaveLocation: (v: string) => void;
   onSaveDate: (v: string) => void;
   onSaveTime: (v: string) => void;
@@ -52,7 +55,7 @@ export function CombinedWorldWidget({
   const tempNumeric = parseTemperatureValue(temperature);
   const temp = tempNumeric ?? getTemperatureKeywordHint(temperature);
   const tempColor = getTemperatureColor(temperature);
-  const temperatureDisplay = getTemperatureGaugeDisplay(temperature);
+  const temperatureDisplay = getTemperatureGaugeDisplay(temperature, trackerTemperatureUnit);
   const dateDisplay = getWorldDateDisplay(date);
   const dateParts = dateDisplay.raw ? { day: dateDisplay.day, month: dateDisplay.month } : { day: null, month: null };
   const timeDisplay = getWorldTimeDisplay(time);
@@ -60,7 +63,7 @@ export function CombinedWorldWidget({
   const minute = timeDisplay.minute ?? 0;
   const hourAngle = hour >= 0 ? (hour % 12) * 30 + minute * 0.5 : 0;
   const minuteAngle = minute * 6;
-  const tempFill = temperatureDisplay.percent / 100;
+  const tempFill = Math.max(0, Math.min(1, temperatureDisplay.percent / 100));
   const tempFillColor = temperatureDisplay.color;
 
   return (
