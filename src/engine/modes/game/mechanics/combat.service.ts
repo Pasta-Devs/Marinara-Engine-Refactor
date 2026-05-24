@@ -11,6 +11,7 @@ import type { CombatItemEffect, CombatMechanic } from "../../../contracts/types/
 import type { CombatSkill } from "../../../contracts/types/game";
 import type { ElementAura, ReactionResult } from "./element-reactions.service.js";
 import { resolveElementApplication, applyReactionDamage } from "./element-reactions.service.js";
+import type { StatusEffect } from "./status-effect.js";
 
 // ── Types ──
 
@@ -33,16 +34,6 @@ export interface CombatantStats {
   element?: string;
   /** Current elemental aura on this combatant */
   elementAura?: ElementAura | null;
-}
-
-export interface StatusEffect {
-  name: string;
-  /** Positive = buff, negative = debuff */
-  modifier: number;
-  /** Stat it modifies */
-  stat: "attack" | "defense" | "speed" | "hp";
-  /** Turns remaining */
-  turnsLeft: number;
 }
 
 function toStatusEffect(status: CombatItemEffect["status"] | undefined, fallbackName: string): StatusEffect {
